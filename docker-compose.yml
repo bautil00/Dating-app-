@@ -19,11 +19,6 @@ services:
     depends_on:
       - postgres
 
-  ai:
-    build: ./services/ai
-    ports:
-      - "5000:5000"
-
   postgres:
     image: postgres:15
     environment:

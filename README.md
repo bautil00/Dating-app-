@@ -4,8 +4,8 @@ AI-powered dating platform
 
 ## Tech Stack
 - **Frontend**: React + TypeScript + Vite
-- **Backend**: Node.js + Express + PostgreSQL
-- **AI**: Python + FastAPI (scikit-learn)
+- **Backend**: Python + FastAPI + PostgreSQL
+- **AI**: Python (integrated into backend via API calls)
 - **DevOps**: Docker
 
 ## Team
@@ -21,5 +21,5 @@ docker-compose up
 ```
 
 ## Architecture
-- Web app → API → PostgreSQL
-- AI service exposed via internal API calls
+- Web app → FastAPI backend → PostgreSQL
+- AI features called as internal services within the API
