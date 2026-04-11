@@ -1,0 +1,34 @@
+version: '3.8'
+
+services:
+  web:
+    build: ./apps/web
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./apps/web:/app
+    depends_on:
+      - api
+
+  api:
+    build: ./apps/api
+    ports:
+      - "4000:4000"
+    environment:
+      - DATABASE_URL=postgres://user:pass@postgres:5432/blowtorch
+    depends_on:
+      - postgres
+
+  ai:
+    build: ./services/ai
+    ports:
+      - "5000:5000"
+
+  postgres:
+    image: postgres:15
+    environment:
+      - POSTGRES_USER=user
+      - POSTGRES_PASSWORD=pass
+      - POSTGRES_DB=blowtorch
+    ports:
+      - "5432:5432"
