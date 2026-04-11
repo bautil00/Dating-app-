@@ -1,0 +1,82 @@
+import axios from 'axios'
+
+const api = axios.create({
+  baseURL: '/api/v1',
+  headers: {
+    'Content-Type': 'application/json',
+  },
+})
+
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token')
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`
+  }
+  return config
+})
+
+export const authService = {
+  register: (email: string, password: string) =>
+    api.post('/auth/register', { email, password }),
+
+  login: (email: string, password: string) =>
+    api.post('/auth/login', { email, password }),
+
+  getMe: () =>
+    api.get('/auth/me'),
+}
+
+export const profileService = {
+  create: (data: any) =>
+    api.post('/profiles/', data),
+
+  getMe: () =>
+    api.get('/profiles/me'),
+
+  update: (data: any) =>
+    api.patch('/profiles/me', data),
+
+  getCandidates: (limit = 10) =>
+    api.get(`/profiles/candidates?limit=${limit}`),
+
+  getById: (id: number) =>
+    api.get(`/profiles/${id}`),
+}
+
+export const matchService = {
+  create: (receiverId: number) =>
+    api.post('/matches/', { receiver_id: receiverId }),
+
+  getAll: () =>
+    api.get('/matches/'),
+
+  accept: (id: number) =>
+    api.patch(`/matches/${id}/accept`),
+
+  reject: (id: number) =>
+    api.patch(`/matches/${id}/reject`),
+}
+
+export const messageService = {
+  send: (receiverId: number, content: string) =>
+    api.post('/messages/', { receiver_id: receiverId, content }),
+
+  getConversations: () =>
+    api.get('/messages/conversations'),
+
+  getConversation: (userId: number) =>
+    api.get(`/messages/conversations/${userId}`),
+
+  markRead: (messageId: number) =>
+    api.patch(`/messages/${messageId}/read`),
+}
+
+export const aiService = {
+  getIcebreaker: (matchId: number) =>
+    api.get(`/ai/icebreaker/${matchId}`),
+
+  getCompatibility: (profileId: number) =>
+    api.get(`/ai/compatibility/${profileId}`),
+}
+
+export default api
