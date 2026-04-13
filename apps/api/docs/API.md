@@ -2,30 +2,31 @@
 
 **Base URL**: `http://localhost:4000/api/v1`
 
-**Auth**: Bearer token in `Authorization` header (JWT from `/auth/login`)
+**Auth**: Bearer token in `Authorization` header (JWT from Supabase auth)
 
 ---
 
-## Authentication
+## Authentication (Supabase Auth)
 
 ### Register
 ```
 POST /auth/register
 Body: { "email": "string", "password": "string" }
-Response: UserResponse
+Response: { "id": "string", "email": "string" }
 ```
 
 ### Login
 ```
 POST /auth/login
-FormData: username=email&password=password
+Body: { "email": "string", "password": "string" }
 Response: { "access_token": "string", "token_type": "bearer" }
 ```
 
 ### Get Current User
 ```
 GET /auth/me
-Response: UserResponse
+Header: Authorization: Bearer <token>
+Response: { "id": "string", "email": "string" }
 ```
 
 ---
@@ -35,6 +36,7 @@ Response: UserResponse
 ### Create Profile
 ```
 POST /profiles/
+Header: Authorization: Bearer <token>
 Body: {
   "display_name": "string",
   "bio": "string",
@@ -42,7 +44,8 @@ Body: {
   "gender": "string",
   "location": "string",
   "profile_image_url": "string",
-  "interests": "string (comma-separated)"
+  "interests": "string (comma-separated)",
+  "personality_type": "string (optional)"
 }
 Response: ProfileResponse
 ```
@@ -50,19 +53,22 @@ Response: ProfileResponse
 ### Get My Profile
 ```
 GET /profiles/me
+Header: Authorization: Bearer <token>
 Response: ProfileResponse
 ```
 
 ### Update Profile
 ```
 PATCH /profiles/me
+Header: Authorization: Bearer <token>
 Body: partial Profile fields
 Response: ProfileResponse
 ```
 
-### Get Candidates (ranked)
+### Get Candidates (ranked by AI)
 ```
 GET /profiles/candidates?limit=10
+Header: Authorization: Bearer <token>
 Response: ProfileResponse[]
 ```
 
@@ -79,25 +85,29 @@ Response: ProfileResponse
 ### Create Match
 ```
 POST /matches/
-Body: { "receiver_id": int }
+Header: Authorization: Bearer <token>
+Body: { "receiver_id": "string (user_id)" }
 Response: MatchResponse
 ```
 
 ### Get My Matches
 ```
 GET /matches/
+Header: Authorization: Bearer <token>
 Response: MatchResponse[]
 ```
 
 ### Accept Match
 ```
 PATCH /matches/{id}/accept
+Header: Authorization: Bearer <token>
 Response: MatchResponse
 ```
 
 ### Reject Match
 ```
 PATCH /matches/{id}/reject
+Header: Authorization: Bearer <token>
 Response: MatchResponse
 ```
 
@@ -108,41 +118,47 @@ Response: MatchResponse
 ### Send Message
 ```
 POST /messages/
-Body: { "receiver_id": int, "content": "string" }
+Header: Authorization: Bearer <token>
+Body: { "receiver_id": "string", "content": "string" }
 Response: MessageResponse
 ```
 
 ### Get All Conversations
 ```
 GET /messages/conversations
-Response: [{ "user_id": int, "last_message": "string", "unread_count": int }]
+Header: Authorization: Bearer <token>
+Response: [{ "user_id": "string", "last_message": "string", "unread_count": int }]
 ```
 
 ### Get Conversation with User
 ```
 GET /messages/conversations/{user_id}
+Header: Authorization: Bearer <token>
 Response: MessageResponse[]
 ```
 
 ### Mark Message Read
 ```
 PATCH /messages/{id}/read
+Header: Authorization: Bearer <token>
 Response: MessageResponse
 ```
 
 ---
 
-## AI Features
+## AI Features (OpenAI API)
 
 ### Generate Icebreaker
 ```
 GET /ai/icebreaker/{match_id}
+Header: Authorization: Bearer <token>
 Response: { "icebreaker": "string" }
 ```
 
 ### Get Compatibility Score
 ```
 GET /ai/compatibility/{profile_id}
+Header: Authorization: Bearer <token>
 Response: { "profile_id": int, "compatibility_score": float }
 ```
 
@@ -153,10 +169,8 @@ Response: { "profile_id": int, "compatibility_score": float }
 ### User
 ```json
 {
-  "id": int,
-  "email": "string",
-  "is_active": bool,
-  "created_at": "datetime"
+  "id": "string (uuid)",
+  "email": "string"
 }
 ```
 
@@ -164,7 +178,7 @@ Response: { "profile_id": int, "compatibility_score": float }
 ```json
 {
   "id": int,
-  "user_id": int,
+  "user_id": "string (uuid)",
   "display_name": "string",
   "bio": "string",
   "age": int,
@@ -182,8 +196,8 @@ Response: { "profile_id": int, "compatibility_score": float }
 ```json
 {
   "id": int,
-  "sender_id": int,
-  "receiver_id": int,
+  "sender_id": "string (uuid)",
+  "receiver_id": "string (uuid)",
   "status": "pending|accepted|rejected",
   "created_at": "datetime"
 }
@@ -193,8 +207,8 @@ Response: { "profile_id": int, "compatibility_score": float }
 ```json
 {
   "id": int,
-  "sender_id": int,
-  "receiver_id": int,
+  "sender_id": "string (uuid)",
+  "receiver_id": "string (uuid)",
   "content": "string",
   "is_read": bool,
   "created_at": "datetime"
@@ -221,15 +235,17 @@ docker-compose up --build
 1. Push code to GitHub
 2. Connect repo to hosting platform
 3. Set environment variables:
-   - `DATABASE_URL=postgresql://user:pass@host:5432/blowtorch`
-   - `SECRET_KEY=<random-256-bit-key>`
-   - `DEBUG=false`
+   - `SUPABASE_URL=https://your-project.supabase.co`
+   - `SUPABASE_KEY=your-anon-key`
+   - `SUPABASE_SERVICE_KEY=your-service-key`
+   - `OPENAI_API_KEY=sk-your-key`
 4. Deploy from `apps/api/Dockerfile`
 
 ### Environment Variables
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `DATABASE_URL` | PostgreSQL connection string | postgresql://user:pass@localhost:5432/blowtorch |
-| `SECRET_KEY` | JWT signing key | change-me-in-production |
-| `DEBUG` | Enable debug mode | true |
-| `ACCESS_TOKEN_EXPIRE_MINUTES` | Token expiry | 30 |
+| Variable | Description |
+|----------|-------------|
+| `SUPABASE_URL` | Supabase project URL |
+| `SUPABASE_KEY` | Supabase anon key |
+| `SUPABASE_SERVICE_KEY` | Supabase service role key |
+| `OPENAI_API_KEY` | OpenAI API key for AI features |
+| `DEBUG` | Enable debug mode |
