@@ -30,7 +30,7 @@ BLOWTORCH is an AI-powered dating web application that helps users find meaningf
 https://github.com/bautil00/Dating-app-.git
 
 ## Jira Board
-(To be added)
+https://zackning7.atlassian.net/jira/software/projects/BLOW/boards/67
 
 ## Quick Start
 ```bash

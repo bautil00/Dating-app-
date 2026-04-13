@@ -64,7 +64,7 @@ Each team member states one thing they hope to learn:
 **Link**: https://github.com/bautil00/Dating-app-.git
 
 ### Jira Board
-**Link**: (To be added when Jira board is created and all team members are added)
+**Link**: https://zackning7.atlassian.net/jira/software/projects/BLOW/boards/67
 
 Team members to be added:
 - Austin Strong (Data Specialist)
