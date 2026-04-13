@@ -47,7 +47,7 @@ Each team member states one thing they hope to learn:
 | Austin Strong | Data Specialist | Learn how to build and maintain a data pipeline for user analytics and matchmaking metrics |
 | Thomas Suen | Backend Developer | Gain experience building a production-ready FastAPI backend with authentication, database integration, and deployment |
 | Zack Ning | UI/UX Designer | Learn modern React patterns and CSS techniques for building responsive, accessible web interfaces |
-| Jad Masri | AI/ML Engineer | Learn to integrate AI-powered features (compatibility scoring, icebreaker generation) into a dating platform via API calls |
+| Jad Masri | AI/ML Engineer | Learn to integrate third-party AI APIs (OpenAI, etc.) into a dating platform for compatibility scoring and icebreaker generation |
 | Logan Bautista | Project Manager | Learn how to coordinate a team using Agile/Scrum methodologies, manage a Jira board, and deliver a product on schedule |
 
 ---
@@ -77,19 +77,26 @@ Team members to be added:
 
 ## Data Sources, APIs, and Tools
 
-### Internal Matching Service
+### External AI API (OpenAI or Similar Provider)
 
-**Type**: Rule-based interest matching with MBTI personality compatibility
+**Provider**: OpenAI API (or alternative provider such as Anthropic, Google Gemini)
 
-**Description**: Internal matching service provides:
-1. **Interest Matching**: Set intersection of user interests with Jaccard similarity scoring
-2. **Personality Compatibility**: MBTI personality type matching using predefined compatibility matrices
-3. **Icebreaker Generation**: Template-based message generation using shared interests
+**API Documentation**: https://platform.openai.com/docs
+
+**Description**: Third-party AI API provides:
+1. **Compatibility Scoring**: Analyze user profiles and calculate compatibility scores based on interests, personality, and other factors
+2. **Icebreaker Generation**: Generate personalized conversation starters tailored to both users' profiles
+3. **Profile Enhancement**: Suggest profile improvements based on user data
+
+**What data we send**:
+- User profile data (interests, bio, personality type)
+- Match candidate profile data
+- Context about the match (shared interests, etc.)
 
 **What data we receive**:
-- Compatibility scores (0.0 to 1.0)
-- Ranked candidate lists
+- Compatibility scores
 - Generated icebreaker messages
+- Profile enhancement suggestions
 
 ---
 
@@ -112,6 +119,7 @@ Team members to be added:
 | Docker | Containerization for local dev and deployment | https://docs.docker.com |
 | Railway | Production deployment platform | https://docs.railway.app |
 | Supabase | PostgreSQL database, auth, real-time | https://supabase.com/docs |
+| OpenAI API | AI-powered matching and icebreakers | https://platform.openai.com/docs |
 
 ---
 
@@ -125,8 +133,8 @@ Team members to be added:
                           │
                           ▼
                    ┌─────────────┐
-                   │  Matching   │
-                   │   Service   │
+                   │  OpenAI API │
+                   │ (or other)  │
                    └─────────────┘
 ```
 
@@ -140,8 +148,8 @@ Team members to be added:
 - Swipe-based candidate browsing
 - Match request/accept/reject workflow
 - Real-time chat between matched users
-- Compatibility scoring (interest + personality)
-- Icebreaker suggestions
+- Compatibility scoring (via external AI API)
+- Icebreaker suggestions (via external AI API)
 
 ### Planned (v1.0)
 - Profile image upload
@@ -151,7 +159,7 @@ Team members to be added:
 ### Future (v2.0)
 - Video chat integration
 - Premium subscription features
-- External AI API integration
+- Advanced AI personality analysis
 
 ---
 

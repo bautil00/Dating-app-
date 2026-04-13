@@ -9,7 +9,7 @@ BLOWTORCH is an AI-powered dating web application that helps users find meaningf
 ## Tech Stack
 - **Frontend**: React + TypeScript + Vite
 - **Backend**: Python + FastAPI + PostgreSQL
-- **AI**: Python (set intersection + MBTI personality matching)
+- **AI**: OpenAI API (or similar provider) for compatibility scoring and icebreaker generation
 - **DevOps**: Docker
 
 ## Team
@@ -19,11 +19,12 @@ BLOWTORCH is an AI-powered dating web application that helps users find meaningf
 | Austin Strong | Data Specialist | Learn how to build a data pipeline for user analytics and matchmaking metrics |
 | Thomas Suen | Backend Developer | Gain experience with FastAPI, authentication, database integration, and deployment |
 | Zack Ning | UI/UX Designer | Learn modern React patterns and responsive CSS |
-| Jad Masri | AI/ML Engineer | Apply ML concepts (TF-IDF, personality compatibility) to a real-world system |
+| Jad Masri | AI/ML Engineer | Learn to integrate third-party AI APIs (OpenAI, etc.) into a dating platform |
 | Logan Bautista | Project Manager | Learn Agile/Scrum coordination, Jira management, and on-schedule delivery |
 
 ## Technologies We Hope to Learn
 - **Supabase**: PostgreSQL database, auth, real-time subscriptions (open-source alternative to Firebase/AWS)
+- **OpenAI API**: AI-powered compatibility scoring and icebreaker generation
 
 ## Repository
 https://github.com/bautil00/Dating-app-.git
@@ -40,10 +41,10 @@ docker-compose up
 
 ## Data Sources & APIs
 
-### Internal AI Service
-- **scikit-learn** TF-IDF vectorization for interest matching
-- MBTI personality compatibility matrices
-- Curated icebreaker templates
+### External AI API (OpenAI or Similar)
+- Compatibility scoring based on user profiles
+- AI-generated icebreaker messages
+- Profile enhancement suggestions
 
 ### PostgreSQL (Supabase)
 - User accounts and authentication
@@ -53,8 +54,8 @@ docker-compose up
 ## Architecture
 ```
 React → FastAPI → PostgreSQL
-            ↓
-      AI Service (scikit-learn)
+             ↓
+       OpenAI API
 ```
 
 ## Features
@@ -74,6 +75,5 @@ React → FastAPI → PostgreSQL
 - [ ] User blocking/reporting
 
 ### Future
-- [ ] Advanced AI personality analysis
 - [ ] Video chat
 - [ ] Premium subscriptions
