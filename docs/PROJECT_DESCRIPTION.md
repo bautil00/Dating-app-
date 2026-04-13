@@ -29,7 +29,6 @@ BLOWTORCH addresses these by:
 
 - **Backend**: Python with FastAPI
 - **Frontend**: JavaScript with React + TypeScript
-- **AI/ML**: Python (scikit-learn for TF-IDF matching)
 - **Database**: PostgreSQL
 
 ### What platform(s) will it be available on?
@@ -48,7 +47,7 @@ Each team member states one thing they hope to learn:
 | Austin Strong | Data Specialist | Learn how to build and maintain a data pipeline for user analytics and matchmaking metrics |
 | Thomas Suen | Backend Developer | Gain experience building a production-ready FastAPI backend with authentication, database integration, and deployment |
 | Zack Ning | UI/UX Designer | Learn modern React patterns and CSS techniques for building responsive, accessible web interfaces |
-| Jad Masri | AI/ML Engineer | Apply machine learning concepts (TF-IDF, personality compatibility matrices) to a real-world matchmaking system |
+| Jad Masri | AI/ML Engineer | Learn to integrate AI-powered features (compatibility scoring, icebreaker generation) into a dating platform via API calls |
 | Logan Bautista | Project Manager | Learn how to coordinate a team using Agile/Scrum methodologies, manage a Jira board, and deliver a product on schedule |
 
 ---
@@ -78,39 +77,31 @@ Team members to be added:
 
 ## Data Sources, APIs, and Tools
 
-### Primary Data Source: User-Generated Profile Data
+### Internal Matching Service
 
-**Source**: Internal PostgreSQL database storing user profiles
+**Type**: Rule-based interest matching with MBTI personality compatibility
 
-**Description**: Users create profiles containing:
-- Demographics (age, gender, location)
-- Profile image URL
-- Biography text
-- Interests (comma-separated list)
-- MBTI personality type (optional)
-
-**Data Received**: Structured profile data used for:
-- TF-IDF vectorization of interests
-- Personality compatibility scoring
-- Candidate ranking algorithm
-
----
-
-### AI/ML Services (Internal)
-
-**Provider**: Custom Python service using scikit-learn
-
-**API Documentation**: Built into FastAPI at `/docs`
-
-**Description**: Internal AI service provides:
-1. **Interest Matching**: TF-IDF vectorization of user interests with cosine similarity scoring
+**Description**: Internal matching service provides:
+1. **Interest Matching**: Set intersection of user interests with Jaccard similarity scoring
 2. **Personality Compatibility**: MBTI personality type matching using predefined compatibility matrices
-3. **Icebreaker Generation**: Random selection from curated icebreaker templates based on user profiles
+3. **Icebreaker Generation**: Template-based message generation using shared interests
 
 **What data we receive**:
 - Compatibility scores (0.0 to 1.0)
 - Ranked candidate lists
 - Generated icebreaker messages
+
+---
+
+### PostgreSQL (Supabase)
+
+**Purpose**: User accounts, profile data, matches, and messages
+
+**Description**: Internal PostgreSQL database storing:
+- User accounts with JWT authentication
+- Profile data (interests, MBTI type, demographics)
+- Match requests and statuses
+- Chat messages between matched users
 
 ---
 
@@ -121,7 +112,6 @@ Team members to be added:
 | Docker | Containerization for local dev and deployment | https://docs.docker.com |
 | Railway | Production deployment platform | https://docs.railway.app |
 | Supabase | PostgreSQL database, auth, real-time | https://supabase.com/docs |
-| scikit-learn | ML for TF-IDF matching and scoring | https://scikit-learn.org/stable/documentation.html |
 
 ---
 
@@ -135,8 +125,8 @@ Team members to be added:
                           │
                           ▼
                    ┌─────────────┐
-                   │  AI Service │
-                   │ (scikit)    │
+                   │  Matching   │
+                   │   Service   │
                    └─────────────┘
 ```
 
@@ -150,8 +140,8 @@ Team members to be added:
 - Swipe-based candidate browsing
 - Match request/accept/reject workflow
 - Real-time chat between matched users
-- AI compatibility scoring
-- AI icebreaker suggestions
+- Compatibility scoring (interest + personality)
+- Icebreaker suggestions
 
 ### Planned (v1.0)
 - Profile image upload
@@ -159,9 +149,9 @@ Team members to be added:
 - User blocking/reporting
 
 ### Future (v2.0)
-- Advanced AI personality analysis
 - Video chat integration
 - Premium subscription features
+- External AI API integration
 
 ---
 

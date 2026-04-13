@@ -1,13 +1,8 @@
-from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.metrics.pairwise import cosine_similarity
-from typing import List, Optional
-import numpy as np
+from typing import List
+import random
 
 
 class RecommendationService:
-    def __init__(self):
-        self.vectorizer = TfidfVectorizer(lowercase=True, stop_words="english")
-
     def calculate_compatibility_score(
         self,
         user_interests: str,
@@ -16,19 +11,22 @@ class RecommendationService:
         candidate_personality: str,
     ) -> float:
         score = 0.0
+
         if user_interests and candidate_interests:
-            texts = [user_interests, candidate_interests]
-            tfidf_matrix = self.vectorizer.fit_transform(texts)
-            interest_score = cosine_similarity(tfidf_matrix[0:1], tfidf_matrix[1:2])[0][
-                0
-            ]
-            score += interest_score * 0.6
+            user_set = set(i.strip().lower() for i in user_interests.split(","))
+            candidate_set = set(
+                i.strip().lower() for i in candidate_interests.split(",")
+            )
+            if user_set and candidate_set:
+                overlap = len(user_set & candidate_set)
+                total = len(user_set | candidate_set)
+                score += (overlap / total) * 0.6
 
         if user_personality and candidate_personality:
             personality_weights = {
                 "INTJ": ["INTJ", "INTP", "ENTJ", "ENTP"],
                 "INTP": ["INTJ", "INTP", "ENTJ", "ENTP"],
-                "ENTJ": ["ENTJ", "ENTP", "INTJ", "INTP"],
+                "ENTJ": ["ENTJ", "ENTP", "INTJ", "ENTP"],
                 "ENTP": ["ENTP", "ENTJ", "INTJ", "INTP"],
                 "INFJ": ["INFJ", "INFP", "ENFJ", "ENFP"],
                 "INFP": ["INFP", "INFJ", "ENFP", "ENFJ"],
@@ -52,20 +50,35 @@ class RecommendationService:
         return round(min(score, 1.0), 2)
 
     def generate_icebreaker(self, user_profile: dict, match_profile: dict) -> str:
-        user_interests = user_profile.get("interests", "")
-        match_interests = match_profile.get("interests", "")
+        user_interests = user_profile.get("interests", "") or ""
+        match_interests = match_profile.get("interests", "") or ""
 
-        if not user_interests or not match_interests:
-            return "Hey! What brings you to BLOWTORCH?"
+        if user_interests and match_interests:
+            user_list = [i.strip() for i in user_interests.split(",")]
+            match_list = [i.strip() for i in match_interests.split(",")]
+            shared = set(u.lower() for u in user_list) & set(
+                m.lower() for m in match_list
+            )
 
-        icebreakers = [
-            f"I noticed you like {user_interests.split(',')[0] if ',' in user_interests else user_interests}. Have you always been into that?",
-            f"What's your take on {match_interests.split(',')[0] if ',' in match_interests else match_interests}?",
-            f"If you could live anywhere, where would you pick?",
+            if shared:
+                topic = random.choice(list(shared)).capitalize()
+                templates = [
+                    f"I see you like {topic} too! How did you get into that?",
+                    f"Hey! I noticed we both like {topic}. What drew you to it?",
+                    f"Someone else who likes {topic}! Have you been into it long?",
+                ]
+                return random.choice(templates)
+
+        templates = [
+            "Hey! What brings you to BLOWTORCH?",
             "What's the most spontaneous thing you've done recently?",
             "Tell me about your perfect weekend.",
+            "If you could live anywhere, where would you pick?",
+            "What's something on your bucket list?",
+            "What kind of music are you into these days?",
+            "Any travel plans coming up?",
         ]
-        return np.random.choice(icebreakers)
+        return random.choice(templates)
 
     def rank_candidates(
         self, user_profile: dict, candidate_profiles: List[dict], limit: int = 10
@@ -73,10 +86,10 @@ class RecommendationService:
         scored = []
         for candidate in candidate_profiles:
             score = self.calculate_compatibility_score(
-                user_profile.get("interests", ""),
-                user_profile.get("personality_type", ""),
-                candidate.get("interests", ""),
-                candidate.get("personality_type", ""),
+                user_profile.get("interests", "") or "",
+                user_profile.get("personality_type", "") or "",
+                candidate.get("interests", "") or "",
+                candidate.get("personality_type", "") or "",
             )
             candidate["compatibility_score"] = score
             scored.append(candidate)

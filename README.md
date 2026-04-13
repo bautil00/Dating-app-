@@ -9,7 +9,7 @@ BLOWTORCH is an AI-powered dating web application that helps users find meaningf
 ## Tech Stack
 - **Frontend**: React + TypeScript + Vite
 - **Backend**: Python + FastAPI + PostgreSQL
-- **AI**: Python (scikit-learn: TF-IDF + MBTI personality matching)
+- **AI**: Python (set intersection + MBTI personality matching)
 - **DevOps**: Docker
 
 ## Team
