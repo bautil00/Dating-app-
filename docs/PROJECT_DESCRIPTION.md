@@ -142,23 +142,23 @@ Team members to be added:
 ## Features (MVP Scope)
 
 ### Completed (v0.5)
-- User registration and JWT authentication
-- Profile creation and editing
-- Swipe-based candidate browsing
-- Match request/accept/reject workflow
-- Real-time chat between matched users
-- Compatibility scoring (via external AI API)
-- Icebreaker suggestions (via external AI API)
+- [x] User registration and Supabase authentication
+- [x] Profile creation and editing
+- [x] Swipe-based candidate browsing
+- [x] Match request/accept/reject workflow
+- [x] Real-time chat between matched users
+- [x] Compatibility scoring (via external AI API)
+- [x] Icebreaker suggestions (via external AI API)
 
 ### Planned (v1.0)
-- Profile image upload
-- Real-time notifications
-- User blocking/reporting
+- [ ] Profile image upload
+- [ ] Real-time notifications
+- [ ] User blocking/reporting
 
 ### Future (v2.0)
-- Video chat integration
-- Premium subscription features
-- Advanced AI personality analysis
+- [ ] Video chat integration
+- [ ] Premium subscription features
+- [ ] Advanced AI personality analysis
 
 ---
 
