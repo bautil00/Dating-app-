@@ -92,20 +92,20 @@ React (Vercel) → FastAPI (Vercel) → Supabase PostgreSQL
 
 ## Features
 
-### Completed
-- [x] User registration + Supabase auth
-- [x] Profile CRUD
-- [x] Candidate ranking (AI-powered)
-- [x] Match workflow (create/accept/reject)
-- [x] Chat between matches
-- [x] AI icebreaker generation
-- [x] AI compatibility scoring
+### In Progress (v0.5)
+- [ ] User registration + Supabase auth
+- [ ] Profile CRUD
+- [ ] Candidate ranking (AI-powered)
+- [ ] Match workflow (create/accept/reject)
+- [ ] Chat between matches
+- [ ] AI icebreaker generation
+- [ ] AI compatibility scoring
 
-### Planned
+### Planned (v1.0)
 - [ ] Profile image upload
 - [ ] Real-time notifications
 - [ ] User blocking/reporting
 
-### Future
+### Future (v2.0)
 - [ ] Video chat
 - [ ] Premium subscriptions
