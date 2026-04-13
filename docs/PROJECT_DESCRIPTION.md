@@ -45,7 +45,7 @@ Each team member states one thing they hope to learn:
 | Team Member | Role | Learning Goal |
 |-------------|------|---------------|
 | Austin Strong | Data Specialist | Learn how to build and maintain a data pipeline for user analytics and matchmaking metrics |
-| Thomas Suen | Backend Developer | Gain experience building a production-ready FastAPI backend with authentication, database integration, and deployment |
+| Thomas Suen | Backend Developer | Gain experience building a production-ready FastAPI backend with Supabase authentication, database integration, and Vercel deployment |
 | Zack Ning | UI/UX Designer | Learn modern React patterns and CSS techniques for building responsive, accessible web interfaces |
 | Jad Masri | AI/ML Engineer | Learn to integrate third-party AI APIs (OpenAI, etc.) into a dating platform for compatibility scoring and icebreaker generation |
 | Logan Bautista | Project Manager | Learn how to coordinate a team using Agile/Scrum methodologies, manage a Jira board, and deliver a product on schedule |
@@ -116,8 +116,7 @@ Team members to be added:
 
 | Tool | Purpose | Documentation |
 |------|---------|---------------|
-| Docker | Containerization for local dev and deployment | https://docs.docker.com |
-| Railway | Production deployment platform | https://docs.railway.app |
+| Vercel | Frontend and backend deployment | https://vercel.com/docs |
 | Supabase | PostgreSQL database, auth, real-time | https://supabase.com/docs |
 | OpenAI API | AI-powered matching and icebreakers | https://platform.openai.com/docs |
 

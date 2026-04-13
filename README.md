@@ -7,17 +7,17 @@ AI-powered dating platform
 BLOWTORCH is an AI-powered dating web application that helps users find meaningful connections through intelligent matchmaking. Unlike traditional dating apps that rely solely on basic filters, BLOWTORCH leverages personality typing (MBTI) and interest-based matching to pair compatible users.
 
 ## Tech Stack
-- **Frontend**: React + TypeScript + Vite
-- **Backend**: Python + FastAPI + PostgreSQL
-- **AI**: OpenAI API (or similar provider) for compatibility scoring and icebreaker generation
-- **DevOps**: Docker
+- **Frontend**: React + TypeScript + Vite (Vercel)
+- **Backend**: Python + FastAPI (Vercel)
+- **Database**: Supabase (PostgreSQL)
+- **AI**: OpenAI API for compatibility scoring and icebreaker generation
 
 ## Team
 
 | Name | Role | Learning Goal |
 |------|------|---------------|
 | Austin Strong | Data Specialist | Learn how to build a data pipeline for user analytics and matchmaking metrics |
-| Thomas Suen | Backend Developer | Gain experience with FastAPI, authentication, database integration, and deployment |
+| Thomas Suen | Backend Developer | Gain experience with FastAPI, Supabase integration, and Vercel deployment |
 | Zack Ning | UI/UX Designer | Learn modern React patterns and responsive CSS |
 | Jad Masri | AI/ML Engineer | Learn to integrate third-party AI APIs (OpenAI, etc.) into a dating platform |
 | Logan Bautista | Project Manager | Learn Agile/Scrum coordination, Jira management, and on-schedule delivery |
@@ -25,6 +25,7 @@ BLOWTORCH is an AI-powered dating web application that helps users find meaningf
 ## Technologies We Hope to Learn
 - **Supabase**: PostgreSQL database, auth, real-time subscriptions (open-source alternative to Firebase/AWS)
 - **OpenAI API**: AI-powered compatibility scoring and icebreaker generation
+- **Vercel**: Frontend and backend deployment
 
 ## Repository
 https://github.com/bautil00/Dating-app-.git
@@ -33,18 +34,49 @@ https://github.com/bautil00/Dating-app-.git
 https://zackning7.atlassian.net/jira/software/projects/BLOW/boards/67
 
 ## Quick Start
+
+### Frontend
 ```bash
-docker-compose up
+cd apps/web
+npm install
+npm run dev
 ```
-- Web app: http://localhost:3000
-- API docs: http://localhost:4000/docs
+
+### Backend
+```bash
+cd apps/api
+pip install -r requirements.txt
+uvicorn src.main:app --reload --port 4000
+```
+
+## Environment Variables
+
+### Backend (.env)
+```
+SUPABASE_URL=https://your-project.supabase.co
+SUPABASE_KEY=your-anon-key
+SUPABASE_SERVICE_KEY=your-service-key
+OPENAI_API_KEY=sk-your-openai-key
+```
+
+## Deployment (Vercel)
+
+### Frontend
+1. Push to GitHub
+2. Connect repo to Vercel
+3. Deploy automatically
+
+### Backend
+1. Create new Vercel project for backend
+2. Connect `apps/api` folder
+3. Set environment variables in Vercel dashboard
+4. Deploy
 
 ## Data Sources & APIs
 
-### External AI API (OpenAI or Similar)
+### External AI API (OpenAI)
 - Compatibility scoring based on user profiles
 - AI-generated icebreaker messages
-- Profile enhancement suggestions
 
 ### PostgreSQL (Supabase)
 - User accounts and authentication
@@ -53,15 +85,15 @@ docker-compose up
 
 ## Architecture
 ```
-React → FastAPI → PostgreSQL
-             ↓
-       OpenAI API
+React (Vercel) → FastAPI (Vercel) → Supabase PostgreSQL
+                           ↓
+                     OpenAI API
 ```
 
 ## Features
 
 ### Completed
-- [x] User registration + JWT auth
+- [x] User registration + Supabase auth
 - [x] Profile CRUD
 - [x] Candidate ranking (AI-powered)
 - [x] Match workflow (create/accept/reject)

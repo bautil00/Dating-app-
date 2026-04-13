@@ -226,20 +226,16 @@ pip install -r requirements.txt
 uvicorn src.main:app --reload --port 4000
 ```
 
-### Docker
-```bash
-docker-compose up --build
-```
-
-### Production ( Railway / Render / Fly.io )
+### Production (Vercel)
 1. Push code to GitHub
-2. Connect repo to hosting platform
-3. Set environment variables:
-   - `SUPABASE_URL=https://your-project.supabase.co`
-   - `SUPABASE_KEY=your-anon-key`
-   - `SUPABASE_SERVICE_KEY=your-service-key`
-   - `OPENAI_API_KEY=sk-your-key`
-4. Deploy from `apps/api/Dockerfile`
+2. Create new Vercel project for backend
+3. Connect `apps/api` folder to Vercel
+4. Set environment variables in Vercel dashboard:
+   - `SUPABASE_URL`
+   - `SUPABASE_KEY`
+   - `SUPABASE_SERVICE_KEY`
+   - `OPENAI_API_KEY`
+5. Deploy
 
 ### Environment Variables
 | Variable | Description |
