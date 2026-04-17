@@ -1,12 +1,14 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from .routes import auth, profiles, matches, messages, ai
-from .database import engine, Base
+from .database import get_engine, Base
 from .config import get_settings
 
 settings = get_settings()
 
-Base.metadata.create_all(bind=engine)
+engine = get_engine()
+if engine:
+    Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title=settings.app_name,

@@ -1,0 +1,31 @@
+name: Deploy Backend to Vercel
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'apps/api/**'
+  workflow_dispatch:
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
+      - name: Deploy to Vercel
+        uses: amond-dev/vercel-action@v2
+        with:
+          vercel-token: ${{ secrets.VERCEL_TOKEN }}
+          vercel-project-id: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
+          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+          vercel-args: '--prod'
+          working-directory: apps/api
+          vercel-env: |
+            SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+            SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
+            SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
+            OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}

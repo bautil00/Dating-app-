@@ -1,0 +1,21 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "src/main.py",
+      "use": "@vercel/python"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/(.*)",
+      "dest": "src/main.py"
+    }
+  ],
+  "env": {
+    "SUPABASE_URL": "https://your-project.supabase.co",
+    "SUPABASE_KEY": "your-anon-key",
+    "SUPABASE_SERVICE_KEY": "sbsecret-bh57LNDzH8HUzNK1f-_FQ_GeDORNzx",
+    "OPENAI_API_KEY": "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"
+  }
+}

@@ -13,7 +13,7 @@ export default defineConfig({
     port: 3000,
     proxy: {
       '/api': {
-        target: 'http://localhost:4000',
+        target: process.env.VITE_API_URL || 'https://api-lemon-psi-31.vercel.app',
         changeOrigin: true,
       },
     },
