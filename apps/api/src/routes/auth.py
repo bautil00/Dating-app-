@@ -1,69 +1,64 @@
 from fastapi import APIRouter, HTTPException, status
-from pydantic import BaseModel, EmailStr
-from ..services.supabase_client import get_supabase
+from pydantic import BaseModel
+import httpx
+from ..config import get_settings
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-class UserCreate(BaseModel):
-    email: EmailStr
-    password: str
+def get_supabase_settings():
+    from ..config import get_settings
+
+    return get_settings()
 
 
-class UserResponse(BaseModel):
-    id: str
-    email: str
-
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-
-
-@router.post(
-    "/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED
-)
-def register(user: UserCreate):
-    supabase = get_supabase()
+@router.post("/register")
+def register(user: dict):
+    settings = get_supabase_settings()
     try:
-        auth_response = supabase.auth.sign_up(
-            {
-                "email": user.email,
-                "password": user.password,
-            }
-        )
-        return {"id": auth_response.user.id, "email": auth_response.user.email}
+        with httpx.Client() as client:
+            response = client.post(
+                f"{settings.supabase_url}/auth/v1/signup",
+                json={"email": user["email"], "password": user["password"]},
+                headers={
+                    "apikey": settings.supabase_key,
+                    "Content-Type": "application/json",
+                },
+            )
+            if response.status_code >= 400:
+                raise HTTPException(status_code=400, detail=response.text)
+            data = response.json()
+            if "user" in data:
+                return {"id": data["user"]["id"], "email": data["user"]["email"]}
+            return {"id": "pending", "email": user["email"]}
     except Exception as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e))
 
 
-@router.post("/login", response_model=Token)
-def login(user: UserCreate):
-    supabase = get_supabase()
+@router.post("/login")
+def login(user: dict):
+    settings = get_supabase_settings()
     try:
-        auth_response = supabase.auth.sign_in_with_password(
-            {
-                "email": user.email,
-                "password": user.password,
+        with httpx.Client() as client:
+            response = client.post(
+                f"{settings.supabase_url}/auth/v1/token?grant_type=password",
+                json={"email": user["email"], "password": user["password"]},
+                headers={
+                    "apikey": settings.supabase_key,
+                    "Content-Type": "application/json",
+                },
+            )
+            if response.status_code >= 400:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="Invalid credentials",
+                )
+            data = response.json()
+            return {
+                "access_token": data.get("access_token", ""),
+                "token_type": "bearer",
             }
-        )
-        return {
-            "access_token": auth_response.session.access_token,
-            "token_type": "bearer",
-        }
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid credentials"
-        )
-
-
-@router.get("/me", response_model=UserResponse)
-def get_me(token: str):
-    supabase = get_supabase()
-    try:
-        user = supabase.auth.get_user(token)
-        return {"id": user.user.id, "email": user.user.email}
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token"
         )
