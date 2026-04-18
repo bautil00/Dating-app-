@@ -44,6 +44,9 @@ export const profileService = {
 }
 
 export const matchService = {
+  like: (candidateId: string) =>
+    api.post('/match/', { candidate_id: candidateId }),
+
   create: (receiverId: number) =>
     api.post('/matches/', { receiver_id: receiverId }),
 

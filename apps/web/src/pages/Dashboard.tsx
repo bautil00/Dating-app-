@@ -60,7 +60,16 @@ export default function Dashboard() {
 
   const handleLike = async (candidateId: string) => {
     try {
-      await api.post('/matches/', { receiver_id: candidateId })
+      const token = localStorage.getItem('token')
+      const result = await api.post('/match/', { 
+        candidate_id: candidateId,
+        auth_header: `Bearer ${token}`
+      })
+      
+      if (result.data.matched) {
+        alert(`It's a MATCH! You can now chat! 🎉`)
+      }
+      
       setCandidates(candidates.filter(c => c.id !== candidateId))
     } catch (err) {
       console.error('Failed to like:', err)
