@@ -125,8 +125,8 @@ def like_candidate(data: dict):
             
             compatibility_score = 50.0
             if settings.openrouter_api_key and my_profile and candidate:
-                my_interests = my_profile.get('interests', [])
-                cand_interests = candidate.get('interests', [])
+                my_interests = my_profile.get('interests', '')
+                cand_interests = candidate.get('interests', '')
                 
                 prompt = f"""Rate compatibility between these two people from 0-100:
 Person A interests: {my_interests}
@@ -215,15 +215,11 @@ def filter_by_gender(profiles, seeking):
 def calculate_compatibility(user_interests, candidate_interests):
     if not user_interests or not candidate_interests:
         return 50.0
-    user_list = user_interests if isinstance(user_interests, list) else []
-    cand_list = candidate_interests if isinstance(candidate_interests, list) else []
-    user_set = set(i.lower() for i in user_list if i)
-    cand_set = set(i.lower() for i in cand_list if i)
-    if not user_set or not cand_set:
-        return 50.0
-    overlap = len(user_set & cand_set)
-    total = len(user_set | cand_set)
-    return round((overlap / total) * 100, 1) if total > 0 else 50.0
+    user_int = str(user_interests).lower() if not isinstance(user_interests, list) else user_interests[0].lower() if user_interests else ""
+    cand_int = str(candidate_interests).lower() if not isinstance(candidate_interests, list) else candidate_interests[0].lower() if candidate_interests else ""
+    if user_int == cand_int:
+        return 100.0
+    return 30.0
 
 
 @profiles_router.get("/me")
@@ -290,8 +286,8 @@ def get_candidates(limit: int = 10, authorization: str = Header(None)):
         filtered = filter_by_gender(candidates, seeking)
         
         for c in filtered:
-            my_int = my_profile.get('interests', [])
-            c_int = c.get('interests', [])
+            my_int = my_profile.get('interests', '')
+            c_int = c.get('interests', '')
             c['compatibility_score'] = calculate_compatibility(my_int, c_int)
         
         filtered.sort(key=lambda x: x.get('compatibility_score', 0), reverse=True)
@@ -316,7 +312,7 @@ def create_profile(profile_data: dict, authorization: str = Header(None)):
             'Name': profile_data.get('display_name'),
             'Age': profile_data.get('age'),
             'Location': profile_data.get('location'),
-            'interests': profile_data.get('interests', []),
+            'interests': profile_data.get('interests', 'Music'),
             'Job': profile_data.get('job'),
             'gender': profile_data.get('gender'),
             'seeking_gender': profile_data.get('seeking_gender', 'everyone'),
