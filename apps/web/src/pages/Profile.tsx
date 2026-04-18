@@ -119,10 +119,9 @@ export default function Profile() {
                 <label>Gender</label>
                 <select name="gender" value={formData.gender} onChange={handleChange}>
                   <option value="">Select gender</option>
-                  <option value="male">Male</option>
-                  <option value="female">Female</option>
-                  <option value="non-binary">Non-binary</option>
-                  <option value="other">Other</option>
+                  <option value="Male">Male</option>
+                  <option value="Female">Female</option>
+                  <option value="Non-binary">Non-binary</option>
                 </select>
               </div>
             </div>
