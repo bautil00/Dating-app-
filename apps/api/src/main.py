@@ -318,11 +318,21 @@ def create_profile(profile_data: dict, authorization: str = Header(None)):
         except (ValueError, TypeError):
             location_num = None
 
+        # interests column is an enum — split comma-separated into interest_1/2/3
+        raw_interests = profile_data.get('interests', '')
+        if isinstance(raw_interests, list):
+            interest_parts = raw_interests
+        else:
+            interest_parts = [i.strip() for i in str(raw_interests).split(',') if i.strip()]
+
         mapped = {
             'Name': profile_data.get('display_name'),
             'Age': profile_data.get('age'),
             'Location': location_num,
-            'interests': profile_data.get('interests', 'Music'),
+            'interests': interest_parts[0] if interest_parts else 'Music',
+            'interest_1': interest_parts[0] if len(interest_parts) > 0 else None,
+            'interest_2': interest_parts[1] if len(interest_parts) > 1 else None,
+            'interest_3': interest_parts[2] if len(interest_parts) > 2 else None,
             'gender': profile_data.get('gender'),
             'seeking_gender': profile_data.get('seeking_gender', 'everyone'),
             'max_distance_km': profile_data.get('max_distance_km', 50),
