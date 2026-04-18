@@ -49,10 +49,12 @@ export default function Dashboard() {
         setCandidates(candidatesRes.data || [])
         setMatches(matchesRes.data || [])
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('Failed to load data:', err)
-      localStorage.removeItem('token')
-      navigate('/login')
+      if (err.response?.status === 401) {
+        localStorage.removeItem('token')
+        navigate('/login')
+      }
     } finally {
       setLoading(false)
     }
