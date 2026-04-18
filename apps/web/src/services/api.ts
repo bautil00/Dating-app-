@@ -1,7 +1,13 @@
 import axios from 'axios'
 
+const API_URL = import.meta.env.VITE_API_URL
+  ? `${import.meta.env.VITE_API_URL}/api/v1`
+  : import.meta.env.PROD
+    ? 'https://api-lemon-psi-31.vercel.app/api/v1'
+    : '/api/v1'
+
 const api = axios.create({
-  baseURL: '/api/v1',
+  baseURL: API_URL,
   headers: {
     'Content-Type': 'application/json',
   },
