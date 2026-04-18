@@ -325,19 +325,19 @@ def create_profile(profile_data: dict, authorization: str = Header(None)):
         except (ValueError, TypeError):
             location_num = None
 
-        # interests column is a single-value enum — take first value only
-        raw_interests = profile_data.get('interests', 'Music')
-        if isinstance(raw_interests, list):
-            interest_val = raw_interests[0] if raw_interests else 'Music'
-        else:
-            interest_val = str(raw_interests).split(',')[0].strip() or 'Music'
-
         mapped = {
             'Name': profile_data.get('display_name'),
             'Age': profile_data.get('age'),
             'Location': location_num,
-            'interests': interest_val,
+            'interests': profile_data.get('interests'),
             'gender': profile_data.get('gender'),
+            'Job': profile_data.get('job'),
+            'sexual pref': profile_data.get('sexual_pref'),
+            'pro-nouns': profile_data.get('pronouns'),
+            'Zodiac': profile_data.get('zodiac'),
+            'education': profile_data.get('education'),
+            'relationship': profile_data.get('relationship_status'),
+            'living': profile_data.get('living_status'),
             'seeking_gender': profile_data.get('seeking_gender', 'everyone'),
             'max_distance_km': profile_data.get('max_distance_km', 50),
             'is_complete': True,

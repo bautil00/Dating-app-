@@ -639,6 +639,10 @@ body {
   font-weight: 500;
 }
 
+.form-message.error {
+  background: var(--primary-dark);
+}
+
 .save-btn {
   width: 100%;
   padding: 1rem;
