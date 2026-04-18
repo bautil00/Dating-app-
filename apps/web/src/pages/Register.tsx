@@ -27,7 +27,10 @@ export default function Register() {
     setLoading(true)
     try {
       await authService.register(email, password)
-      navigate('/login')
+      const loginRes = await authService.login(email, password)
+      localStorage.setItem('token', loginRes.data.access_token)
+      localStorage.setItem('user', JSON.stringify(loginRes.data.user))
+      navigate('/dashboard')
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Registration failed')
     } finally {
