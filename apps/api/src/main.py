@@ -156,6 +156,13 @@ Respond with just a number:"""
                 except Exception:
                     pass
             
+            # Pass user's token for RLS-protected tables
+            rls_headers = {
+                "apikey": settings.supabase_key,
+                "Authorization": f"Bearer {token}",
+                "Content-Type": "application/json",
+            }
+
             save_resp = client.post(
                 f"{settings.supabase_url}/rest/v1/matches",
                 json={
@@ -164,16 +171,16 @@ Respond with just a number:"""
                     "status": "pending",
                     "compatibility_score": compatibility_score
                 },
-                headers={"apikey": settings.supabase_key, "Content-Type": "application/json"}
+                headers=rls_headers,
             )
-            
+
             is_match = False
             existing_like = client.get(
                 f"{settings.supabase_url}/rest/v1/matches",
                 params={"sender_user_id": f"eq.{candidate_id}", "receiver_user_id": f"eq.{my_id}"},
-                headers={"apikey": settings.supabase_key}
+                headers=rls_headers,
             )
-            
+
             if existing_like.json():
                 existing = existing_like.json()[0]
                 if existing.get("status") == "pending":
@@ -182,7 +189,7 @@ Respond with just a number:"""
                         f"{settings.supabase_url}/rest/v1/matches",
                         params={"sender_user_id": f"eq.{candidate_id}", "receiver_user_id": f"eq.{my_id}"},
                         json={"status": "matched"},
-                        headers={"apikey": settings.supabase_key, "Content-Type": "application/json"}
+                        headers=rls_headers,
                     )
             
             return {"matched": is_match, "candidate_id": candidate_id, "status": "liked", "compatibility_score": compatibility_score}
@@ -375,8 +382,8 @@ app.include_router(profiles_router, prefix="/api/v1")
 matches_router = APIRouter(prefix="/matches", tags=["Matches"])
 
 
-def _get_user_id(authorization: str, settings):
-    """Extract user_id from Bearer token via Supabase."""
+def _get_user_id_and_token(authorization: str, settings):
+    """Extract user_id and clean token from Bearer token via Supabase."""
     if not authorization:
         raise HTTPException(status_code=401, detail="Missing authorization")
     token = authorization.replace("Bearer ", "").strip()
@@ -387,23 +394,24 @@ def _get_user_id(authorization: str, settings):
         )
         if resp.status_code != 200:
             raise HTTPException(status_code=401, detail="Invalid token")
-        return resp.json().get("id")
+        return resp.json().get("id"), token
 
 
 @matches_router.get("/")
 def get_my_matches(authorization: str = Header(None)):
     settings = get_settings()
-    user_id = _get_user_id(authorization, settings)
+    user_id, token = _get_user_id_and_token(authorization, settings)
+    rls_headers = {"apikey": settings.supabase_key, "Authorization": f"Bearer {token}"}
     with httpx.Client() as client:
         sent = client.get(
             f"{settings.supabase_url}/rest/v1/matches",
             params={"sender_user_id": f"eq.{user_id}", "order": "created_at.desc"},
-            headers={"apikey": settings.supabase_key}
+            headers=rls_headers,
         ).json()
         received = client.get(
             f"{settings.supabase_url}/rest/v1/matches",
             params={"receiver_user_id": f"eq.{user_id}", "order": "created_at.desc"},
-            headers={"apikey": settings.supabase_key}
+            headers=rls_headers,
         ).json()
         all_matches = sent + received
         for m in all_matches:
@@ -415,12 +423,13 @@ def get_my_matches(authorization: str = Header(None)):
 @matches_router.patch("/{match_id}/accept")
 def accept_match(match_id: int, authorization: str = Header(None)):
     settings = get_settings()
-    user_id = _get_user_id(authorization, settings)
+    user_id, token = _get_user_id_and_token(authorization, settings)
+    rls_headers = {"apikey": settings.supabase_key, "Authorization": f"Bearer {token}", "Content-Type": "application/json"}
     with httpx.Client() as client:
         match_resp = client.get(
             f"{settings.supabase_url}/rest/v1/matches",
             params={"id": f"eq.{match_id}"},
-            headers={"apikey": settings.supabase_key}
+            headers=rls_headers,
         )
         matches = match_resp.json()
         if not matches:
@@ -432,7 +441,7 @@ def accept_match(match_id: int, authorization: str = Header(None)):
             f"{settings.supabase_url}/rest/v1/matches",
             params={"id": f"eq.{match_id}"},
             json={"status": "accepted"},
-            headers={"apikey": settings.supabase_key, "Content-Type": "application/json"}
+            headers=rls_headers,
         )
         match["status"] = "accepted"
         return match
@@ -441,12 +450,13 @@ def accept_match(match_id: int, authorization: str = Header(None)):
 @matches_router.patch("/{match_id}/reject")
 def reject_match(match_id: int, authorization: str = Header(None)):
     settings = get_settings()
-    user_id = _get_user_id(authorization, settings)
+    user_id, token = _get_user_id_and_token(authorization, settings)
+    rls_headers = {"apikey": settings.supabase_key, "Authorization": f"Bearer {token}", "Content-Type": "application/json"}
     with httpx.Client() as client:
         match_resp = client.get(
             f"{settings.supabase_url}/rest/v1/matches",
             params={"id": f"eq.{match_id}"},
-            headers={"apikey": settings.supabase_key}
+            headers=rls_headers,
         )
         matches = match_resp.json()
         if not matches:
@@ -458,7 +468,7 @@ def reject_match(match_id: int, authorization: str = Header(None)):
             f"{settings.supabase_url}/rest/v1/matches",
             params={"id": f"eq.{match_id}"},
             json={"status": "rejected"},
-            headers={"apikey": settings.supabase_key, "Content-Type": "application/json"}
+            headers=rls_headers,
         )
         return {"status": "rejected"}
 
@@ -473,7 +483,7 @@ messages_router = APIRouter(prefix="/messages", tags=["Messages"])
 @messages_router.post("/")
 def send_message(data: dict, authorization: str = Header(None)):
     settings = get_settings()
-    user_id = _get_user_id(authorization, settings)
+    user_id, token = _get_user_id_and_token(authorization, settings)
     receiver_id = data.get("receiver_id")
     content = data.get("content", "").strip()
     if not receiver_id or not content:
@@ -484,6 +494,7 @@ def send_message(data: dict, authorization: str = Header(None)):
             json={"sender_id": user_id, "receiver_id": receiver_id, "content": content},
             headers={
                 "apikey": settings.supabase_key,
+                "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json",
                 "Prefer": "return=representation",
             }
@@ -497,7 +508,8 @@ def send_message(data: dict, authorization: str = Header(None)):
 @messages_router.get("/conversations/{target_user_id}")
 def get_conversation(target_user_id: str, authorization: str = Header(None)):
     settings = get_settings()
-    user_id = _get_user_id(authorization, settings)
+    user_id, token = _get_user_id_and_token(authorization, settings)
+    rls_headers = {"apikey": settings.supabase_key, "Authorization": f"Bearer {token}"}
     with httpx.Client() as client:
         sent = client.get(
             f"{settings.supabase_url}/rest/v1/messages",
@@ -506,7 +518,7 @@ def get_conversation(target_user_id: str, authorization: str = Header(None)):
                 "receiver_id": f"eq.{target_user_id}",
                 "order": "created_at.asc",
             },
-            headers={"apikey": settings.supabase_key}
+            headers=rls_headers,
         ).json()
         received = client.get(
             f"{settings.supabase_url}/rest/v1/messages",
@@ -515,7 +527,7 @@ def get_conversation(target_user_id: str, authorization: str = Header(None)):
                 "receiver_id": f"eq.{user_id}",
                 "order": "created_at.asc",
             },
-            headers={"apikey": settings.supabase_key}
+            headers=rls_headers,
         ).json()
         all_msgs = sent + received
         all_msgs.sort(key=lambda m: m.get("created_at", ""))
@@ -525,17 +537,18 @@ def get_conversation(target_user_id: str, authorization: str = Header(None)):
 @messages_router.get("/conversations")
 def get_all_conversations(authorization: str = Header(None)):
     settings = get_settings()
-    user_id = _get_user_id(authorization, settings)
+    user_id, token = _get_user_id_and_token(authorization, settings)
+    rls_headers = {"apikey": settings.supabase_key, "Authorization": f"Bearer {token}"}
     with httpx.Client() as client:
         sent = client.get(
             f"{settings.supabase_url}/rest/v1/messages",
             params={"sender_id": f"eq.{user_id}", "order": "created_at.desc"},
-            headers={"apikey": settings.supabase_key}
+            headers=rls_headers,
         ).json()
         received = client.get(
             f"{settings.supabase_url}/rest/v1/messages",
             params={"receiver_id": f"eq.{user_id}", "order": "created_at.desc"},
-            headers={"apikey": settings.supabase_key}
+            headers=rls_headers,
         ).json()
         user_ids = set()
         for m in sent:
