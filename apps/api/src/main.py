@@ -311,15 +311,21 @@ def create_profile(profile_data: dict, authorization: str = Header(None)):
         )
         user_id = me_resp.json().get("id")
         
+        # Location column is double precision (latitude) in DB, not text
+        location_val = profile_data.get('location')
+        try:
+            location_num = float(location_val) if location_val else None
+        except (ValueError, TypeError):
+            location_num = None
+
         mapped = {
             'Name': profile_data.get('display_name'),
             'Age': profile_data.get('age'),
-            'Location': profile_data.get('location'),
+            'Location': location_num,
             'interests': profile_data.get('interests', 'Music'),
             'gender': profile_data.get('gender'),
             'seeking_gender': profile_data.get('seeking_gender', 'everyone'),
             'max_distance_km': profile_data.get('max_distance_km', 50),
-            'bio': profile_data.get('bio'),
             'is_complete': True,
             'user_id': user_id,
         }

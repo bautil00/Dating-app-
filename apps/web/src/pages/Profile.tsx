@@ -128,13 +128,14 @@ export default function Profile() {
             </div>
 
             <div className="form-group">
-              <label>Location</label>
+              <label>Location (latitude)</label>
               <input
-                type="text"
+                type="number"
                 name="location"
                 value={formData.location}
                 onChange={handleChange}
-                placeholder="City, State"
+                placeholder="e.g. 47.6 for Seattle"
+                step="0.0001"
               />
             </div>
 
