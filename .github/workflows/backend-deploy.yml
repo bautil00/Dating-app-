@@ -19,7 +19,7 @@ jobs:
       - name: Deploy to Vercel
         run: |
           cd apps/api
-          vercel --prod --token ${{ secrets.VERCEL_TOKEN }} \
+          vercel --prod --yes --token ${{ secrets.VERCEL_TOKEN }} \
             -e SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
             -e SUPABASE_KEY=${{ secrets.SUPABASE_KEY }} \
             -e SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }} \
