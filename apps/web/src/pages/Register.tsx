@@ -1,53 +1,82 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
+import { authService } from '../services/api'
 
 export default function Register() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError('')
+    
+    if (password !== confirmPassword) {
+      setError('Passwords do not match')
+      return
+    }
+    
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters')
+      return
+    }
+    
+    setLoading(true)
     try {
-      const res = await fetch('/api/v1/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
-      })
-      if (res.ok) {
-        navigate('/login')
-      } else {
-        const data = await res.json()
-        setError(data.detail || 'Registration failed')
-      }
-    } catch (err) {
-      setError('Registration failed')
+      await authService.register(email, password)
+      navigate('/login')
+    } catch (err: any) {
+      setError(err.response?.data?.detail || 'Registration failed')
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
     <div className="auth-container">
-      <h1>BLOWTORCH</h1>
+      <div className="logo">
+        <h1>♡</h1>
+        <h1>BLOWTORCH</h1>
+      </div>
+      <p className="tagline">Create your account</p>
+      
       <form onSubmit={handleSubmit}>
         <input
           type="email"
-          placeholder="Email"
+          placeholder="Email address"
           value={email}
           onChange={e => setEmail(e.target.value)}
           required
+          autoComplete="email"
         />
         <input
           type="password"
-          placeholder="Password"
+          placeholder="Password (min 6 characters)"
           value={password}
           onChange={e => setPassword(e.target.value)}
           required
+          autoComplete="new-password"
+        />
+        <input
+          type="password"
+          placeholder="Confirm password"
+          value={confirmPassword}
+          onChange={e => setConfirmPassword(e.target.value)}
+          required
+          autoComplete="new-password"
         />
         {error && <p className="error">{error}</p>}
-        <button type="submit">Register</button>
+        <button type="submit" disabled={loading}>
+          {loading ? 'Creating account...' : 'Create Account'}
+        </button>
       </form>
-      <p>Already have an account? <a href="/login">Login</a></p>
+      
+      <p className="switch-link">
+        Already have an account? <Link to="/login">Sign in</Link>
+      </p>
     </div>
   )
 }

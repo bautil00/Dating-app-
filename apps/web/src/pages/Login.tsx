@@ -1,34 +1,46 @@
 import { useState } from 'react'
-import { useAuth } from '../hooks/useAuth'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
+import { authService } from '../services/api'
 
 export default function Login() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
-  const { login } = useAuth()
+  const [loading, setLoading] = useState(false)
   const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setError('')
+    setLoading(true)
     try {
-      await login(email, password)
+      const res = await authService.login(email, password)
+      localStorage.setItem('token', res.data.access_token)
+      localStorage.setItem('user', JSON.stringify(res.data.user))
       navigate('/dashboard')
     } catch (err: any) {
-      setError(err.response?.data?.detail || 'Login failed')
+      setError(err.response?.data?.detail || 'Login failed. Check your credentials.')
+    } finally {
+      setLoading(false)
     }
   }
 
   return (
     <div className="auth-container">
-      <h1>BLOWTORCH</h1>
+      <div className="logo">
+        <h1>♡</h1>
+        <h1>BLOWTORCH</h1>
+      </div>
+      <p className="tagline">Find your perfect match</p>
+      
       <form onSubmit={handleSubmit}>
         <input
           type="email"
-          placeholder="Email"
+          placeholder="Email address"
           value={email}
           onChange={e => setEmail(e.target.value)}
           required
+          autoComplete="email"
         />
         <input
           type="password"
@@ -36,11 +48,17 @@ export default function Login() {
           value={password}
           onChange={e => setPassword(e.target.value)}
           required
+          autoComplete="current-password"
         />
         {error && <p className="error">{error}</p>}
-        <button type="submit">Login</button>
+        <button type="submit" disabled={loading}>
+          {loading ? 'Signing in...' : 'Sign In'}
+        </button>
       </form>
-      <p>Don't have an account? <a href="/register">Register</a></p>
+      
+      <p className="switch-link">
+        Don't have an account? <Link to="/register">Sign up</Link>
+      </p>
     </div>
   )
 }

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { profileService } from '../services/api'
+import api from '../services/api'
 
 export default function Profile() {
   const [formData, setFormData] = useState({
@@ -11,90 +11,228 @@ export default function Profile() {
     location: '',
     profile_image_url: '',
     interests: '',
+    seeking_gender: '',
+    max_distance_km: '50'
   })
+  const [saving, setSaving] = useState(false)
+  const [message, setMessage] = useState('')
   const navigate = useNavigate()
 
   useEffect(() => {
-    profileService.getMe()
-      .then(res => {
-        const d = res.data
+    const token = localStorage.getItem('token')
+    if (!token) {
+      navigate('/login')
+      return
+    }
+    loadProfile()
+  }, [navigate])
+
+  const loadProfile = async () => {
+    try {
+      const res = await api.get('/profiles/me')
+      if (res.data) {
         setFormData({
-          display_name: d.display_name || '',
-          bio: d.bio || '',
-          age: d.age || '',
-          gender: d.gender || '',
-          location: d.location || '',
-          profile_image_url: d.profile_image_url || '',
-          interests: d.interests || '',
+          display_name: res.data.display_name || '',
+          bio: res.data.bio || '',
+          age: res.data.age || '',
+          gender: res.data.gender || '',
+          location: res.data.location || '',
+          profile_image_url: res.data.profile_image_url || '',
+          interests: res.data.interests || '',
+          seeking_gender: res.data.seeking_gender || '',
+          max_distance_km: res.data.max_distance_km || '50'
         })
-      })
-      .catch(() => {})
-  }, [])
+      }
+    } catch (err) {
+      console.log('No profile yet')
+    }
+  }
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+    const { name, value } = e.target
+    setFormData(prev => ({ ...prev, [name]: value }))
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setSaving(true)
+    setMessage('')
     try {
-      await profileService.create(formData)
-      navigate('/dashboard')
+      const dataToSend = {
+        ...formData,
+        age: formData.age ? parseInt(formData.age) : null,
+        max_distance_km: formData.max_distance_km ? parseInt(formData.max_distance_km) : 50,
+        interests: formData.interests.split(',').map(i => i.trim()).filter(Boolean)
+      }
+      
+      await api.post('/profiles/', dataToSend)
+      setMessage('Profile saved!')
+      setTimeout(() => navigate('/dashboard'), 1500)
     } catch (err: any) {
       if (err.response?.status === 400) {
-        await profileService.update(formData)
-        navigate('/dashboard')
+        try {
+          const dataToSend = {
+            ...formData,
+            age: formData.age ? parseInt(formData.age) : null,
+            max_distance_km: formData.max_distance_km ? parseInt(formData.max_distance_km) : 50,
+            interests: formData.interests.split(',').map(i => i.trim()).filter(Boolean)
+          }
+          await api.patch('/profiles/me', dataToSend)
+          setMessage('Profile updated!')
+          setTimeout(() => navigate('/dashboard'), 1500)
+        } catch (patchErr) {
+          setMessage('Failed to update profile')
+        }
+      } else {
+        setMessage('Failed to save profile')
       }
+    } finally {
+      setSaving(false)
     }
   }
 
   return (
     <div className="profile-page">
-      <h1>Your Profile</h1>
-      <form onSubmit={handleSubmit}>
-        <input
-          type="text"
-          placeholder="Display Name"
-          value={formData.display_name}
-          onChange={e => setFormData({ ...formData, display_name: e.target.value })}
-        />
-        <textarea
-          placeholder="Bio"
-          value={formData.bio}
-          onChange={e => setFormData({ ...formData, bio: e.target.value })}
-        />
-        <input
-          type="number"
-          placeholder="Age"
-          value={formData.age}
-          onChange={e => setFormData({ ...formData, age: e.target.value })}
-        />
-        <select
-          value={formData.gender}
-          onChange={e => setFormData({ ...formData, gender: e.target.value })}
-        >
-          <option value="">Select Gender</option>
-          <option value="male">Male</option>
-          <option value="female">Female</option>
-          <option value="non-binary">Non-binary</option>
-          <option value="other">Other</option>
-        </select>
-        <input
-          type="text"
-          placeholder="Location"
-          value={formData.location}
-          onChange={e => setFormData({ ...formData, location: e.target.value })}
-        />
-        <input
-          type="url"
-          placeholder="Profile Image URL"
-          value={formData.profile_image_url}
-          onChange={e => setFormData({ ...formData, profile_image_url: e.target.value })}
-        />
-        <input
-          type="text"
-          placeholder="Interests (comma-separated)"
-          value={formData.interests}
-          onChange={e => setFormData({ ...formData, interests: e.target.value })}
-        />
-        <button type="submit">Save Profile</button>
-      </form>
+      <nav className="navbar">
+        <button onClick={() => navigate('/dashboard')} className="back-btn">
+          ← Back
+        </button>
+        <h1>Your Profile</h1>
+        <div></div>
+      </nav>
+
+      <main className="profile-content">
+        <form onSubmit={handleSubmit} className="profile-form">
+          <div className="form-section">
+            <h2>Basic Info</h2>
+            
+            <div className="form-group">
+              <label>Display Name</label>
+              <input
+                type="text"
+                name="display_name"
+                value={formData.display_name}
+                onChange={handleChange}
+                placeholder="What should we call you?"
+              />
+            </div>
+
+            <div className="form-row">
+              <div className="form-group">
+                <label>Age</label>
+                <input
+                  type="number"
+                  name="age"
+                  value={formData.age}
+                  onChange={handleChange}
+                  placeholder="Your age"
+                  min="18"
+                  max="100"
+                />
+              </div>
+              
+              <div className="form-group">
+                <label>Gender</label>
+                <select name="gender" value={formData.gender} onChange={handleChange}>
+                  <option value="">Select gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="non-binary">Non-binary</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label>Location</label>
+              <input
+                type="text"
+                name="location"
+                value={formData.location}
+                onChange={handleChange}
+                placeholder="City, State"
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Profile Image URL</label>
+              <input
+                type="url"
+                name="profile_image_url"
+                value={formData.profile_image_url}
+                onChange={handleChange}
+                placeholder="https://example.com/your-photo.jpg"
+              />
+              {formData.profile_image_url && (
+                <img 
+                  src={formData.profile_image_url} 
+                  alt="Preview" 
+                  className="image-preview"
+                />
+              )}
+            </div>
+          </div>
+
+          <div className="form-section">
+            <h2>About You</h2>
+            
+            <div className="form-group">
+              <label>Bio</label>
+              <textarea
+                name="bio"
+                value={formData.bio}
+                onChange={handleChange}
+                placeholder="Tell us about yourself..."
+                rows={4}
+              />
+            </div>
+
+            <div className="form-group">
+              <label>Interests (comma separated)</label>
+              <input
+                type="text"
+                name="interests"
+                value={formData.interests}
+                onChange={handleChange}
+                placeholder="hiking, cooking, photography, music"
+              />
+            </div>
+          </div>
+
+          <div className="form-section">
+            <h2>Preferences</h2>
+            
+            <div className="form-row">
+              <div className="form-group">
+                <label>Interested in</label>
+                <select name="seeking_gender" value={formData.seeking_gender} onChange={handleChange}>
+                  <option value="everyone">Everyone</option>
+                  <option value="male">Men</option>
+                  <option value="female">Women</option>
+                </select>
+              </div>
+              
+              <div className="form-group">
+                <label>Max Distance (km)</label>
+                <input
+                  type="number"
+                  name="max_distance_km"
+                  value={formData.max_distance_km}
+                  onChange={handleChange}
+                  min="1"
+                  max="500"
+                />
+              </div>
+            </div>
+          </div>
+
+          {message && <p className="form-message">{message}</p>}
+          
+          <button type="submit" className="save-btn" disabled={saving}>
+            {saving ? 'Saving...' : 'Save Profile'}
+          </button>
+        </form>
+      </main>
     </div>
   )
 }
