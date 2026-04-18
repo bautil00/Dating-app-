@@ -28,6 +28,9 @@ jobs:
         run: npm run build
         working-directory: apps/web
 
+      - name: Install Vercel CLI
+        run: npm install -g vercel
+
       - name: Deploy to Vercel
         run: |
           cd apps/web
