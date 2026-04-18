@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Header
 import math
 import httpx
 
@@ -50,7 +50,7 @@ def rank_with_ai(user_profile, candidates):
     
     scored = []
     for c in candidates:
-        user_interests = ','.join([str(c.get('interest_1', '')), str(c.get('interest_2', '')), str(c.get('interest_3', ''))])
+        user_interests = ','.join([str(user_profile.get('interest_1', '')), str(user_profile.get('interest_2', '')), str(user_profile.get('interest_3', ''))])
         cand_interests = ','.join([str(c.get('interest_1', '')), str(c.get('interest_2', '')), str(c.get('interest_3', ''))])
         
         score = recommendation_service.calculate_compatibility_score(
@@ -67,27 +67,39 @@ def rank_with_ai(user_profile, candidates):
 
 
 @router.post("/")
-def create_profile(profile_data: dict):
+def create_profile(profile_data: dict, authorization: str = Header(None)):
     """Create/update profile in UserData table"""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
+    token = authorization.replace("Bearer ", "").strip()
     settings = get_settings()
-    
-    mapped = {
-        'Name': profile_data.get('display_name'),
-        'Age': profile_data.get('age'),
-        'Location': profile_data.get('location'),
-        'interest_1': profile_data.get('interest_1'),
-        'interest_2': profile_data.get('interest_2'),
-        'interest_3': profile_data.get('interest_3'),
-        'Job': profile_data.get('job'),
-        'gender': profile_data.get('gender'),
-        'seeking_gender': profile_data.get('seeking_gender', 'everyone'),
-        'is_complete': True,
-        'user_id': profile_data.get('user_id'),
-    }
-    
+
     try:
         with httpx.Client() as client:
-            user_id = profile_data.get('user_id')
+            # Extract user_id from token instead of trusting request body
+            user_resp = client.get(
+                f"{settings.supabase_url}/auth/v1/user",
+                headers={"apikey": settings.supabase_key, "Authorization": f"Bearer {token}"}
+            )
+            if user_resp.status_code != 200:
+                raise HTTPException(status_code=401, detail="Invalid token")
+            user_id = user_resp.json().get("id")
+
+            mapped = {
+                'Name': profile_data.get('display_name'),
+                'Age': profile_data.get('age'),
+                'Location': profile_data.get('location'),
+                'interest_1': profile_data.get('interest_1'),
+                'interest_2': profile_data.get('interest_2'),
+                'interest_3': profile_data.get('interest_3'),
+                'Job': profile_data.get('job'),
+                'gender': profile_data.get('gender'),
+                'seeking_gender': profile_data.get('seeking_gender', 'everyone'),
+                'is_complete': True,
+                'user_id': user_id,
+            }
+
             if user_id:
                 existing = client.get(
                     f"{settings.supabase_url}/rest/v1/UserData",
@@ -113,14 +125,14 @@ def create_profile(profile_data: dict):
 
 
 @router.get("/me")
-def get_my_profile(auth_header: str = None):
+def get_my_profile(authorization: str = Header(None)):
     """Get current user's profile"""
     settings = get_settings()
-    
-    if not auth_header:
+
+    if not authorization:
         raise HTTPException(status_code=401, detail="Missing authorization")
-    
-    token = auth_header.replace("Bearer ", "")
+
+    token = authorization.replace("Bearer ", "").strip()
     
     try:
         with httpx.Client() as client:
@@ -151,19 +163,19 @@ def get_my_profile(auth_header: str = None):
 
 
 @router.get("/candidates")
-def get_candidates(limit: int = 10, auth_header: str = None):
+def get_candidates(limit: int = 10, authorization: str = Header(None)):
     """
     Get ranked candidates - Flow:
     1. Filter by gender preference (sexual pref)
-    2. Filter by location/distance  
+    2. Filter by location/distance
     3. AI compatibility ranking (LAST STEP)
     """
     settings = get_settings()
-    
-    if not auth_header:
+
+    if not authorization:
         raise HTTPException(status_code=401, detail="Missing authorization")
-    
-    token = auth_header.replace("Bearer ", "")
+
+    token = authorization.replace("Bearer ", "").strip()
     
     try:
         with httpx.Client() as client:
@@ -215,10 +227,13 @@ def get_candidates(limit: int = 10, auth_header: str = None):
 
 
 @router.get("/{profile_id}")
-def get_profile(profile_id: int):
+def get_profile(profile_id: int, authorization: str = Header(None)):
     """Get a specific profile"""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing authorization")
+
     settings = get_settings()
-    
+
     try:
         with httpx.Client() as client:
             response = client.get(
@@ -226,10 +241,12 @@ def get_profile(profile_id: int):
                 params={"id": f"eq.{profile_id}"},
                 headers={"apikey": settings.supabase_key}
             )
-            
+
             profiles = response.json()
             if profiles:
                 return profiles[0]
             raise HTTPException(status_code=404, detail="Profile not found")
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

@@ -9,10 +9,14 @@ app = FastAPI(title="BLOWTORCH", version="0.1.0")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://web-two-beta-72.vercel.app",
+        "http://localhost:5173",
+        "http://localhost:4000",
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type"],
 )
 
 
@@ -76,7 +80,7 @@ def get_user_from_token(authorization: str = Header(None)):
 
 
 @match_router.post("/")
-def like_candidate(data: dict):
+def like_candidate(data: dict, authorization: str = Header(None)):
     """
     Like a candidate. Flow:
     1. Get current user's profile & preferences
@@ -87,15 +91,14 @@ def like_candidate(data: dict):
     """
     settings = get_settings()
     candidate_id = data.get("candidate_id")
-    
+
     if not candidate_id:
         raise HTTPException(status_code=400, detail="candidate_id required")
-    
-    auth_header = data.get("auth_header")
-    if not auth_header:
+
+    if not authorization:
         raise HTTPException(status_code=401, detail="Missing authorization")
-    
-    token = auth_header.replace("Bearer ", "")
+
+    token = authorization.replace("Bearer ", "").strip()
     
     try:
         with httpx.Client() as client:
@@ -148,9 +151,9 @@ Respond with just a number:"""
                         content = or_resp.json().get("choices", [{}])[0].get("message", {}).get("content", "")
                         try:
                             compatibility_score = float(content.strip())
-                        except:
+                        except (ValueError, TypeError):
                             pass
-                except:
+                except Exception:
                     pass
             
             save_resp = client.post(
@@ -313,13 +316,15 @@ def create_profile(profile_data: dict, authorization: str = Header(None)):
             'Age': profile_data.get('age'),
             'Location': profile_data.get('location'),
             'interests': profile_data.get('interests', 'Music'),
-            'Job': profile_data.get('job'),
             'gender': profile_data.get('gender'),
             'seeking_gender': profile_data.get('seeking_gender', 'everyone'),
             'max_distance_km': profile_data.get('max_distance_km', 50),
+            'bio': profile_data.get('bio'),
             'is_complete': True,
             'user_id': user_id,
         }
+        # Remove None values to avoid overwriting with nulls
+        mapped = {k: v for k, v in mapped.items() if v is not None}
         
         existing = client.get(
             f"{settings.supabase_url}/rest/v1/UserData",
@@ -344,6 +349,196 @@ def create_profile(profile_data: dict, authorization: str = Header(None)):
 
 
 app.include_router(profiles_router, prefix="/api/v1")
+
+
+# ---- Matches Routes (Supabase REST) ----
+matches_router = APIRouter(prefix="/matches", tags=["Matches"])
+
+
+def _get_user_id(authorization: str, settings):
+    """Extract user_id from Bearer token via Supabase."""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing authorization")
+    token = authorization.replace("Bearer ", "").strip()
+    with httpx.Client() as client:
+        resp = client.get(
+            f"{settings.supabase_url}/auth/v1/user",
+            headers={"apikey": settings.supabase_key, "Authorization": f"Bearer {token}"}
+        )
+        if resp.status_code != 200:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        return resp.json().get("id")
+
+
+@matches_router.get("/")
+def get_my_matches(authorization: str = Header(None)):
+    settings = get_settings()
+    user_id = _get_user_id(authorization, settings)
+    with httpx.Client() as client:
+        sent = client.get(
+            f"{settings.supabase_url}/rest/v1/matches",
+            params={"sender_user_id": f"eq.{user_id}", "order": "created_at.desc"},
+            headers={"apikey": settings.supabase_key}
+        ).json()
+        received = client.get(
+            f"{settings.supabase_url}/rest/v1/matches",
+            params={"receiver_user_id": f"eq.{user_id}", "order": "created_at.desc"},
+            headers={"apikey": settings.supabase_key}
+        ).json()
+        all_matches = sent + received
+        for m in all_matches:
+            m["sender_id"] = m.get("sender_user_id", "")
+            m["receiver_id"] = m.get("receiver_user_id", "")
+        return all_matches
+
+
+@matches_router.patch("/{match_id}/accept")
+def accept_match(match_id: int, authorization: str = Header(None)):
+    settings = get_settings()
+    user_id = _get_user_id(authorization, settings)
+    with httpx.Client() as client:
+        match_resp = client.get(
+            f"{settings.supabase_url}/rest/v1/matches",
+            params={"id": f"eq.{match_id}"},
+            headers={"apikey": settings.supabase_key}
+        )
+        matches = match_resp.json()
+        if not matches:
+            raise HTTPException(status_code=404, detail="Match not found")
+        match = matches[0]
+        if match.get("receiver_user_id") != user_id:
+            raise HTTPException(status_code=403, detail="Not authorized")
+        client.patch(
+            f"{settings.supabase_url}/rest/v1/matches",
+            params={"id": f"eq.{match_id}"},
+            json={"status": "accepted"},
+            headers={"apikey": settings.supabase_key, "Content-Type": "application/json"}
+        )
+        match["status"] = "accepted"
+        return match
+
+
+@matches_router.patch("/{match_id}/reject")
+def reject_match(match_id: int, authorization: str = Header(None)):
+    settings = get_settings()
+    user_id = _get_user_id(authorization, settings)
+    with httpx.Client() as client:
+        match_resp = client.get(
+            f"{settings.supabase_url}/rest/v1/matches",
+            params={"id": f"eq.{match_id}"},
+            headers={"apikey": settings.supabase_key}
+        )
+        matches = match_resp.json()
+        if not matches:
+            raise HTTPException(status_code=404, detail="Match not found")
+        match = matches[0]
+        if match.get("receiver_user_id") != user_id:
+            raise HTTPException(status_code=403, detail="Not authorized")
+        client.patch(
+            f"{settings.supabase_url}/rest/v1/matches",
+            params={"id": f"eq.{match_id}"},
+            json={"status": "rejected"},
+            headers={"apikey": settings.supabase_key, "Content-Type": "application/json"}
+        )
+        return {"status": "rejected"}
+
+
+app.include_router(matches_router, prefix="/api/v1")
+
+
+# ---- Messages Routes (Supabase REST) ----
+messages_router = APIRouter(prefix="/messages", tags=["Messages"])
+
+
+@messages_router.post("/")
+def send_message(data: dict, authorization: str = Header(None)):
+    settings = get_settings()
+    user_id = _get_user_id(authorization, settings)
+    receiver_id = data.get("receiver_id")
+    content = data.get("content", "").strip()
+    if not receiver_id or not content:
+        raise HTTPException(status_code=400, detail="receiver_id and content required")
+    with httpx.Client() as client:
+        resp = client.post(
+            f"{settings.supabase_url}/rest/v1/messages",
+            json={"sender_id": user_id, "receiver_id": receiver_id, "content": content},
+            headers={
+                "apikey": settings.supabase_key,
+                "Content-Type": "application/json",
+                "Prefer": "return=representation",
+            }
+        )
+        if resp.status_code >= 400:
+            raise HTTPException(status_code=resp.status_code, detail=resp.text)
+        messages = resp.json()
+        return messages[0] if messages else {"sender_id": user_id, "receiver_id": receiver_id, "content": content}
+
+
+@messages_router.get("/conversations/{target_user_id}")
+def get_conversation(target_user_id: str, authorization: str = Header(None)):
+    settings = get_settings()
+    user_id = _get_user_id(authorization, settings)
+    with httpx.Client() as client:
+        sent = client.get(
+            f"{settings.supabase_url}/rest/v1/messages",
+            params={
+                "sender_id": f"eq.{user_id}",
+                "receiver_id": f"eq.{target_user_id}",
+                "order": "created_at.asc",
+            },
+            headers={"apikey": settings.supabase_key}
+        ).json()
+        received = client.get(
+            f"{settings.supabase_url}/rest/v1/messages",
+            params={
+                "sender_id": f"eq.{target_user_id}",
+                "receiver_id": f"eq.{user_id}",
+                "order": "created_at.asc",
+            },
+            headers={"apikey": settings.supabase_key}
+        ).json()
+        all_msgs = sent + received
+        all_msgs.sort(key=lambda m: m.get("created_at", ""))
+        return all_msgs
+
+
+@messages_router.get("/conversations")
+def get_all_conversations(authorization: str = Header(None)):
+    settings = get_settings()
+    user_id = _get_user_id(authorization, settings)
+    with httpx.Client() as client:
+        sent = client.get(
+            f"{settings.supabase_url}/rest/v1/messages",
+            params={"sender_id": f"eq.{user_id}", "order": "created_at.desc"},
+            headers={"apikey": settings.supabase_key}
+        ).json()
+        received = client.get(
+            f"{settings.supabase_url}/rest/v1/messages",
+            params={"receiver_id": f"eq.{user_id}", "order": "created_at.desc"},
+            headers={"apikey": settings.supabase_key}
+        ).json()
+        user_ids = set()
+        for m in sent:
+            user_ids.add(m["receiver_id"])
+        for m in received:
+            user_ids.add(m["sender_id"])
+        conversations = []
+        all_msgs = sent + received
+        for uid in user_ids:
+            msgs = [m for m in all_msgs if m.get("sender_id") == uid or m.get("receiver_id") == uid]
+            msgs.sort(key=lambda m: m.get("created_at", ""), reverse=True)
+            last = msgs[0] if msgs else None
+            unread = sum(1 for m in received if m.get("sender_id") == uid and not m.get("is_read"))
+            conversations.append({
+                "user_id": uid,
+                "last_message": last.get("content") if last else None,
+                "last_timestamp": last.get("created_at") if last else None,
+                "unread_count": unread,
+            })
+        return conversations
+
+
+app.include_router(messages_router, prefix="/api/v1")
 
 
 @app.get("/")

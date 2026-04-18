@@ -4,10 +4,12 @@ import api from '../services/api'
 
 export default function Matches() {
   const [matches, setMatches] = useState<any[]>([])
+  const [currentUserId, setCurrentUserId] = useState<string>('')
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     loadMatches()
+    api.get('/auth/me').then(res => setCurrentUserId(res.data.id)).catch(() => {})
   }, [])
 
   const loadMatches = async () => {
@@ -109,7 +111,7 @@ export default function Matches() {
                   {accepted.map(match => (
                     <Link 
                       key={match.id} 
-                      to={`/chat/${match.sender_id === match.receiver_id ? match.sender_id : match.sender_id}`}
+                      to={`/chat/${match.sender_id === currentUserId ? match.receiver_id : match.sender_id}`}
                       className="match-card accepted"
                     >
                       <div className="match-avatar">

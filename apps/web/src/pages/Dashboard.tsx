@@ -60,10 +60,8 @@ export default function Dashboard() {
 
   const handleLike = async (candidateId: string) => {
     try {
-      const token = localStorage.getItem('token')
-      const result = await api.post('/match/', { 
-        candidate_id: candidateId,
-        auth_header: `Bearer ${token}`
+      const result = await api.post('/match/', {
+        candidate_id: candidateId
       })
       
       if (result.data.matched) {
@@ -91,7 +89,7 @@ export default function Dashboard() {
     )
   }
 
-  const displayName = profile?.display_name || user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'There'
+  const displayName = profile?.Name || profile?.display_name || user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'There'
 
   return (
     <div className="dashboard">
@@ -130,35 +128,48 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="card-grid">
-                {candidates.map((candidate: any) => (
-                  <div key={candidate.id} className="profile-card">
-                    <div className="card-image">
-                      <img 
-                        src={candidate.profile_image_url || '/default-avatar.png'} 
-                        alt={candidate.display_name}
-                      />
-                    </div>
-                    <div className="card-content">
-                      <div className="card-header">
-                        <h3>{candidate.display_name || 'New User'}</h3>
-                        <span className="age">{candidate.age || '?'}</span>
+                {candidates.map((candidate: any) => {
+                  const name = candidate.Name || candidate.display_name || 'New User'
+                  const age = candidate.Age || candidate.age
+                  const location = candidate.Location || candidate.location
+                  const interests = typeof candidate.interests === 'string'
+                    ? candidate.interests.split(',').map((s: string) => s.trim()).filter(Boolean)
+                    : Array.isArray(candidate.interests) ? candidate.interests : []
+                  const score = candidate.compatibility_score
+                  return (
+                    <div key={candidate.id || candidate.user_id} className="profile-card">
+                      <div className="card-image">
+                        <div className="card-image-placeholder">
+                          <span className="avatar-initial">{name.charAt(0).toUpperCase()}</span>
+                        </div>
+                        {score != null && (
+                          <div className="compatibility-badge">{Math.round(score)}%</div>
+                        )}
                       </div>
-                      <p className="location">📍 {candidate.location || 'Unknown'}</p>
-                      <p className="bio">{candidate.bio || 'No bio yet'}</p>
-                      <div className="interests">
-                        {candidate.interests?.slice(0, 3).map((interest: string, i: number) => (
-                          <span key={i} className="interest-tag">{interest}</span>
-                        ))}
+                      <div className="card-content">
+                        <div className="card-header">
+                          <h3>{name}</h3>
+                          {age && <span className="age">{age}</span>}
+                        </div>
+                        {location && <p className="location">{location}</p>}
+                        {candidate.bio && <p className="bio">{candidate.bio}</p>}
+                        {interests.length > 0 && (
+                          <div className="interests">
+                            {interests.slice(0, 3).map((interest: string, i: number) => (
+                              <span key={i} className="interest-tag">{interest}</span>
+                            ))}
+                          </div>
+                        )}
+                        <button
+                          onClick={() => handleLike(candidate.user_id || candidate.id)}
+                          className="like-btn"
+                        >
+                          ♡ Like
+                        </button>
                       </div>
-                      <button 
-                        onClick={() => handleLike(candidate.id)}
-                        className="like-btn"
-                      >
-                        ♡ Like
-                      </button>
                     </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             )}
           </section>

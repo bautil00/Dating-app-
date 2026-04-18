@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, Link } from 'react-router-dom'
+import { Link } from 'react-router-dom'
 import { authService } from '../services/api'
 
 export default function Register() {
@@ -8,7 +8,6 @@ export default function Register() {
   const [confirmPassword, setConfirmPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
-  const navigate = useNavigate()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -29,8 +28,7 @@ export default function Register() {
       await authService.register(email, password)
       const loginRes = await authService.login(email, password)
       localStorage.setItem('token', loginRes.data.access_token)
-      localStorage.setItem('user', JSON.stringify(loginRes.data.user))
-      navigate('/dashboard')
+      window.location.href = '/dashboard'
     } catch (err: any) {
       setError(err.response?.data?.detail || 'Registration failed')
     } finally {

@@ -21,7 +21,7 @@ def login(user: dict):
         if response.status_code >= 400:
             return JSONResponse(
                 status_code=401,
-                content={"error": "login_failed", "details": response.text[:200], "key": SUPABASE_KEY}
+                content={"error": "login_failed", "details": response.text[:200]}
             )
         
         data = response.json()
@@ -31,8 +31,3 @@ def login(user: dict):
             status_code=401,
             content={"error": str(e)[:200]}
         )
-
-
-@router.get("/test")
-def test():
-    return {"url": SUPABASE_URL, "key": SUPABASE_KEY}

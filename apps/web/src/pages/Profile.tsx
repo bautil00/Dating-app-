@@ -30,13 +30,13 @@ export default function Profile() {
   const loadProfile = async () => {
     try {
       const res = await api.get('/profiles/me')
-      if (res.data) {
+      if (res.data && res.data.is_complete !== false) {
         setFormData({
-          display_name: res.data.display_name || '',
+          display_name: res.data.Name || res.data.display_name || '',
           bio: res.data.bio || '',
-          age: res.data.age || '',
+          age: res.data.Age || res.data.age || '',
           gender: res.data.gender || '',
-          location: res.data.location || '',
+          location: res.data.Location || res.data.location || '',
           profile_image_url: res.data.profile_image_url || '',
           interests: res.data.interests || '',
           seeking_gender: res.data.seeking_gender || '',
@@ -62,30 +62,14 @@ export default function Profile() {
         ...formData,
         age: formData.age ? parseInt(formData.age) : null,
         max_distance_km: formData.max_distance_km ? parseInt(formData.max_distance_km) : 50,
-        interests: formData.interests.split(',').map(i => i.trim()).filter(Boolean)
+        interests: formData.interests,
       }
-      
+
       await api.post('/profiles/', dataToSend)
       setMessage('Profile saved!')
       setTimeout(() => navigate('/dashboard'), 1500)
     } catch (err: any) {
-      if (err.response?.status === 400) {
-        try {
-          const dataToSend = {
-            ...formData,
-            age: formData.age ? parseInt(formData.age) : null,
-            max_distance_km: formData.max_distance_km ? parseInt(formData.max_distance_km) : 50,
-            interests: formData.interests.split(',').map(i => i.trim()).filter(Boolean)
-          }
-          await api.patch('/profiles/me', dataToSend)
-          setMessage('Profile updated!')
-          setTimeout(() => navigate('/dashboard'), 1500)
-        } catch (patchErr) {
-          setMessage('Failed to update profile')
-        }
-      } else {
-        setMessage('Failed to save profile')
-      }
+      setMessage(err.response?.data?.detail || 'Failed to save profile')
     } finally {
       setSaving(false)
     }
