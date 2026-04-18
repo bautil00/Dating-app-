@@ -356,9 +356,16 @@ def create_profile(profile_data: dict, authorization: str = Header(None)):
         result = client.post(
             f"{settings.supabase_url}/rest/v1/UserData",
             json=mapped,
-            headers={"apikey": settings.supabase_key, "Content-Type": "application/json"}
+            headers={
+                "apikey": settings.supabase_key,
+                "Content-Type": "application/json",
+                "Prefer": "return=representation",
+            }
         )
-        return result.json()
+        if result.status_code >= 400:
+            raise HTTPException(status_code=result.status_code, detail=result.text)
+        data = result.json()
+        return data[0] if isinstance(data, list) and data else {"status": "created", "user_id": user_id}
 
 
 app.include_router(profiles_router, prefix="/api/v1")
