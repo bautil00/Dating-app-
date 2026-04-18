@@ -106,6 +106,3 @@ React (Vercel) → FastAPI (Vercel) → Supabase PostgreSQL
 - [ ] Real-time notifications
 - [ ] User blocking/reporting
 
-### Future (v2.0)
-- [ ] Video chat
-- [ ] Premium subscriptions
