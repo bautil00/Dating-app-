@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>BLOWTORCH – High Level Design Diagram</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', Arial, sans-serif;
+      background: #f0f4f8;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 30px 20px 40px;
+    }
+    h1 {
+      font-size: 22px;
+      color: #1a202c;
+      margin-bottom: 6px;
+      letter-spacing: 0.5px;
+    }
+    .subtitle {
+      font-size: 13px;
+      color: #718096;
+      margin-bottom: 28px;
+    }
+    svg {
+      background: #fff;
+      border-radius: 14px;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.10);
+      max-width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <h1>BLOWTORCH – High Level Design</h1>
+  <p class="subtitle">AI-Powered Dating Platform · Version 0.5 Architecture</p>
+
+  <svg width="900" height="620" viewBox="0 0 900 620" xmlns="http://www.w3.org/2000/svg">
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!--  LAYER BACKGROUNDS                              -->
+    <!-- ═══════════════════════════════════════════════ -->
+
+    <!-- Client Layer -->
+    <rect x="20" y="20" width="860" height="110" rx="10" fill="#ebf8ff" stroke="#90cdf4" stroke-width="1.5"/>
+    <text x="36" y="44" font-size="11" fill="#2b6cb0" font-weight="700" letter-spacing="1">CLIENT LAYER</text>
+
+    <!-- Application / Backend Layer -->
+    <rect x="20" y="155" width="860" height="200" rx="10" fill="#f0fff4" stroke="#9ae6b4" stroke-width="1.5"/>
+    <text x="36" y="179" font-size="11" fill="#276749" font-weight="700" letter-spacing="1">APPLICATION LAYER (FastAPI — Vercel)</text>
+
+    <!-- Data Layer -->
+    <rect x="20" y="375" width="420" height="220" rx="10" fill="#fffaf0" stroke="#fbd38d" stroke-width="1.5"/>
+    <text x="36" y="399" font-size="11" fill="#975a16" font-weight="700" letter-spacing="1">DATA LAYER (Supabase / PostgreSQL)</text>
+
+    <!-- External Services Layer -->
+    <rect x="460" y="375" width="420" height="220" rx="10" fill="#fff5f5" stroke="#feb2b2" stroke-width="1.5"/>
+    <text x="476" y="399" font-size="11" fill="#9b2c2c" font-weight="700" letter-spacing="1">EXTERNAL SERVICES</text>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!--  CLIENT LAYER — BROWSER + REACT FRONTEND        -->
+    <!-- ═══════════════════════════════════════════════ -->
+
+    <!-- Browser box -->
+    <rect x="50" y="55" width="180" height="60" rx="8" fill="#bee3f8" stroke="#63b3ed" stroke-width="1.5"/>
+    <text x="140" y="79" font-size="12" fill="#1a365d" font-weight="700" text-anchor="middle">Web Browser</text>
+    <text x="140" y="96" font-size="10" fill="#2c5282" text-anchor="middle">Chrome / Firefox / Safari</text>
+    <text x="140" y="108" font-size="10" fill="#2c5282" text-anchor="middle">Edge (Desktop + Mobile)</text>
+
+    <!-- React Frontend box -->
+    <rect x="280" y="55" width="200" height="60" rx="8" fill="#bee3f8" stroke="#63b3ed" stroke-width="1.5"/>
+    <text x="380" y="76" font-size="12" fill="#1a365d" font-weight="700" text-anchor="middle">React Frontend</text>
+    <text x="380" y="93" font-size="10" fill="#2c5282" text-anchor="middle">React + TypeScript + Vite</text>
+    <text x="380" y="108" font-size="10" fill="#2c5282" text-anchor="middle">Deployed on Vercel</text>
+
+    <!-- Pages legend -->
+    <rect x="530" y="50" width="320" height="68" rx="8" fill="#dbeafe" stroke="#93c5fd" stroke-width="1.2"/>
+    <text x="690" y="68" font-size="11" fill="#1e40af" font-weight="700" text-anchor="middle">UI Pages</text>
+    <text x="555" y="84" font-size="10" fill="#1e3a8a" text-anchor="start">• Register / Login</text>
+    <text x="555" y="97" font-size="10" fill="#1e3a8a" text-anchor="start">• Profile</text>
+    <text x="555" y="110" font-size="10" fill="#1e3a8a" text-anchor="start">• Dashboard (Swipe)</text>
+    <text x="690" y="84" font-size="10" fill="#1e3a8a" text-anchor="start">• Matches</text>
+    <text x="690" y="97" font-size="10" fill="#1e3a8a" text-anchor="start">• Chat</text>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!--  APPLICATION LAYER — API ROUTES                 -->
+    <!-- ═══════════════════════════════════════════════ -->
+
+    <!-- Route boxes -->
+    <!-- Auth -->
+    <rect x="50" y="195" width="130" height="60" rx="7" fill="#c6f6d5" stroke="#68d391" stroke-width="1.5"/>
+    <text x="115" y="218" font-size="11" fill="#22543d" font-weight="700" text-anchor="middle">/auth</text>
+    <text x="115" y="233" font-size="9.5" fill="#276749" text-anchor="middle">register · login</text>
+    <text x="115" y="246" font-size="9.5" fill="#276749" text-anchor="middle">logout · refresh</text>
+
+    <!-- Profiles -->
+    <rect x="200" y="195" width="130" height="60" rx="7" fill="#c6f6d5" stroke="#68d391" stroke-width="1.5"/>
+    <text x="265" y="218" font-size="11" fill="#22543d" font-weight="700" text-anchor="middle">/profiles</text>
+    <text x="265" y="233" font-size="9.5" fill="#276749" text-anchor="middle">GET · POST</text>
+    <text x="265" y="246" font-size="9.5" fill="#276749" text-anchor="middle">PUT · DELETE</text>
+
+    <!-- Matches -->
+    <rect x="350" y="195" width="130" height="60" rx="7" fill="#c6f6d5" stroke="#68d391" stroke-width="1.5"/>
+    <text x="415" y="218" font-size="11" fill="#22543d" font-weight="700" text-anchor="middle">/matches</text>
+    <text x="415" y="233" font-size="9.5" fill="#276749" text-anchor="middle">request · accept</text>
+    <text x="415" y="246" font-size="9.5" fill="#276749" text-anchor="middle">reject · list</text>
+
+    <!-- Messages -->
+    <rect x="500" y="195" width="130" height="60" rx="7" fill="#c6f6d5" stroke="#68d391" stroke-width="1.5"/>
+    <text x="565" y="218" font-size="11" fill="#22543d" font-weight="700" text-anchor="middle">/messages</text>
+    <text x="565" y="233" font-size="9.5" fill="#276749" text-anchor="middle">GET · POST</text>
+    <text x="565" y="246" font-size="9.5" fill="#276749" text-anchor="middle">(chat history)</text>
+
+    <!-- AI -->
+    <rect x="650" y="195" width="200" height="60" rx="7" fill="#c6f6d5" stroke="#68d391" stroke-width="1.5"/>
+    <text x="750" y="218" font-size="11" fill="#22543d" font-weight="700" text-anchor="middle">/ai</text>
+    <text x="750" y="233" font-size="9.5" fill="#276749" text-anchor="middle">compatibility-score</text>
+    <text x="750" y="246" font-size="9.5" fill="#276749" text-anchor="middle">icebreaker-generate</text>
+
+    <!-- Middleware / Auth JWT bar -->
+    <rect x="50" y="278" width="800" height="34" rx="6" fill="#9ae6b4" stroke="#48bb78" stroke-width="1.2"/>
+    <text x="450" y="300" font-size="11" fill="#22543d" font-weight="700" text-anchor="middle">JWT Auth Middleware (Supabase Auth)  ·  CORS Middleware  ·  Request Validation (Pydantic)</text>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!--  DATA LAYER                                     -->
+    <!-- ═══════════════════════════════════════════════ -->
+
+    <!-- Supabase Auth -->
+    <rect x="50" y="415" width="160" height="55" rx="7" fill="#feebc8" stroke="#f6ad55" stroke-width="1.5"/>
+    <text x="130" y="438" font-size="11" fill="#7b341e" font-weight="700" text-anchor="middle">Supabase Auth</text>
+    <text x="130" y="453" font-size="9.5" fill="#975a16" text-anchor="middle">JWT · Sessions</text>
+    <text x="130" y="465" font-size="9.5" fill="#975a16" text-anchor="middle">Row-Level Security</text>
+
+    <!-- Users table -->
+    <rect x="50" y="485" width="160" height="90" rx="7" fill="#fefcbf" stroke="#f6e05e" stroke-width="1.5"/>
+    <text x="130" y="505" font-size="11" fill="#744210" font-weight="700" text-anchor="middle">users</text>
+    <text x="60" y="521" font-size="9" fill="#744210">id, email, created_at</text>
+    <text x="60" y="534" font-size="9" fill="#744210">mbti_type, interests[]</text>
+    <text x="60" y="547" font-size="9" fill="#744210">age, gender, location</text>
+    <text x="60" y="560" font-size="9" fill="#744210">bio, avatar_url</text>
+    <text x="60" y="572" font-size="9" fill="#744210">updated_at</text>
+
+    <!-- Matches table -->
+    <rect x="230" y="415" width="160" height="160" rx="7" fill="#fefcbf" stroke="#f6e05e" stroke-width="1.5"/>
+    <text x="310" y="435" font-size="11" fill="#744210" font-weight="700" text-anchor="middle">matches</text>
+    <text x="240" y="451" font-size="9" fill="#744210">id, user_id_1</text>
+    <text x="240" y="464" font-size="9" fill="#744210">user_id_2</text>
+    <text x="240" y="477" font-size="9" fill="#744210">status (pending /</text>
+    <text x="240" y="490" font-size="9" fill="#744210">  accepted / rejected)</text>
+    <text x="240" y="503" font-size="9" fill="#744210">compatibility_score</text>
+    <text x="240" y="516" font-size="9" fill="#744210">created_at</text>
+    <text x="240" y="529" font-size="9" fill="#744210">updated_at</text>
+    <text x="310" y="555" font-size="11" fill="#744210" font-weight="700" text-anchor="middle">messages</text>
+    <text x="240" y="570" font-size="9" fill="#744210">id · match_id</text>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!--  EXTERNAL SERVICES                              -->
+    <!-- ═══════════════════════════════════════════════ -->
+
+    <!-- OpenAI API -->
+    <rect x="490" y="415" width="180" height="80" rx="7" fill="#fed7d7" stroke="#fc8181" stroke-width="1.5"/>
+    <text x="580" y="438" font-size="11" fill="#742a2a" font-weight="700" text-anchor="middle">OpenAI API</text>
+    <text x="580" y="454" font-size="9.5" fill="#9b2c2c" text-anchor="middle">Compatibility Scoring</text>
+    <text x="580" y="467" font-size="9.5" fill="#9b2c2c" text-anchor="middle">Icebreaker Generation</text>
+    <text x="580" y="480" font-size="9.5" fill="#9b2c2c" text-anchor="middle">Profile Analysis</text>
+    <text x="580" y="493" font-size="9.5" fill="#9b2c2c" text-anchor="middle">(GPT-4 / GPT-3.5-turbo)</text>
+
+    <!-- Vercel -->
+    <rect x="690" y="415" width="170" height="80" rx="7" fill="#fed7d7" stroke="#fc8181" stroke-width="1.5"/>
+    <text x="775" y="438" font-size="11" fill="#742a2a" font-weight="700" text-anchor="middle">Vercel</text>
+    <text x="775" y="454" font-size="9.5" fill="#9b2c2c" text-anchor="middle">Frontend Hosting</text>
+    <text x="775" y="467" font-size="9.5" fill="#9b2c2c" text-anchor="middle">Backend Serverless</text>
+    <text x="775" y="480" font-size="9.5" fill="#9b2c2c" text-anchor="middle">CI/CD (GitHub push)</text>
+    <text x="775" y="493" font-size="9.5" fill="#9b2c2c" text-anchor="middle">Env Secrets Mgmt</text>
+
+    <!-- GitHub -->
+    <rect x="490" y="510" width="370" height="65" rx="7" fill="#fed7d7" stroke="#fc8181" stroke-width="1.5"/>
+    <text x="675" y="532" font-size="11" fill="#742a2a" font-weight="700" text-anchor="middle">GitHub Repository</text>
+    <text x="675" y="548" font-size="9.5" fill="#9b2c2c" text-anchor="middle">Source Control · Pull Requests · Code Reviews</text>
+    <text x="675" y="562" font-size="9.5" fill="#9b2c2c" text-anchor="middle">Automated Deploy to Vercel on merge to main</text>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!--  ARROWS                                         -->
+    <!-- ═══════════════════════════════════════════════ -->
+
+    <!-- Browser → React -->
+    <line x1="230" y1="85" x2="280" y2="85" stroke="#4a90d9" stroke-width="2" marker-end="url(#arrowBlue)"/>
+
+    <!-- React → API (HTTPS) -->
+    <line x1="380" y1="115" x2="380" y2="155" stroke="#4a90d9" stroke-width="2" marker-end="url(#arrowBlue)"/>
+    <text x="390" y="140" font-size="9" fill="#2c5282">HTTPS/REST</text>
+
+    <!-- API → Middleware -->
+    <line x1="115" y1="255" x2="115" y2="278" stroke="#48bb78" stroke-width="1.5" stroke-dasharray="4,3"/>
+    <line x1="265" y1="255" x2="265" y2="278" stroke="#48bb78" stroke-width="1.5" stroke-dasharray="4,3"/>
+    <line x1="415" y1="255" x2="415" y2="278" stroke="#48bb78" stroke-width="1.5" stroke-dasharray="4,3"/>
+    <line x1="565" y1="255" x2="565" y2="278" stroke="#48bb78" stroke-width="1.5" stroke-dasharray="4,3"/>
+    <line x1="750" y1="255" x2="750" y2="278" stroke="#48bb78" stroke-width="1.5" stroke-dasharray="4,3"/>
+
+    <!-- Middleware → Supabase -->
+    <line x1="200" y1="355" x2="200" y2="415" stroke="#f6ad55" stroke-width="2" marker-end="url(#arrowOrange)"/>
+    <text x="205" y="392" font-size="9" fill="#975a16">SQL / RLS</text>
+
+    <!-- Middleware → OpenAI (AI route) -->
+    <line x1="700" y1="355" x2="580" y2="415" stroke="#fc8181" stroke-width="2" marker-end="url(#arrowRed)"/>
+    <text x="668" y="393" font-size="9" fill="#9b2c2c">HTTPS</text>
+
+    <!-- Middleware → Vercel (conceptual deploy) -->
+    <line x1="820" y1="355" x2="775" y2="415" stroke="#fc8181" stroke-width="1.5" stroke-dasharray="4,3" marker-end="url(#arrowRed)"/>
+
+    <!-- Arrow markers -->
+    <defs>
+      <marker id="arrowBlue" markerWidth="9" markerHeight="7" refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 9 3.5, 0 7" fill="#4a90d9"/>
+      </marker>
+      <marker id="arrowOrange" markerWidth="9" markerHeight="7" refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 9 3.5, 0 7" fill="#f6ad55"/>
+      </marker>
+      <marker id="arrowRed" markerWidth="9" markerHeight="7" refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 9 3.5, 0 7" fill="#fc8181"/>
+      </marker>
+      <marker id="arrowGreen" markerWidth="9" markerHeight="7" refX="9" refY="3.5" orient="auto">
+        <polygon points="0 0, 9 3.5, 0 7" fill="#68d391"/>
+      </marker>
+    </defs>
+
+    <!-- ═══════════════════════════════════════════════ -->
+    <!--  LEGEND                                         -->
+    <!-- ═══════════════════════════════════════════════ -->
+    <rect x="20" y="597" width="860" height="20" rx="4" fill="#edf2f7"/>
+    <text x="450" y="611" font-size="10" fill="#4a5568" text-anchor="middle" font-style="italic">
+      Solid arrows = primary data flow  ·  Dashed arrows = secondary / deployment flow  ·  All API calls use HTTPS + JWT Bearer tokens
+    </text>
+
+  </svg>
+</body>
+</html>
