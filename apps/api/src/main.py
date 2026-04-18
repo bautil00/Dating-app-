@@ -2,6 +2,7 @@ from fastapi import FastAPI, APIRouter, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 from typing import Optional
+import math
 from .config import get_settings
 
 app = FastAPI(title="BLOWTORCH", version="0.1.0")
@@ -190,6 +191,163 @@ Respond with just a number:"""
 
 
 app.include_router(match_router, prefix="/api/v1")
+
+
+profiles_router = APIRouter(prefix="/profiles", tags=["Profiles"])
+
+
+def haversine_distance(lat1, lon1, lat2, lon2):
+    R = 6371
+    lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
+    dlat, dlon = lat2 - lat1, lon2 - lon1
+    a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+    return R * 2 * math.asin(math.sqrt(a))
+
+
+def filter_by_gender(profiles, seeking):
+    if not seeking or seeking == 'everyone':
+        return profiles
+    if seeking == 'both':
+        return [p for p in profiles if p.get('gender') in ['Male', 'Female']]
+    return [p for p in profiles if p.get('gender', '').lower() == seeking.lower()]
+
+
+def calculate_compatibility(user_interests, candidate_interests):
+    if not user_interests or not candidate_interests:
+        return 50.0
+    user_set = set(i.strip().lower() for i in user_interests.split(",") if i.strip())
+    cand_set = set(i.strip().lower() for i in candidate_interests.split(",") if i.strip())
+    if not user_set or not cand_set:
+        return 50.0
+    overlap = len(user_set & cand_set)
+    total = len(user_set | cand_set)
+    return round((overlap / total) * 100, 1) if total > 0 else 50.0
+
+
+@profiles_router.get("/me")
+def get_my_profile(authorization: str = Header(None)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing authorization")
+    token = authorization.replace("Bearer ", "")
+    settings = get_settings()
+    
+    with httpx.Client() as client:
+        user_resp = client.get(
+            f"{settings.supabase_url}/auth/v1/user",
+            headers={"apikey": settings.supabase_key, "Authorization": f"Bearer {token}"}
+        )
+        if user_resp.status_code != 200:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        user_id = user_resp.json().get("id")
+        
+        resp = client.get(
+            f"{settings.supabase_url}/rest/v1/UserData",
+            params={"user_id": f"eq.{user_id}"},
+            headers={"apikey": settings.supabase_key}
+        )
+        profiles = resp.json()
+        if profiles:
+            return profiles[0]
+        return {"user_id": user_id, "is_complete": False}
+
+
+@profiles_router.get("/candidates")
+def get_candidates(limit: int = 10, authorization: str = Header(None)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing authorization")
+    token = authorization.replace("Bearer ", "")
+    settings = get_settings()
+    
+    with httpx.Client() as client:
+        me_resp = client.get(
+            f"{settings.supabase_url}/auth/v1/user",
+            headers={"apikey": settings.supabase_key, "Authorization": f"Bearer {token}"}
+        )
+        user_id = me_resp.json().get("id")
+        
+        my_resp = client.get(
+            f"{settings.supabase_url}/rest/v1/UserData",
+            params={"user_id": f"eq.{user_id}"},
+            headers={"apikey": settings.supabase_key}
+        )
+        if not my_resp.json():
+            raise HTTPException(status_code=404, detail="Create profile first")
+        my_profile = my_resp.json()[0]
+        
+        all_resp = client.get(
+            f"{settings.supabase_url}/rest/v1/UserData",
+            params={"is_complete": "eq.true"},
+            headers={"apikey": settings.supabase_key}
+        )
+        
+        candidates = [c for c in all_resp.json() if c.get('user_id') != user_id]
+        if not candidates:
+            return []
+        
+        seeking = my_profile.get('seeking_gender', 'everyone')
+        filtered = filter_by_gender(candidates, seeking)
+        
+        for c in filtered:
+            my_int = f"{my_profile.get('interest_1', '')},{my_profile.get('interest_2', '')},{my_profile.get('interest_3', '')}"
+            c_int = f"{c.get('interest_1', '')},{c.get('interest_2', '')},{c.get('interest_3', '')}"
+            c['compatibility_score'] = calculate_compatibility(my_int, c_int)
+        
+        filtered.sort(key=lambda x: x.get('compatibility_score', 0), reverse=True)
+        return filtered[:limit]
+
+
+@profiles_router.post("/")
+def create_profile(profile_data: dict, authorization: str = Header(None)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing authorization")
+    token = authorization.replace("Bearer ", "")
+    settings = get_settings()
+    
+    with httpx.Client() as client:
+        me_resp = client.get(
+            f"{settings.supabase_url}/auth/v1/user",
+            headers={"apikey": settings.supabase_key, "Authorization": f"Bearer {token}"}
+        )
+        user_id = me_resp.json().get("id")
+        
+        mapped = {
+            'Name': profile_data.get('display_name'),
+            'Age': profile_data.get('age'),
+            'Location': profile_data.get('location'),
+            'interest_1': profile_data.get('interest_1'),
+            'interest_2': profile_data.get('interest_2'),
+            'interest_3': profile_data.get('interest_3'),
+            'Job': profile_data.get('job'),
+            'gender': profile_data.get('gender'),
+            'seeking_gender': profile_data.get('seeking_gender', 'everyone'),
+            'max_distance_km': profile_data.get('max_distance_km', 50),
+            'is_complete': True,
+            'user_id': user_id,
+        }
+        
+        existing = client.get(
+            f"{settings.supabase_url}/rest/v1/UserData",
+            params={"user_id": f"eq.{user_id}"},
+            headers={"apikey": settings.supabase_key}
+        )
+        if existing.json():
+            client.patch(
+                f"{settings.supabase_url}/rest/v1/UserData",
+                params={"user_id": f"eq.{user_id}"},
+                json=mapped,
+                headers={"apikey": settings.supabase_key, "Content-Type": "application/json"}
+            )
+            return {"status": "updated", "user_id": user_id}
+        
+        result = client.post(
+            f"{settings.supabase_url}/rest/v1/UserData",
+            json=mapped,
+            headers={"apikey": settings.supabase_key, "Content-Type": "application/json"}
+        )
+        return result.json()
+
+
+app.include_router(profiles_router, prefix="/api/v1")
 
 
 @app.get("/")
