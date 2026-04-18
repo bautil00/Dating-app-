@@ -166,8 +166,8 @@ Respond with just a number:"""
             save_resp = client.post(
                 f"{settings.supabase_url}/rest/v1/matches",
                 json={
-                    "sender_user_id": my_id,
-                    "receiver_user_id": candidate_id,
+                    "sender_id": my_id,
+                    "receiver_id": candidate_id,
                     "status": "pending",
                     "compatibility_score": compatibility_score
                 },
@@ -177,7 +177,7 @@ Respond with just a number:"""
             is_match = False
             existing_like = client.get(
                 f"{settings.supabase_url}/rest/v1/matches",
-                params={"sender_user_id": f"eq.{candidate_id}", "receiver_user_id": f"eq.{my_id}"},
+                params={"sender_id": f"eq.{candidate_id}", "receiver_id": f"eq.{my_id}"},
                 headers=rls_headers,
             )
 
@@ -187,7 +187,7 @@ Respond with just a number:"""
                     is_match = True
                     client.patch(
                         f"{settings.supabase_url}/rest/v1/matches",
-                        params={"sender_user_id": f"eq.{candidate_id}", "receiver_user_id": f"eq.{my_id}"},
+                        params={"sender_id": f"eq.{candidate_id}", "receiver_id": f"eq.{my_id}"},
                         json={"status": "matched"},
                         headers=rls_headers,
                     )
@@ -405,19 +405,15 @@ def get_my_matches(authorization: str = Header(None)):
     with httpx.Client() as client:
         sent = client.get(
             f"{settings.supabase_url}/rest/v1/matches",
-            params={"sender_user_id": f"eq.{user_id}", "order": "created_at.desc"},
+            params={"sender_id": f"eq.{user_id}", "order": "created_at.desc"},
             headers=rls_headers,
         ).json()
         received = client.get(
             f"{settings.supabase_url}/rest/v1/matches",
-            params={"receiver_user_id": f"eq.{user_id}", "order": "created_at.desc"},
+            params={"receiver_id": f"eq.{user_id}", "order": "created_at.desc"},
             headers=rls_headers,
         ).json()
-        all_matches = sent + received
-        for m in all_matches:
-            m["sender_id"] = m.get("sender_user_id", "")
-            m["receiver_id"] = m.get("receiver_user_id", "")
-        return all_matches
+        return sent + received
 
 
 @matches_router.patch("/{match_id}/accept")
@@ -435,7 +431,7 @@ def accept_match(match_id: int, authorization: str = Header(None)):
         if not matches:
             raise HTTPException(status_code=404, detail="Match not found")
         match = matches[0]
-        if match.get("receiver_user_id") != user_id:
+        if match.get("receiver_id") != user_id:
             raise HTTPException(status_code=403, detail="Not authorized")
         client.patch(
             f"{settings.supabase_url}/rest/v1/matches",
@@ -462,7 +458,7 @@ def reject_match(match_id: int, authorization: str = Header(None)):
         if not matches:
             raise HTTPException(status_code=404, detail="Match not found")
         match = matches[0]
-        if match.get("receiver_user_id") != user_id:
+        if match.get("receiver_id") != user_id:
             raise HTTPException(status_code=403, detail="Not authorized")
         client.patch(
             f"{settings.supabase_url}/rest/v1/matches",
