@@ -27,14 +27,10 @@ jobs:
       - name: Build
         run: npm run build
         working-directory: apps/web
-        env:
-          VITE_API_URL: ${{ vars.VERCEL_API_URL }}
 
       - name: Deploy to Vercel
-        uses: amond-dev/vercel-action@v2
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-project-id: ${{ secrets.VERCEL_FRONTEND_PROJECT_ID }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-args: '--prod'
-          working-directory: apps/web
+        run: |
+          cd apps/web
+          vercel --prod --token ${{ secrets.VERCEL_TOKEN }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}

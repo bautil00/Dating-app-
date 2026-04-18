@@ -17,15 +17,12 @@ jobs:
         run: npm install -g vercel
 
       - name: Deploy to Vercel
-        uses: amond-dev/vercel-action@v2
-        with:
-          vercel-token: ${{ secrets.VERCEL_TOKEN }}
-          vercel-project-id: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
-          vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
-          vercel-args: '--prod'
-          working-directory: apps/api
-          vercel-env: |
-            SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
-            SUPABASE_KEY: ${{ secrets.SUPABASE_KEY }}
-            SUPABASE_SERVICE_KEY: ${{ secrets.SUPABASE_SERVICE_KEY }}
-            OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          cd apps/api
+          vercel --prod --token ${{ secrets.VERCEL_TOKEN }} \
+            -e SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
+            -e SUPABASE_KEY=${{ secrets.SUPABASE_KEY }} \
+            -e SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }} \
+            -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
