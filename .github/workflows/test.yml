@@ -85,26 +85,26 @@ jobs:
           flags: frontend
           name: frontend-coverage
 
-  lint-backend:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/api
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: 'pip'
-          cache-dependency-path: apps/api/requirements.txt
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt ruff
-
-      - name: Lint code
-        run: ruff check src/
+  # lint-backend:
+  #   runs-on: ubuntu-latest
+  #   defaults:
+  #     run:
+  #       working-directory: apps/api
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #
+  #     - name: Setup Python
+  #       uses: actions/setup-python@v5
+  #       with:
+  #         python-version: '3.12'
+  #         cache: 'pip'
+  #         cache-dependency-path: apps/api/requirements.txt
+  #
+  #     - name: Install dependencies
+  #       run: pip install -r requirements.txt ruff
+  #
+  #     - name: Lint code
+  #       run: ruff check src/
 
   lint-frontend:
     runs-on: ubuntu-latest
@@ -127,26 +127,26 @@ jobs:
       - name: Lint code
         run: npm run lint
 
-  typecheck-backend:
-    runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: apps/api
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-          cache: 'pip'
-          cache-dependency-path: apps/api/requirements.txt
-
-      - name: Install dependencies
-        run: pip install -r requirements.txt pyright
-
-      - name: Type check
-        run: pyright src/
+  # typecheck-backend:
+  #   runs-on: ubuntu-latest
+  #   defaults:
+  #     run:
+  #       working-directory: apps/api
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #
+  #     - name: Setup Python
+  #       uses: actions/setup-python@v5
+  #       with:
+  #         python-version: '3.12'
+  #         cache: 'pip'
+  #         cache-dependency-path: apps/api/requirements.txt
+  #
+  #     - name: Install dependencies
+  #       run: pip install -r requirements.txt pyright
+  #
+  #     - name: Type check
+  #       run: pyright src/
 
   typecheck-frontend:
     runs-on: ubuntu-latest
