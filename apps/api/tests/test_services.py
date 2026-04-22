@@ -37,7 +37,7 @@ class TestRecommendationService:
         score = svc.calculate_compatibility_score("", "", "", "")
         assert score == 0.0
 
-def test_compatibility_personality_match(self):
+    def test_compatibility_personality_match(self):
         from src.services.recommendation_service import RecommendationService
         svc = RecommendationService()
         score = svc.calculate_compatibility_score(

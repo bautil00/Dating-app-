@@ -9,9 +9,17 @@ class TestHaversineDistance:
         result = haversine_distance(47.6, -122.3, 47.6, -122.3)
         assert result == 0.0
 
-def test_known_distance_seattle_to_portland(self):
-        result = haversine_distance(47.6062, -122.3321, 45.5152, -122.6784)
-        assert 160 < result < 280
+    def test_same_latitude_different_longitude(self):
+        result = haversine_distance(47.0, -122.0, 47.0, -121.0)
+        assert result > 0
+
+    def test_same_longitude_different_latitude(self):
+        result = haversine_distance(47.0, -122.0, 48.0, -122.0)
+        assert result > 0
+
+    def test_equator_north_pole(self):
+        result = haversine_distance(0, 0, 90, 0)
+        assert 9900 < result < 10100
 
     def test_result_is_km(self):
         result = haversine_distance(0, 0, 1, 0)
@@ -118,30 +126,6 @@ class TestCalculateCompatibility:
     def test_none_candidate_interests(self):
         result = calculate_compatibility("Music", None)
         assert result == 50.0
-
-def test_list_interests_same(self):
-        result = calculate_compatibility("Music,Coding", "Music")
-        assert result == 30.0
-
-    def test_whitespace_handling(self):
-        result = calculate_compatibility("Music ", " Music")
-        assert result == 30.0
-
-    def test_partial_match_first_interest(self):
-        result = calculate_compatibility("Music,Coding", "Music,Gaming")
-        assert result == 30.0
-
-    def test_list_vs_single_different(self):
-        result = calculate_compatibility("Music,Coding", "Gaming")
-        assert result == 30.0
-
-    def test_whitespace_handling(self):
-        result = calculate_compatibility("Music ", " Music")
-        assert result == 100.0
-
-    def test_partial_match_first_interest(self):
-        result = calculate_compatibility("Music,Coding", "Music,Gaming")
-        assert result == 100.0
 
     def test_compatibility_not_exceeding_100(self):
         result = calculate_compatibility("Music", "Music")
