@@ -81,123 +81,25 @@ def get_user_from_token(authorization: str = Header(None)):
 
 @match_router.post("/")
 def like_candidate(data: dict, authorization: str = Header(None)):
-    """
-    Like a candidate. Flow:
-    1. Get current user's profile & preferences
-    2. Get candidate's profile
-    3. Call OpenRouter to score compatibility (if API key exists)
-    4. Save match to database
-    5. Return if it's a match (both liked each other)
-    """
     settings = get_settings()
-    candidate_id = data.get("candidate_id")
-
+    candidate_id = data.get("candidate_id") or data.get("receiver_id")
     if not candidate_id:
         raise HTTPException(status_code=400, detail="candidate_id required")
 
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Missing authorization")
-
-    token = authorization.replace("Bearer ", "").strip()
-    
-    try:
-        with httpx.Client() as client:
-            me_resp = client.get(
-                f"{settings.supabase_url}/auth/v1/user",
-                headers={"apikey": settings.supabase_key, "Authorization": f"Bearer {token}"}
-            )
-            my_user = me_resp.json()
-            my_id = my_user.get("id")
-            
-            my_profile_resp = client.get(
-                f"{settings.supabase_url}/rest/v1/UserData",
-                params={"user_id": f"eq.{my_id}"},
-                headers={"apikey": settings.supabase_key}
-            )
-            my_profile = my_profile_resp.json()[0] if my_profile_resp.json() else {}
-            
-            candidate_resp = client.get(
-                f"{settings.supabase_url}/rest/v1/UserData",
-                params={"user_id": f"eq.{candidate_id}"},
-                headers={"apikey": settings.supabase_key}
-            )
-            candidate = candidate_resp.json()[0] if candidate_resp.json() else None
-            
-            if not candidate:
-                raise HTTPException(status_code=404, detail="Candidate not found")
-            
-            compatibility_score = 50.0
-            if settings.openrouter_api_key and my_profile and candidate:
-                my_interests = my_profile.get('interests', '')
-                cand_interests = candidate.get('interests', '')
-                
-                prompt = f"""Rate compatibility between these two people from 0-100:
-Person A interests: {my_interests}
-Person B interests: {cand_interests}
-
-Respond with just a number:"""
-                
-                try:
-                    or_resp = client.post(
-                        "https://openrouter.ai/api/v1/chat/completions",
-                        json={
-                            "model": "openai/gpt-3.5-turbo",
-                            "messages": [{"role": "user", "content": prompt}],
-                            "max_tokens": 5
-                        },
-                        headers={"Authorization": f"Bearer {settings.openrouter_api_key}", "Content-Type": "application/json"}
-                    )
-                    if or_resp.status_code == 200:
-                        content = or_resp.json().get("choices", [{}])[0].get("message", {}).get("content", "")
-                        try:
-                            compatibility_score = float(content.strip())
-                        except (ValueError, TypeError):
-                            pass
-                except Exception:
-                    pass
-            
-            # Pass user's token for RLS-protected tables
-            rls_headers = {
-                "apikey": settings.supabase_key,
-                "Authorization": f"Bearer {token}",
-                "Content-Type": "application/json",
-            }
-
-            save_resp = client.post(
-                f"{settings.supabase_url}/rest/v1/matches",
-                json={
-                    "sender_id": my_id,
-                    "receiver_id": candidate_id,
-                    "status": "pending",
-                    "compatibility_score": compatibility_score
-                },
-                headers=rls_headers,
-            )
-
-            is_match = False
-            existing_like = client.get(
-                f"{settings.supabase_url}/rest/v1/matches",
-                params={"sender_id": f"eq.{candidate_id}", "receiver_id": f"eq.{my_id}"},
-                headers=rls_headers,
-            )
-
-            if existing_like.json():
-                existing = existing_like.json()[0]
-                if existing.get("status") == "pending":
-                    is_match = True
-                    client.patch(
-                        f"{settings.supabase_url}/rest/v1/matches",
-                        params={"sender_id": f"eq.{candidate_id}", "receiver_id": f"eq.{my_id}"},
-                        json={"status": "matched"},
-                        headers=rls_headers,
-                    )
-            
-            return {"matched": is_match, "candidate_id": candidate_id, "status": "liked", "compatibility_score": compatibility_score}
-            
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=400, detail=str(e))
+    user_id, token = _get_user_id_and_token(authorization, settings)
+    result = _create_or_update_match(
+        settings=settings,
+        token=token,
+        sender_id=user_id,
+        receiver_id=str(candidate_id),
+    )
+    return {
+        "matched": result["matched"],
+        "candidate_id": str(candidate_id),
+        "status": "liked",
+        "match_id": result.get("id"),
+        "compatibility_score": result.get("compatibility_score"),
+    }
 
 
 app.include_router(match_router, prefix="/api/v1")
@@ -397,6 +299,169 @@ def _get_user_id_and_token(authorization: str, settings):
         return resp.json().get("id"), token
 
 
+def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: str):
+    if not receiver_id:
+        raise HTTPException(status_code=400, detail="receiver_id required")
+    if sender_id == receiver_id:
+        raise HTTPException(status_code=400, detail="Cannot match with yourself")
+
+    base_headers = {
+        "apikey": settings.supabase_key,
+        "Authorization": f"Bearer {token}",
+    }
+    write_headers = {
+        **base_headers,
+        "Content-Type": "application/json",
+        "Prefer": "return=representation",
+    }
+
+    with httpx.Client() as client:
+        my_profile_resp = client.get(
+            f"{settings.supabase_url}/rest/v1/UserData",
+            params={"user_id": f"eq.{sender_id}"},
+            headers=base_headers,
+        )
+        my_profiles = my_profile_resp.json() if my_profile_resp.status_code < 400 else []
+        my_profile = my_profiles[0] if my_profiles else {}
+
+        receiver_profile_resp = client.get(
+            f"{settings.supabase_url}/rest/v1/UserData",
+            params={"user_id": f"eq.{receiver_id}"},
+            headers=base_headers,
+        )
+        receiver_profiles = (
+            receiver_profile_resp.json() if receiver_profile_resp.status_code < 400 else []
+        )
+        if not receiver_profiles:
+            raise HTTPException(status_code=404, detail="Candidate not found")
+        receiver_profile = receiver_profiles[0]
+
+        compatibility_score = calculate_compatibility(
+            my_profile.get("interests", ""),
+            receiver_profile.get("interests", ""),
+        )
+
+        outgoing_resp = client.get(
+            f"{settings.supabase_url}/rest/v1/matches",
+            params={
+                "sender_id": f"eq.{sender_id}",
+                "receiver_id": f"eq.{receiver_id}",
+                "order": "created_at.desc",
+                "limit": 1,
+            },
+            headers=base_headers,
+        )
+        outgoing_rows = outgoing_resp.json() if outgoing_resp.status_code < 400 else []
+        outgoing = outgoing_rows[0] if outgoing_rows else None
+
+        if outgoing and outgoing.get("status") in {"accepted", "matched"}:
+            return {
+                **outgoing,
+                "matched": True,
+                "compatibility_score": outgoing.get("compatibility_score", compatibility_score),
+            }
+
+        if not outgoing:
+            fallback_payload = {
+                "sender_id": sender_id,
+                "receiver_id": receiver_id,
+                "status": "pending",
+            }
+            insert_payload = {
+                "sender_id": sender_id,
+                "receiver_id": receiver_id,
+                "status": "pending",
+                "compatibility_score": compatibility_score,
+            }
+            save_resp = client.post(
+                f"{settings.supabase_url}/rest/v1/matches",
+                json=insert_payload,
+                headers=write_headers,
+            )
+
+            # Handle older schemas where compatibility_score may not exist.
+            if save_resp.status_code >= 400:
+                save_resp = client.post(
+                    f"{settings.supabase_url}/rest/v1/matches",
+                    json=fallback_payload,
+                    headers=write_headers,
+                )
+
+            if save_resp.status_code >= 400:
+                raise HTTPException(status_code=save_resp.status_code, detail=save_resp.text)
+
+            saved_rows = save_resp.json()
+            outgoing = saved_rows[0] if isinstance(saved_rows, list) and saved_rows else fallback_payload
+        elif outgoing.get("status") == "rejected":
+            reset_resp = client.patch(
+                f"{settings.supabase_url}/rest/v1/matches",
+                params={"id": f"eq.{outgoing.get('id')}"},
+                json={"status": "pending"},
+                headers={**base_headers, "Content-Type": "application/json"},
+            )
+            if reset_resp.status_code < 400:
+                outgoing["status"] = "pending"
+
+        reciprocal_resp = client.get(
+            f"{settings.supabase_url}/rest/v1/matches",
+            params={
+                "sender_id": f"eq.{receiver_id}",
+                "receiver_id": f"eq.{sender_id}",
+                "order": "created_at.desc",
+                "limit": 1,
+            },
+            headers=base_headers,
+        )
+        reciprocal_rows = reciprocal_resp.json() if reciprocal_resp.status_code < 400 else []
+        reciprocal = reciprocal_rows[0] if reciprocal_rows else None
+
+        matched = bool(reciprocal and reciprocal.get("status") != "rejected")
+        if matched:
+            patch_headers = {**base_headers, "Content-Type": "application/json"}
+            client.patch(
+                f"{settings.supabase_url}/rest/v1/matches",
+                params={"sender_id": f"eq.{sender_id}", "receiver_id": f"eq.{receiver_id}"},
+                json={"status": "accepted"},
+                headers=patch_headers,
+            )
+            client.patch(
+                f"{settings.supabase_url}/rest/v1/matches",
+                params={"sender_id": f"eq.{receiver_id}", "receiver_id": f"eq.{sender_id}"},
+                json={"status": "accepted"},
+                headers=patch_headers,
+            )
+            outgoing["status"] = "accepted"
+
+        outgoing["compatibility_score"] = outgoing.get("compatibility_score", compatibility_score)
+        outgoing["matched"] = matched
+        return outgoing
+
+
+@matches_router.post("/")
+def create_match(data: dict, authorization: str = Header(None)):
+    settings = get_settings()
+    receiver_id = data.get("receiver_id") or data.get("candidate_id")
+    if not receiver_id:
+        raise HTTPException(status_code=400, detail="receiver_id required")
+
+    user_id, token = _get_user_id_and_token(authorization, settings)
+    result = _create_or_update_match(
+        settings=settings,
+        token=token,
+        sender_id=user_id,
+        receiver_id=str(receiver_id),
+    )
+    return {
+        "id": result.get("id"),
+        "sender_id": result.get("sender_id", user_id),
+        "receiver_id": result.get("receiver_id", str(receiver_id)),
+        "status": result.get("status", "pending"),
+        "matched": result.get("matched", False),
+        "compatibility_score": result.get("compatibility_score"),
+        "created_at": result.get("created_at"),
+    }
+
+
 @matches_router.get("/")
 def get_my_matches(authorization: str = Header(None)):
     settings = get_settings()
@@ -568,6 +633,159 @@ def get_all_conversations(authorization: str = Header(None)):
 
 
 app.include_router(messages_router, prefix="/api/v1")
+
+
+# ---- AI Routes (OpenRouter + fallback) ----
+ai_router = APIRouter(prefix="/ai", tags=["AI"])
+
+
+def _normalize_interests(raw_value):
+    if not raw_value:
+        return []
+    if isinstance(raw_value, list):
+        values = raw_value
+    else:
+        values = str(raw_value).split(",")
+    return [str(v).strip() for v in values if str(v).strip()]
+
+
+def _fallback_icebreaker(my_interests, target_interests):
+    my_set = {i.lower() for i in _normalize_interests(my_interests)}
+    target_set = {i.lower() for i in _normalize_interests(target_interests)}
+    shared = sorted(my_set & target_set)
+    if shared:
+        topic = shared[0].capitalize()
+        return f"I noticed we both like {topic}. What got you into it?"
+    return "Hey, glad we matched. What does your ideal weekend look like?"
+
+
+def _generate_ai_icebreaker(settings, my_interests, target_interests):
+    if not settings.openrouter_api_key:
+        return None
+
+    prompt = (
+        "Write one short dating-app icebreaker under 30 words. "
+        "Keep it friendly, specific, and natural. "
+        f"Person A interests: {my_interests or 'general topics'}. "
+        f"Person B interests: {target_interests or 'general topics'}."
+    )
+
+    try:
+        with httpx.Client() as client:
+            resp = client.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                json={
+                    "model": "google/gemma-4-31b-it:free",
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "You are a concise assistant that writes one-line icebreakers.",
+                        },
+                        {"role": "user", "content": prompt},
+                    ],
+                    "max_tokens": 80,
+                },
+                headers={
+                    "Authorization": f"Bearer {settings.openrouter_api_key}",
+                    "Content-Type": "application/json",
+                },
+                timeout=20,
+            )
+            if resp.status_code >= 400:
+                return None
+            content = (
+                resp.json()
+                .get("choices", [{}])[0]
+                .get("message", {})
+                .get("content", "")
+                .strip()
+            )
+            return content or None
+    except Exception:
+        return None
+
+
+@ai_router.get("/icebreaker/{target_user_id}")
+def get_icebreaker(target_user_id: str, authorization: str = Header(None)):
+    settings = get_settings()
+    user_id, token = _get_user_id_and_token(authorization, settings)
+    headers = {"apikey": settings.supabase_key, "Authorization": f"Bearer {token}"}
+
+    with httpx.Client() as client:
+        my_profile_resp = client.get(
+            f"{settings.supabase_url}/rest/v1/UserData",
+            params={"user_id": f"eq.{user_id}"},
+            headers=headers,
+        )
+        my_profiles = my_profile_resp.json() if my_profile_resp.status_code < 400 else []
+        if not my_profiles:
+            raise HTTPException(status_code=400, detail="Create your profile first")
+
+        target_profile_resp = client.get(
+            f"{settings.supabase_url}/rest/v1/UserData",
+            params={"user_id": f"eq.{target_user_id}"},
+            headers=headers,
+        )
+        target_profiles = (
+            target_profile_resp.json() if target_profile_resp.status_code < 400 else []
+        )
+        if not target_profiles:
+            raise HTTPException(status_code=404, detail="Target profile not found")
+
+        sent_match = client.get(
+            f"{settings.supabase_url}/rest/v1/matches",
+            params={"sender_id": f"eq.{user_id}", "receiver_id": f"eq.{target_user_id}"},
+            headers=headers,
+        ).json()
+        received_match = client.get(
+            f"{settings.supabase_url}/rest/v1/matches",
+            params={"sender_id": f"eq.{target_user_id}", "receiver_id": f"eq.{user_id}"},
+            headers=headers,
+        ).json()
+        if not (sent_match or received_match):
+            raise HTTPException(status_code=403, detail="Users must match before requesting an icebreaker")
+
+        my_interests = my_profiles[0].get("interests", "")
+        target_interests = target_profiles[0].get("interests", "")
+        ai_text = _generate_ai_icebreaker(settings, my_interests, target_interests)
+        return {"icebreaker": ai_text or _fallback_icebreaker(my_interests, target_interests)}
+
+
+@ai_router.get("/compatibility/{target_user_id}")
+def get_compatibility(target_user_id: str, authorization: str = Header(None)):
+    settings = get_settings()
+    user_id, token = _get_user_id_and_token(authorization, settings)
+    headers = {"apikey": settings.supabase_key, "Authorization": f"Bearer {token}"}
+
+    with httpx.Client() as client:
+        my_profile_resp = client.get(
+            f"{settings.supabase_url}/rest/v1/UserData",
+            params={"user_id": f"eq.{user_id}"},
+            headers=headers,
+        )
+        my_profiles = my_profile_resp.json() if my_profile_resp.status_code < 400 else []
+        if not my_profiles:
+            raise HTTPException(status_code=400, detail="Create your profile first")
+
+        target_profile_resp = client.get(
+            f"{settings.supabase_url}/rest/v1/UserData",
+            params={"user_id": f"eq.{target_user_id}"},
+            headers=headers,
+        )
+        target_profiles = (
+            target_profile_resp.json() if target_profile_resp.status_code < 400 else []
+        )
+        if not target_profiles:
+            raise HTTPException(status_code=404, detail="Target profile not found")
+
+        score = calculate_compatibility(
+            my_profiles[0].get("interests", ""),
+            target_profiles[0].get("interests", ""),
+        )
+        return {"profile_id": target_user_id, "compatibility_score": score}
+
+
+app.include_router(ai_router, prefix="/api/v1")
 
 
 @app.get("/")

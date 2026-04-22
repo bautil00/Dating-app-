@@ -23,28 +23,44 @@ export default function Matches() {
     }
   }
 
-  const handleAccept = async (matchId: string) => {
+  const handleAccept = async (matchId: number) => {
     try {
       await api.patch(`/matches/${matchId}/accept`)
-      setMatches(matches.map(m => 
-        m.id === matchId ? { ...m, status: 'accepted' } : m
-      ))
+      setMatches(prev =>
+        prev.map(m => (m.id === matchId ? { ...m, status: 'accepted' } : m))
+      )
     } catch (err) {
       console.error('Failed to accept:', err)
     }
   }
 
-  const handleReject = async (matchId: string) => {
+  const handleReject = async (matchId: number) => {
     try {
       await api.patch(`/matches/${matchId}/reject`)
-      setMatches(matches.filter(m => m.id !== matchId))
+      setMatches(prev => prev.filter(m => m.id !== matchId))
     } catch (err) {
       console.error('Failed to reject:', err)
     }
   }
 
-  const pending = matches.filter(m => m.status === 'pending')
-  const accepted = matches.filter(m => m.status === 'accepted')
+  const pendingIncoming = matches.filter(
+    m => m.status === 'pending' && String(m.receiver_id) === String(currentUserId)
+  )
+  const pendingOutgoing = matches.filter(
+    m => m.status === 'pending' && String(m.sender_id) === String(currentUserId)
+  )
+
+  const acceptedMap = new Map<string, any>()
+  matches.forEach((m) => {
+    if (m.status !== 'accepted' && m.status !== 'matched') return
+    const otherUserId = String(m.sender_id) === String(currentUserId)
+      ? String(m.receiver_id)
+      : String(m.sender_id)
+    if (!acceptedMap.has(otherUserId)) {
+      acceptedMap.set(otherUserId, m)
+    }
+  })
+  const accepted = Array.from(acceptedMap.values())
 
   if (loading) {
     return (
@@ -72,11 +88,11 @@ export default function Matches() {
           </div>
         ) : (
           <>
-            {pending.length > 0 && (
+            {pendingIncoming.length > 0 && (
               <section className="matches-section">
                 <h2>Pending Requests</h2>
                 <div className="matches-list">
-                  {pending.map(match => (
+                  {pendingIncoming.map(match => (
                     <div key={match.id} className="match-card pending">
                       <div className="match-info">
                         <span className="match-name">User #{match.sender_id}</span>
@@ -97,6 +113,24 @@ export default function Matches() {
                         >
                           Pass
                         </button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {pendingOutgoing.length > 0 && (
+              <section className="matches-section">
+                <h2>Waiting For Response</h2>
+                <div className="matches-list">
+                  {pendingOutgoing.map(match => (
+                    <div key={match.id} className="match-card pending">
+                      <div className="match-info">
+                        <span className="match-name">User #{match.receiver_id}</span>
+                        <span className="match-time">
+                          Sent {new Date(match.created_at).toLocaleDateString()}
+                        </span>
                       </div>
                     </div>
                   ))}

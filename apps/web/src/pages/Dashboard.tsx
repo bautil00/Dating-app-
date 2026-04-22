@@ -62,15 +62,34 @@ export default function Dashboard() {
 
   const handleLike = async (candidateId: string) => {
     try {
-      const result = await api.post('/match/', {
-        candidate_id: candidateId
+      const result = await api.post('/matches/', {
+        receiver_id: candidateId
       })
       
       if (result.data.matched) {
         alert(`It's a MATCH! You can now chat! 🎉`)
       }
       
-      setCandidates(candidates.filter(c => c.id !== candidateId))
+      setCandidates(prev =>
+        prev.filter(c => String(c.user_id ?? c.id) !== String(candidateId))
+      )
+
+      setMatches(prev => {
+        const exists = prev.some(
+          (m) =>
+            String(m.sender_id) === String(result.data.sender_id) &&
+            String(m.receiver_id) === String(result.data.receiver_id)
+        )
+        if (exists) {
+          return prev.map((m) =>
+            String(m.sender_id) === String(result.data.sender_id) &&
+            String(m.receiver_id) === String(result.data.receiver_id)
+              ? { ...m, ...result.data }
+              : m
+          )
+        }
+        return [result.data, ...prev]
+      })
     } catch (err) {
       console.error('Failed to like:', err)
     }
@@ -92,6 +111,15 @@ export default function Dashboard() {
   }
 
   const displayName = profile?.Name || profile?.display_name || user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'There'
+  const uniqueMatchCount = user?.id
+    ? new Set(
+        matches.map((m) =>
+          String(m.sender_id) === String(user.id)
+            ? String(m.receiver_id)
+            : String(m.sender_id)
+        )
+      ).size
+    : matches.length
 
   return (
     <div className="dashboard">
@@ -102,7 +130,7 @@ export default function Dashboard() {
         </div>
         <div className="nav-links">
           <Link to="/dashboard" className="active">Discover</Link>
-          <Link to="/matches">Matches ({matches.length})</Link>
+          <Link to="/matches">Matches ({uniqueMatchCount})</Link>
           <button onClick={handleLogout} className="logout-btn">Logout</button>
         </div>
       </nav>
