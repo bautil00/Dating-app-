@@ -26,9 +26,9 @@ class TestIcebreaker:
         user_resp = _make_resp(200, {"id": "alice"})
         my_profile = _make_resp(200, [{"user_id": "alice", "interests": "Music"}])
         target_profile = _make_resp(200, [{"user_id": "bob", "interests": "Music"}])
-        no_match = _make_resp(200, [])
+        sent_match = _make_resp(200, [{"sender_id": "alice", "receiver_id": "bob", "status": "pending"}])
 
-        mock = _mock_httpx(get_returns=[user_resp, my_profile, target_profile, no_match, no_match])
+        mock = _mock_httpx(get_returns=[user_resp, my_profile, target_profile, sent_match, sent_match])
         with patch("httpx.Client", return_value=mock):
             with patch("src.main._generate_ai_icebreaker", return_value=None):
                 res = client.get("/api/v1/ai/icebreaker/bob", headers={
@@ -42,9 +42,9 @@ class TestIcebreaker:
         user_resp = _make_resp(200, {"id": "alice"})
         my_profile = _make_resp(200, [{"user_id": "alice", "interests": "Gaming"}])
         target_profile = _make_resp(200, [{"user_id": "bob", "interests": "Gaming"}])
-        no_match = _make_resp(200, [])
+        sent_match = _make_resp(200, [{"sender_id": "alice", "receiver_id": "bob", "status": "pending"}])
 
-        mock = _mock_httpx(get_returns=[user_resp, my_profile, target_profile, no_match, no_match])
+        mock = _mock_httpx(get_returns=[user_resp, my_profile, target_profile, sent_match, sent_match])
         with patch("httpx.Client", return_value=mock):
             with patch("src.main._generate_ai_icebreaker", return_value="Hey, love gaming!"):
                 res = client.get("/api/v1/ai/icebreaker/bob", headers={

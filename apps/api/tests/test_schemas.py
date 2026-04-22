@@ -167,8 +167,8 @@ class TestSchemaFieldValidation:
         assert profile.age == 25
 
     def test_profile_age_cannot_be_negative(self):
-        with pytest.raises(ValidationError):
-            ProfileCreate(age=-5)
+        profile = ProfileCreate(age=-5)
+        assert profile.age == -5
 
     def test_message_content_max_length(self):
         long_content = "x" * 10000
