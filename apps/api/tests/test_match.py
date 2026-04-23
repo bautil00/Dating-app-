@@ -37,9 +37,13 @@ class TestLikeCandidate:
             post_returns=[save_resp],
         )
         with patch("httpx.Client", return_value=mock):
-            res = client.post("/api/v1/match/", json={
-                "candidate_id": "bob"
-            }, headers={"Authorization": "Bearer tok"})
+            with patch("src.main.get_settings") as mock_settings:
+                mock_settings.return_value.supabase_url = "https://fake.supabase.co"
+                mock_settings.return_value.supabase_key = "fake-key"
+                mock_settings.return_value.openrouter_api_key = None
+                res = client.post("/api/v1/match/", json={
+                    "candidate_id": "bob"
+                }, headers={"Authorization": "Bearer tok"})
 
         assert res.status_code == 200
         assert res.json()["matched"] is False

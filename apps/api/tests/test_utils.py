@@ -94,6 +94,13 @@ class TestFilterByGender:
         assert result == []
 
 
+@pytest.fixture(autouse=True)
+def disable_ai():
+    from unittest.mock import patch
+    with patch("src.main.get_settings") as mock_settings:
+        mock_settings.return_value.openrouter_api_key = None
+        yield mock_settings
+
 class TestCalculateCompatibility:
     def test_identical_interests(self):
         result = calculate_compatibility("Music", "Music")
