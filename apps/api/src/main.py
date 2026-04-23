@@ -1,11 +1,22 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Header
+from fastapi import FastAPI, APIRouter, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 from typing import Optional
 import math
+import json
+import re
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from slowapi.middleware import SlowAPIMiddleware
 from .config import get_settings
 
+limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 app = FastAPI(title="BLOWTORCH", version="0.1.0")
+
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_middleware(SlowAPIMiddleware)
 
 app.add_middleware(
     CORSMiddleware,
@@ -127,6 +138,33 @@ def filter_by_gender(profiles, seeking):
 def calculate_compatibility(user_interests, candidate_interests):
     if not user_interests or not candidate_interests:
         return 50.0
+    
+    settings = get_settings()
+    if settings.openrouter_api_key:
+        prompt = f"You are a dating compatibility AI. Given two profiles' interests, return ONLY a single integer score between 0 and 100 representing their compatibility. Do not include any explanation or additional text. Profile 1 interests: {user_interests}. Profile 2 interests: {candidate_interests}."
+        try:
+            with httpx.Client() as client:
+                resp = client.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    json={
+                        "model": "tencent/hy3-preview:free",
+                        "messages": [{"role": "user", "content": prompt}],
+                        "max_tokens": 20,
+                    },
+                    headers={
+                        "Authorization": f"Bearer {settings.openrouter_api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    timeout=10
+                )
+                if resp.status_code == 200:
+                    content = resp.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+                    match = re.search(r'\d+', content)
+                    if match:
+                        return float(match.group())
+        except Exception:
+            pass
+
     user_int = str(user_interests).lower() if not isinstance(user_interests, list) else user_interests[0].lower() if user_interests else ""
     cand_int = str(candidate_interests).lower() if not isinstance(candidate_interests, list) else candidate_interests[0].lower() if candidate_interests else ""
     if user_int == cand_int:
@@ -675,7 +713,7 @@ def _generate_ai_icebreaker(settings, my_interests, target_interests):
             resp = client.post(
                 "https://openrouter.ai/api/v1/chat/completions",
                 json={
-                    "model": "google/gemma-4-31b-it:free",
+                    "model": "tencent/hy3-preview:free",
                     "messages": [
                         {
                             "role": "system",

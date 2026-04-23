@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom'
 import api from '../services/api'
 
 export default function Matches() {
-  const [matches, setMatches] = useState<any[]>([])
+  const [matches, setMatches] = useState<{ id: number, sender_id: string, receiver_id: string, status: string, created_at: string }[]>([])
   const [currentUserId, setCurrentUserId] = useState<string>('')
   const [loading, setLoading] = useState(true)
 
@@ -50,7 +50,7 @@ export default function Matches() {
     m => m.status === 'pending' && String(m.sender_id) === String(currentUserId)
   )
 
-  const acceptedMap = new Map<string, any>()
+  const acceptedMap = new Map<string, { id: number, sender_id: string, receiver_id: string, status: string, created_at: string }>()
   matches.forEach((m) => {
     if (m.status !== 'accepted' && m.status !== 'matched') return
     const otherUserId = String(m.sender_id) === String(currentUserId)

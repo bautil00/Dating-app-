@@ -17,9 +17,9 @@ interface User {
 
 export default function Dashboard() {
   const [user, setUser] = useState<User | null>(null)
-  const [profile, setProfile] = useState<any>(null)
-  const [candidates, setCandidates] = useState<any[]>([])
-  const [matches, setMatches] = useState<any[]>([])
+  const [profile, setProfile] = useState<Record<string, unknown> | null>(null)
+  const [candidates, setCandidates] = useState<{ id?: string, user_id?: string, Name?: string, display_name?: string, Age?: number, age?: number, Location?: string, location?: string, bio?: string, compatibility_score?: number, interests?: string | string[] }[]>([])
+  const [matches, setMatches] = useState<{ id?: number, sender_id?: string, receiver_id?: string, status?: string }[]>([])
   const [loading, setLoading] = useState(true)
   const navigate = useNavigate()
 
@@ -49,7 +49,8 @@ export default function Dashboard() {
         setCandidates(candidatesRes.data || [])
         setMatches(matchesRes.data || [])
       }
-    } catch (err: any) {
+    } catch (error: unknown) {
+      const err = error as { response?: { status?: number } }
       console.error('Failed to load data:', err)
       if (err.response?.status === 401) {
         localStorage.removeItem('token')
@@ -110,7 +111,7 @@ export default function Dashboard() {
     )
   }
 
-  const displayName = profile?.Name || profile?.display_name || user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'There'
+  const displayName = String(profile?.Name || profile?.display_name || user?.user_metadata?.display_name || user?.email?.split('@')[0] || 'There')
   const uniqueMatchCount = user?.id
     ? new Set(
         matches.map((m) =>
@@ -141,7 +142,7 @@ export default function Dashboard() {
           <p>Here are people you might match with</p>
         </section>
 
-        {!profile ? (
+        {!profile || !profile.is_complete ? (
           <div className="profile-prompt">
             <div className="prompt-card">
               <h3>Complete Your Profile</h3>
@@ -158,7 +159,7 @@ export default function Dashboard() {
               </div>
             ) : (
               <div className="card-grid">
-                {candidates.map((candidate: any) => {
+                {candidates.map((candidate: { id?: string, user_id?: string, Name?: string, display_name?: string, Age?: number, age?: number, Location?: string, location?: string, bio?: string, compatibility_score?: number, interests?: string | string[] }) => {
                   const name = candidate.Name || candidate.display_name || 'New User'
                   const age = candidate.Age || candidate.age
                   const location = candidate.Location || candidate.location
@@ -191,7 +192,7 @@ export default function Dashboard() {
                           </div>
                         )}
                         <button
-                          onClick={() => handleLike(candidate.user_id || candidate.id)}
+                          onClick={() => handleLike((candidate.user_id || candidate.id) as string)}
                           className="like-btn"
                         >
                           ♡ Like

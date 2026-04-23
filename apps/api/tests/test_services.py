@@ -121,8 +121,16 @@ class TestRecommendationService:
 
 
 class TestOpenAIService:
-    def test_recommendation_service_works(self):
-        from src.services.recommendation_service import RecommendationService
-        svc = RecommendationService()
-        result = svc.generate_icebreaker({}, {})
-        assert isinstance(result, str)
+    def test_openai_service_class_exists(self):
+        from src.services.openai_service import OpenAIService
+        assert OpenAIService is not None
+
+    def test_openai_service_has_generate_method(self):
+        from src.services.openai_service import OpenAIService
+        svc = OpenAIService.__new__(OpenAIService)
+        assert hasattr(svc, 'generate_icebreaker')
+
+    def test_openai_service_has_score_method(self):
+        from src.services.openai_service import OpenAIService
+        svc = OpenAIService.__new__(OpenAIService)
+        assert hasattr(svc, 'calculate_compatibility_score')

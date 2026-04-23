@@ -83,7 +83,8 @@ export default function Profile() {
       })
       setMessage('Profile saved!')
       setTimeout(() => navigate('/dashboard'), 1500)
-    } catch (err: any) {
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { detail?: string } } }
       setMessage(err.response?.data?.detail || 'Failed to save profile')
     } finally {
       setSaving(false)
@@ -93,7 +94,7 @@ export default function Profile() {
   const renderSelect = (name: string, label: string, options: string[], required = false) => (
     <div className="form-group">
       <label>{label}</label>
-      <select name={name} value={(formData as any)[name]} onChange={handleChange} required={required}>
+      <select name={name} value={(formData as Record<string, string | number>)[name]} onChange={handleChange} required={required}>
         <option value="">Select {label.toLowerCase()}</option>
         {options.map(o => <option key={o} value={o}>{o}</option>)}
       </select>

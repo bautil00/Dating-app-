@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { authService } from '../services/api'
 
 export function useAuth() {
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<Record<string, unknown> | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {

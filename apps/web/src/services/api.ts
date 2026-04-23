@@ -33,13 +33,13 @@ export const authService = {
 }
 
 export const profileService = {
-  create: (data: any) =>
+  create: (data: Record<string, unknown>) =>
     api.post('/profiles/', data),
 
   getMe: () =>
     api.get('/profiles/me'),
 
-  update: (data: any) =>
+  update: (data: Record<string, unknown>) =>
     api.patch('/profiles/me', data),
 
   getCandidates: (limit = 10) =>

@@ -4,7 +4,7 @@ import api from '../services/api'
 
 export default function Chat() {
   const { userId } = useParams()
-  const [messages, setMessages] = useState<any[]>([])
+  const [messages, setMessages] = useState<{ id: number, content: string, created_at: string, sender_id: string }[]>([])
   const [newMessage, setNewMessage] = useState('')
   const [icebreaker, setIcebreaker] = useState('')
   const [loading, setLoading] = useState(true)

@@ -29,7 +29,8 @@ export default function Register() {
       const loginRes = await authService.login(email, password)
       localStorage.setItem('token', loginRes.data.access_token)
       window.location.href = '/dashboard'
-    } catch (err: any) {
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { detail?: string } } }
       setError(err.response?.data?.detail || 'Registration failed')
     } finally {
       setLoading(false)

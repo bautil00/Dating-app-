@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 import 'axios'
 
 vi.mock('axios', () => {
-  const mockAxios: any = {
+  const mockAxios: Record<string, unknown> = {
     create: vi.fn(() => mockAxios),
     interceptors: {
       request: { use: vi.fn() },

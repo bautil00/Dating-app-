@@ -16,7 +16,8 @@ export default function Login() {
       const res = await authService.login(email, password)
       localStorage.setItem('token', res.data.access_token)
       window.location.href = '/dashboard'
-    } catch (err: any) {
+    } catch (error: unknown) {
+      const err = error as { response?: { data?: { detail?: string } } }
       setError(err.response?.data?.detail || 'Login failed. Check your credentials.')
     } finally {
       setLoading(false)
