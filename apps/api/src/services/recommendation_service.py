@@ -167,23 +167,125 @@ class RecommendationService:
 
     return percent_match
 
-def match_all_users(users):
-    matches = []
+    def match_all_users(users):
+        matches = []
+    
+        for i in range(len(users)):
+            for j in range(i + 1, len(users)):
+                percent = calculate_match(users[i], users[j])
+    
+                matches.append({
+                    "user1": users[i].user_id,
+                    "user2": users[j].user_id,
+                    "match_percent": percent
+                })
+    
+        return sorted(
+            matches,
+            key=lambda x: x["match_percent"],
+            reverse=True
+        )
+    def create_user_profile(
+    user_id,
 
-    for i in range(len(users)):
-        for j in range(i + 1, len(users)):
-            percent = calculate_match(users[i], users[j])
+    name="NoName",
+    age=0,
 
-            matches.append({
-                "user1": users[i].user_id,
-                "user2": users[j].user_id,
-                "match_percent": percent
-            })
+    location=None,
+    height=None,
+    weight=None,
 
-    return sorted(
-        matches,
-        key=lambda x: x["match_percent"],
-        reverse=True
+    interests=None,
+    languages=None,
+    socials=None,
+    availability=None,
+
+    job=None,
+
+    glasses=False,
+    kids=False,
+    pets=False,
+    drives=False,
+
+    sexual_pref=None,
+    pronouns=None,
+    gender=None,
+
+    living=None,
+    zodiac=None,
+    education=None,
+
+    hair_color=None,
+    eye_color=None,
+
+    race=None,
+    body_modification=None,
+    body=None,
+
+    nationality=None,
+    relationship=None,
+
+    mbti=None,
+
+    seeking_gender="everyone",
+    max_distance_km=50
+):
+
+    user_data = {
+        "user_id": user_id,
+
+        "name": name,
+        "age": age,
+
+        "location": location,
+        "height": height,
+        "weight": weight,
+
+        "interests": interests or [],
+        "languages": languages or [],
+        "socials": socials or [],
+        "availability": availability or [],
+
+        "job": job,
+
+        "glasses": glasses,
+        "kids": kids,
+        "pets": pets,
+        "drives": drives,
+
+        "sexual_pref": sexual_pref,
+        "pronouns": pronouns,
+        "gender": gender,
+
+        "living": living,
+        "zodiac": zodiac,
+        "education": education,
+
+        "hair_color": hair_color,
+        "eye_color": eye_color,
+
+        "race": race,
+        "body_modification": body_modification,
+        "body": body,
+
+        "nationality": nationality,
+        "relationship": relationship,
+
+        "mbti": mbti,
+
+        "seeking_gender": seeking_gender,
+        "max_distance_km": max_distance_km
+    }
+
+    result = (
+        supabase
+        .table("user_data")
+        .insert(user_data)
+        .execute()
     )
+
+    return result
+
+
 
 recommendation_service = RecommendationService()
