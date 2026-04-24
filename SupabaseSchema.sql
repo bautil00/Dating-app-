@@ -210,7 +210,13 @@ create table public.user_data (
     height real,
     weight integer,
 
-    interests interests,
+    -- ENUM ARRAYS (multiple values allowed)
+    interests interests[],
+    languages language_type[],
+    socials social_platform[],
+    availability day_type[],
+
+    -- Single-value enums
     job job_type,
 
     glasses boolean default false,
@@ -230,13 +236,10 @@ create table public.user_data (
     eye_color color_type,
 
     race ethnicity,
-    languages language_type,
     body_modification cosmetics,
     body body_type,
 
-    socials social_platform,
     nationality nationality,
-
     relationship relationship_status,
 
     is_complete boolean default false,
@@ -245,7 +248,6 @@ create table public.user_data (
     seeking_gender text default 'everyone',
     max_distance_km integer default 50,
 
-    availability day_type,
     mbti mbti
 );
 
