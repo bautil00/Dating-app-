@@ -96,6 +96,94 @@ class RecommendationService:
 
         scored.sort(key=lambda x: x["compatibility_score"], reverse=True)
         return scored[:limit]
+    def calculate_match(user1, user2):
+        score = 0
+        possible = 0
+    
+        # -------------------
+        # Weighted Categories
+        # -------------------
+    
+        # Interests overlap (30 points)
+        possible += 30
+        if user1.interests and user2.interests:
+            shared = len(set(user1.interests) & set(user2.interests))
+            total = len(set(user1.interests) | set(user2.interests))
+    
+            if total > 0:
+                score += (shared / total) * 30
+    
+        # Languages overlap (10 points)
+        possible += 10
+        if set(user1.languages) & set(user2.languages):
+            score += 10
+    
+        # MBTI (10 points)
+        possible += 10
+        if user1.mbti == user2.mbti:
+            score += 10
+    
+        # Relationship goals (15 points)
+        possible += 15
+        if user1.relationship == user2.relationship:
+            score += 15
+    
+        # Gender preference compatibility (15 points)
+        possible += 15
+        if (
+            user1.seeking_gender == "everyone"
+            or user1.seeking_gender == user2.gender.value
+        ):
+            score += 15
+    
+        # Lifestyle (10 points)
+        possible += 10
+        lifestyle_matches = 0
+    
+        if user1.pets == user2.pets:
+            lifestyle_matches += 1
+        if user1.kids == user2.kids:
+            lifestyle_matches += 1
+        if user1.drives == user2.drives:
+            lifestyle_matches += 1
+    
+        score += (lifestyle_matches / 3) * 10
+    
+        # Zodiac (5 points)
+        possible += 5
+        if user1.zodiac == user2.zodiac:
+            score += 5
+    
+        # Education (5 points)
+        possible += 5
+        if user1.education == user2.education:
+            score += 5
+    
+        # -------------------
+        # Final Percent
+        # -------------------
+    
+        percent_match = round((score / possible) * 100, 2)
 
+    return percent_match
+
+def match_all_users(users):
+    matches = []
+
+    for i in range(len(users)):
+        for j in range(i + 1, len(users)):
+            percent = calculate_match(users[i], users[j])
+
+            matches.append({
+                "user1": users[i].user_id,
+                "user2": users[j].user_id,
+                "match_percent": percent
+            })
+
+    return sorted(
+        matches,
+        key=lambda x: x["match_percent"],
+        reverse=True
+    )
 
 recommendation_service = RecommendationService()
