@@ -165,7 +165,7 @@ class RecommendationService:
     
         percent_match = round((score / possible) * 100, 2)
 
-    return percent_match
+        return percent_match
 
     def match_all_users(users):
         matches = []
@@ -284,7 +284,7 @@ class RecommendationService:
             .execute()
         )
 
-    return result
+        return result
     
 def get_all_users():
     """Fetch all users from Supabase"""
