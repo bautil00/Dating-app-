@@ -2,7 +2,7 @@ name: Deploy Backend to Vercel
 
 on:
   push:
-    branches: [main]
+    branches: [main, dev]
     paths:
       - 'apps/api/**'
   workflow_dispatch:
@@ -19,7 +19,11 @@ jobs:
       - name: Deploy to Vercel
         run: |
           cd apps/api
-          vercel --prod --yes --token ${{ secrets.VERCEL_TOKEN }} \
+          PROD_FLAG=""
+          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
+            PROD_FLAG="--prod"
+          fi
+          vercel $PROD_FLAG --yes --token ${{ secrets.VERCEL_TOKEN }} \
             -e SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
             -e SUPABASE_KEY=${{ secrets.SUPABASE_KEY }} \
             -e SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }} \
