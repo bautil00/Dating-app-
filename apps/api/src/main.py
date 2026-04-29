@@ -26,10 +26,12 @@ app.add_middleware(
         "https://web-two-beta-72.vercel.app",
         "http://localhost:5173",
         "http://localhost:4000",
+        "null",
     ],
+    allow_origin_regex=r"https://.*\.vercel\.app",
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
-    allow_headers=["Authorization", "Content-Type"],
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 
