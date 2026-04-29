@@ -10,6 +10,16 @@ CREATE TABLE IF NOT EXISTS profiles (
     interests TEXT,
     personality_type TEXT,
     compatibility_score REAL DEFAULT 0.0,
+    seeking_gender TEXT DEFAULT 'everyone',
+    max_distance_km INTEGER DEFAULT 50,
+    mbti TEXT,
+    relationship TEXT,
+    pets BOOLEAN,
+    kids BOOLEAN,
+    drives BOOLEAN,
+    zodiac TEXT,
+    education TEXT,
+    languages TEXT[],
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 

@@ -1,5 +1,6 @@
 from typing import List
 import random
+from .supabase_client import get_supabase
 
 
 class RecommendationService:
@@ -96,7 +97,18 @@ class RecommendationService:
 
         scored.sort(key=lambda x: x["compatibility_score"], reverse=True)
         return scored[:limit]
+    @staticmethod
     def calculate_match(user1, user2):
+        # Check mutual gender preferences
+        def check_gender(seeker, candidate):
+            if getattr(seeker, "seeking_gender", None) is None or seeker.seeking_gender == "everyone":
+                return True
+            candidate_gender = getattr(candidate.gender, "value", candidate.gender) if hasattr(candidate, "gender") and candidate.gender else None
+            return seeker.seeking_gender == candidate_gender
+
+        if not (check_gender(user1, user2) and check_gender(user2, user1)):
+            return 0.0
+
         score = 0
         possible = 0
     
@@ -126,14 +138,6 @@ class RecommendationService:
         # Relationship goals (15 points)
         possible += 15
         if user1.relationship == user2.relationship:
-            score += 15
-    
-        # Gender preference compatibility (15 points)
-        possible += 15
-        if (
-            user1.seeking_gender == "everyone"
-            or user1.seeking_gender == user2.gender.value
-        ):
             score += 15
     
         # Lifestyle (10 points)
@@ -167,18 +171,41 @@ class RecommendationService:
 
         return percent_match
 
+    @staticmethod
     def match_all_users(users):
         matches = []
+        supabase = get_supabase()
+
+        # Fetch existing matches to avoid duplicates
+        existing_resp = supabase.table("matches").select("sender_id, receiver_id").execute()
+        existing_matches = set()
+        if existing_resp.data:
+            for row in existing_resp.data:
+                existing_matches.add((row["sender_id"], row["receiver_id"]))
+                existing_matches.add((row["receiver_id"], row["sender_id"]))
     
         for i in range(len(users)):
             for j in range(i + 1, len(users)):
-                percent = calculate_match(users[i], users[j])
+                u1_id = getattr(users[i], "user_id", None) or users[i].get("user_id") if isinstance(users[i], dict) else users[i].user_id
+                u2_id = getattr(users[j], "user_id", None) or users[j].get("user_id") if isinstance(users[j], dict) else users[j].user_id
+
+                if (u1_id, u2_id) in existing_matches:
+                    continue
+
+                percent = RecommendationService.calculate_match(users[i], users[j])
     
-                matches.append({
-                    "user1": users[i].user_id,
-                    "user2": users[j].user_id,
-                    "match_percent": percent
-                })
+                if percent > 0:
+                    matches.append({
+                        "user1": u1_id,
+                        "user2": u2_id,
+                        "match_percent": percent
+                    })
+                    # Insert into matches table
+                    supabase.table("matches").insert({
+                        "sender_id": u1_id,
+                        "receiver_id": u2_id,
+                        "status": "pending"
+                    }).execute()
     
         return sorted(
             matches,
