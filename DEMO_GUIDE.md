@@ -7,7 +7,7 @@ We have created an interactive visual dashboard hosted securely on our Vercel pr
 ## 1. Access the Interactive Demo
 Once the `dev` branch deployment finishes, you can access the live dashboard by navigating to the newly created `/demo` endpoint on our backend URL:
 
-👉 **[BLOWTORCH Live API Demo](https://api-hjuewzqsu-thsuen-1721s-projects.vercel.app/demo)**
+👉 **[BLOWTORCH Live API Demo](https://blowtorch-api-dev.vercel.app/demo)**
 
 *(Note: If the Vercel URL changes in the future, simply add `/demo` to the end of the new backend URL!)*
 
@@ -16,7 +16,7 @@ Once the `dev` branch deployment finishes, you can access the live dashboard by 
 Follow the steps in the dashboard in order from **1 to 6**. 
 
 ### Step 1: Configuration
-The "Backend URL" field at the top should automatically be populated with our secure preview URL (`https://api-hjuewzqsu-thsuen-1721s-projects.vercel.app`). Leave this exactly as it is.
+The "Backend URL" field at the top should automatically be populated with our secure preview URL (`https://blowtorch-api-dev.vercel.app`). Leave this exactly as it is.
 
 ### Step 2: Authentication
 We need a user account to run the AI tools and match with others.
