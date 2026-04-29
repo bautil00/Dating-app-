@@ -7,6 +7,17 @@ on:
       - 'apps/api/**'
       - '.github/workflows/backend-deploy.yml'
   workflow_dispatch:
+    inputs:
+      target:
+        description: >-
+          dev = preview build + alias https://blowtorch-api-dev.vercel.app
+          | prod = vercel --prod (production domain on the linked project)
+        required: true
+        default: dev
+        type: choice
+        options:
+          - dev
+          - prod
 
 jobs:
   deploy-backend:
@@ -18,23 +29,47 @@ jobs:
         run: npm install -g vercel
 
       - name: Deploy to Vercel
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
         run: |
+          set -e
           cd apps/api
-          PROD_FLAG=""
-          if [ "${{ github.ref }}" == "refs/heads/main" ]; then
-            PROD_FLAG="--prod"
+
+          USE_PROD=""
+          ALIAS_DEV=0
+
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            case "${{ github.event.inputs.target }}" in
+              dev)
+                ALIAS_DEV=1
+                ;;
+              prod)
+                USE_PROD="--prod"
+                ;;
+              *)
+                echo "Invalid target"
+                exit 1
+                ;;
+            esac
+          else
+            if [ "${{ github.ref }}" = "refs/heads/main" ]; then
+              USE_PROD="--prod"
+            fi
+            if [ "${{ github.ref }}" = "refs/heads/dev" ]; then
+              ALIAS_DEV=1
+            fi
           fi
-          DEPLOYMENT_URL=$(vercel $PROD_FLAG --yes --token ${{ secrets.VERCEL_TOKEN }} \
+
+          DEPLOYMENT_URL=$(vercel $USE_PROD --yes --token "$VERCEL_TOKEN" \
             -e SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
             -e SUPABASE_KEY=${{ secrets.SUPABASE_KEY }} \
             -e SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }} \
-            -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }})
-          
+            -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }} \
+            -e OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }})
+
           echo "Deployed to: $DEPLOYMENT_URL"
-          
-          if [ "${{ github.ref }}" == "refs/heads/dev" ]; then
-            vercel alias set $DEPLOYMENT_URL blowtorch-api-dev.vercel.app --token ${{ secrets.VERCEL_TOKEN }}
+
+          if [ "$ALIAS_DEV" = "1" ]; then
+            vercel alias set "$DEPLOYMENT_URL" blowtorch-api-dev.vercel.app --token "$VERCEL_TOKEN"
             echo "Aliased to: https://blowtorch-api-dev.vercel.app"
           fi
-        env:
-          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
