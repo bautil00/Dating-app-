@@ -90,9 +90,14 @@
         }
 
         function getAuthHeaders() {
+            const token = document.getElementById('token').value;
+            if (!token) {
+                alert("Please Login or Sign Up first to generate an authentication token!");
+                throw new Error("Missing Authentication Token");
+            }
             return {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${document.getElementById('token').value}`
+                'Authorization': `Bearer ${token}`
             };
         }
 
