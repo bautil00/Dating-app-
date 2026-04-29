@@ -136,7 +136,7 @@ def filter_by_gender(profiles, seeking):
         return profiles
     if seeking == 'both':
         return [p for p in profiles if p.get('gender') in ['Male', 'Female']]
-    return [p for p in profiles if p.get('gender', '').lower() == seeking.lower()]
+    return [p for p in profiles if (p.get('gender') or '').lower() == seeking.lower()]
 
 
 def calculate_compatibility(user_interests, candidate_interests):
@@ -193,7 +193,7 @@ def get_my_profile(authorization: str = Header(None)):
         user_id = user_resp.json().get("id")
         
         resp = client.get(
-            f"{settings.supabase_url}/rest/v1/UserData",
+            f"{settings.supabase_url}/rest/v1/user_data",
             params={"user_id": f"eq.{user_id}"},
             headers={"apikey": settings.supabase_key}
         )
@@ -218,7 +218,7 @@ def get_candidates(limit: int = 10, authorization: str = Header(None)):
         user_id = me_resp.json().get("id")
         
         my_resp = client.get(
-            f"{settings.supabase_url}/rest/v1/UserData",
+            f"{settings.supabase_url}/rest/v1/user_data",
             params={"user_id": f"eq.{user_id}"},
             headers={"apikey": settings.supabase_key}
         )
@@ -227,7 +227,7 @@ def get_candidates(limit: int = 10, authorization: str = Header(None)):
         my_profile = my_resp.json()[0]
         
         all_resp = client.get(
-            f"{settings.supabase_url}/rest/v1/UserData",
+            f"{settings.supabase_url}/rest/v1/user_data",
             params={"is_complete": "eq.true"},
             headers={"apikey": settings.supabase_key}
         )
@@ -291,13 +291,13 @@ def create_profile(profile_data: dict, authorization: str = Header(None)):
         mapped = {k: v for k, v in mapped.items() if v is not None}
         
         existing = client.get(
-            f"{settings.supabase_url}/rest/v1/UserData",
+            f"{settings.supabase_url}/rest/v1/user_data",
             params={"user_id": f"eq.{user_id}"},
             headers={"apikey": settings.supabase_key}
         )
         if existing.json():
             client.patch(
-                f"{settings.supabase_url}/rest/v1/UserData",
+                f"{settings.supabase_url}/rest/v1/user_data",
                 params={"user_id": f"eq.{user_id}"},
                 json=mapped,
                 headers={"apikey": settings.supabase_key, "Content-Type": "application/json"}
@@ -305,7 +305,7 @@ def create_profile(profile_data: dict, authorization: str = Header(None)):
             return {"status": "updated", "user_id": user_id}
         
         result = client.post(
-            f"{settings.supabase_url}/rest/v1/UserData",
+            f"{settings.supabase_url}/rest/v1/user_data",
             json=mapped,
             headers={
                 "apikey": settings.supabase_key,
@@ -359,7 +359,7 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
 
     with httpx.Client() as client:
         my_profile_resp = client.get(
-            f"{settings.supabase_url}/rest/v1/UserData",
+            f"{settings.supabase_url}/rest/v1/user_data",
             params={"user_id": f"eq.{sender_id}"},
             headers=base_headers,
         )
@@ -367,7 +367,7 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
         my_profile = my_profiles[0] if my_profiles else {}
 
         receiver_profile_resp = client.get(
-            f"{settings.supabase_url}/rest/v1/UserData",
+            f"{settings.supabase_url}/rest/v1/user_data",
             params={"user_id": f"eq.{receiver_id}"},
             headers=base_headers,
         )
@@ -755,7 +755,7 @@ def get_icebreaker(target_user_id: str, authorization: str = Header(None)):
 
     with httpx.Client() as client:
         my_profile_resp = client.get(
-            f"{settings.supabase_url}/rest/v1/UserData",
+            f"{settings.supabase_url}/rest/v1/user_data",
             params={"user_id": f"eq.{user_id}"},
             headers=headers,
         )
@@ -764,7 +764,7 @@ def get_icebreaker(target_user_id: str, authorization: str = Header(None)):
             raise HTTPException(status_code=400, detail="Create your profile first")
 
         target_profile_resp = client.get(
-            f"{settings.supabase_url}/rest/v1/UserData",
+            f"{settings.supabase_url}/rest/v1/user_data",
             params={"user_id": f"eq.{target_user_id}"},
             headers=headers,
         )
@@ -801,7 +801,7 @@ def get_compatibility(target_user_id: str, authorization: str = Header(None)):
 
     with httpx.Client() as client:
         my_profile_resp = client.get(
-            f"{settings.supabase_url}/rest/v1/UserData",
+            f"{settings.supabase_url}/rest/v1/user_data",
             params={"user_id": f"eq.{user_id}"},
             headers=headers,
         )
@@ -810,7 +810,7 @@ def get_compatibility(target_user_id: str, authorization: str = Header(None)):
             raise HTTPException(status_code=400, detail="Create your profile first")
 
         target_profile_resp = client.get(
-            f"{settings.supabase_url}/rest/v1/UserData",
+            f"{settings.supabase_url}/rest/v1/user_data",
             params={"user_id": f"eq.{target_user_id}"},
             headers=headers,
         )

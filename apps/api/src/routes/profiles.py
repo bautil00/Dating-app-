@@ -41,7 +41,7 @@ def filter_by_gender(profiles, seeking):
         return profiles
     if seeking == 'both':
         return [p for p in profiles if p.get('gender') in ['Male', 'Female']]
-    return [p for p in profiles if p.get('gender', '').lower() == seeking.lower()]
+    return [p for p in profiles if (p.get('gender') or '').lower() == seeking.lower()]
 
 
 def rank_with_ai(user_profile, candidates):
@@ -102,20 +102,20 @@ def create_profile(profile_data: dict, authorization: str = Header(None)):
 
             if user_id:
                 existing = client.get(
-                    f"{settings.supabase_url}/rest/v1/UserData",
+                    f"{settings.supabase_url}/rest/v1/user_data",
                     params={"user_id": f"eq.{user_id}"},
                     headers={"apikey": settings.supabase_key}
                 )
                 if existing.json():
                     client.patch(
-                        f"{settings.supabase_url}/rest/v1/UserData?user_id=eq.{user_id}",
+                        f"{settings.supabase_url}/rest/v1/user_data?user_id=eq.{user_id}",
                         json=mapped,
                         headers={"apikey": settings.supabase_key, "Content-Type": "application/json"}
                     )
                     return {"status": "updated", "user_id": user_id}
             
             result = client.post(
-                f"{settings.supabase_url}/rest/v1/UserData",
+                f"{settings.supabase_url}/rest/v1/user_data",
                 json=mapped,
                 headers={"apikey": settings.supabase_key, "Content-Type": "application/json"}
             )
@@ -147,7 +147,7 @@ def get_my_profile(authorization: str = Header(None)):
             user_id = user_response.json().get("id")
             
             response = client.get(
-                f"{settings.supabase_url}/rest/v1/UserData",
+                f"{settings.supabase_url}/rest/v1/user_data",
                 params={"user_id": f"eq.{user_id}"},
                 headers={"apikey": settings.supabase_key}
             )
@@ -186,7 +186,7 @@ def get_candidates(limit: int = 10, authorization: str = Header(None)):
             user_id = user_resp.json().get("id")
             
             my_resp = client.get(
-                f"{settings.supabase_url}/rest/v1/UserData",
+                f"{settings.supabase_url}/rest/v1/user_data",
                 params={"user_id": f"eq.{user_id}"},
                 headers={"apikey": settings.supabase_key}
             )
@@ -197,7 +197,7 @@ def get_candidates(limit: int = 10, authorization: str = Header(None)):
             my_profile = my_resp.json()[0]
             
             all_resp = client.get(
-                f"{settings.supabase_url}/rest/v1/UserData",
+                f"{settings.supabase_url}/rest/v1/user_data",
                 params={"is_complete": "eq.true"},
                 headers={"apikey": settings.supabase_key}
             )
@@ -237,7 +237,7 @@ def get_profile(profile_id: int, authorization: str = Header(None)):
     try:
         with httpx.Client() as client:
             response = client.get(
-                f"{settings.supabase_url}/rest/v1/UserData",
+                f"{settings.supabase_url}/rest/v1/user_data",
                 params={"id": f"eq.{profile_id}"},
                 headers={"apikey": settings.supabase_key}
             )
