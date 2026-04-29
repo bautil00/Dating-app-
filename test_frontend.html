@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>BLOWTORCH Backend API Demo</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; background-color: #f9f9f9; color: #333; }
+        .card { background: white; border-radius: 8px; padding: 20px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+        h1, h2, h3 { color: #ff4b4b; }
+        button { background-color: #ff4b4b; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; margin-top: 10px; margin-right: 5px; }
+        button:hover { background-color: #e04040; }
+        input[type="text"], input[type="password"] { width: 100%; padding: 8px; margin: 5px 0 15px; border: 1px solid #ccc; border-radius: 4px; box-sizing: border-box; }
+        pre { background-color: #2d2d2d; color: #f8f8f2; padding: 15px; border-radius: 4px; overflow-x: auto; white-space: pre-wrap; font-size: 13px; }
+        .row { display: flex; gap: 10px; }
+        .col { flex: 1; }
+        label { font-weight: bold; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <h1>🔥 BLOWTORCH API Demo</h1>
+    <p>A simple frontend to test the deployed Vercel backend endpoints, LLM integrations, and Supabase connections.</p>
+
+    <div class="card">
+        <h2>1. Configuration</h2>
+        <label>Backend URL</label>
+        <input type="text" id="apiUrl" value="https://api-hjuewzqsu-thsuen-1721s-projects.vercel.app">
+        <p style="font-size: 12px; color: #666;">Set to your Vercel preview URL or http://localhost:4000 for local testing.</p>
+    </div>
+
+    <div class="card">
+        <h2>2. Authentication</h2>
+        <div class="row">
+            <div class="col">
+                <label>Email</label>
+                <input type="text" id="email" value="test@test.com" placeholder="user@example.com">
+            </div>
+            <div class="col">
+                <label>Password</label>
+                <input type="password" id="password" value="Test@123" placeholder="Password">
+            </div>
+        </div>
+        <button onclick="signup()">Sign Up</button>
+        <button onclick="login()">Login</button>
+        
+        <div style="margin-top: 15px;">
+            <label>Bearer Token (Populated automatically)</label>
+            <input type="text" id="token" readonly placeholder="JWT will appear here...">
+        </div>
+        <pre id="authResult" style="display: none;"></pre>
+    </div>
+
+    <div class="card">
+        <h2>3. Fetch Match Candidates</h2>
+        <p>Hits <code>GET /api/v1/profiles/candidates</code> to run the recommendation engine.</p>
+        <button onclick="fetchCandidates()">Get Candidates</button>
+        <pre id="candidatesResult">// Candidates will appear here...</pre>
+    </div>
+
+    <div class="card">
+        <h2>4. AI Compatibility (LLM API Call)</h2>
+        <p>Hits <code>GET /api/v1/ai/compatibility/{profile_id}</code> to generate LLM-based analysis.</p>
+        <label>Target Profile ID</label>
+        <input type="text" id="targetProfileId" placeholder="e.g. some-uuid-from-candidates">
+        <button onclick="checkCompatibility()">Check AI Compatibility</button>
+        <pre id="compatibilityResult">// AI analysis will appear here...</pre>
+    </div>
+
+    <div class="card">
+        <h2>5. Create Match (Database Call)</h2>
+        <p>Hits <code>POST /api/v1/matches/</code> to save the match to the Supabase database.</p>
+        <button onclick="createMatch()">Like/Match User</button>
+        <pre id="matchResult">// Match result will appear here...</pre>
+    </div>
+
+    <div class="card">
+        <h2>6. Generate AI Icebreaker</h2>
+        <p>Hits <code>GET /api/v1/ai/icebreaker/{match_id}</code> to use the LLM to generate an opening message.</p>
+        <label>Match ID</label>
+        <input type="text" id="matchId" placeholder="e.g. 12">
+        <button onclick="generateIcebreaker()">Generate Icebreaker</button>
+        <pre id="icebreakerResult">// AI icebreaker will appear here...</pre>
+    </div>
+
+    <script>
+        function getUrl(path) {
+            let base = document.getElementById('apiUrl').value.replace(/\/$/, '');
+            return `${base}${path}`;
+        }
+
+        function getAuthHeaders() {
+            return {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${document.getElementById('token').value}`
+            };
+        }
+
+        async function signup() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const el = document.getElementById('authResult');
+            el.style.display = 'block';
+            el.innerText = 'Signing up...';
+            
+            try {
+                const res = await fetch(getUrl('/api/v1/auth/register'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                el.innerText = JSON.stringify(data, null, 2);
+                if (data.access_token) {
+                    document.getElementById('token').value = data.access_token;
+                    alert("Signup successful! You are logged in.");
+                }
+            } catch (e) {
+                el.innerText = "Error: " + e.message;
+            }
+        }
+
+        async function login() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const el = document.getElementById('authResult');
+            el.style.display = 'block';
+            el.innerText = 'Logging in...';
+            
+            try {
+                const res = await fetch(getUrl('/api/v1/auth/login'), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password })
+                });
+                const data = await res.json();
+                el.innerText = JSON.stringify(data, null, 2);
+                
+                if (data.access_token) {
+                    document.getElementById('token').value = data.access_token;
+                    alert("Login successful!");
+                } else if (data.error && data.error.includes("invalid_grant")) {
+                    alert("Login failed: Invalid credentials.");
+                } else {
+                    alert("Login failed.");
+                }
+            } catch (e) {
+                el.innerText = "Error connecting to backend: " + e.message;
+            }
+        }
+
+        async function fetchCandidates() {
+            const el = document.getElementById('candidatesResult');
+            el.innerText = "Loading...";
+            try {
+                const res = await fetch(getUrl('/api/v1/profiles/candidates'), {
+                    headers: getAuthHeaders()
+                });
+                const data = await res.json();
+                el.innerText = JSON.stringify(data, null, 2);
+                
+                if (Array.isArray(data) && data.length > 0 && data[0].user_id) {
+                    document.getElementById('targetProfileId').value = data[0].user_id;
+                }
+            } catch (e) {
+                el.innerText = "Error: " + e.message;
+            }
+        }
+
+        async function checkCompatibility() {
+            const el = document.getElementById('compatibilityResult');
+            const targetId = document.getElementById('targetProfileId').value;
+            if (!targetId) return alert("Enter a target profile ID first!");
+            
+            el.innerText = "Consulting AI LLM... this might take a few seconds...";
+            try {
+                const res = await fetch(getUrl(`/api/v1/ai/compatibility/${targetId}`), {
+                    headers: getAuthHeaders()
+                });
+                const data = await res.json();
+                el.innerText = JSON.stringify(data, null, 2);
+            } catch (e) {
+                el.innerText = "Error: " + e.message;
+            }
+        }
+
+        async function createMatch() {
+            const el = document.getElementById('matchResult');
+            const targetId = document.getElementById('targetProfileId').value;
+            if (!targetId) return alert("Enter a target profile ID first!");
+            
+            el.innerText = "Saving to database...";
+            try {
+                const res = await fetch(getUrl(`/api/v1/matches/`), {
+                    method: 'POST',
+                    headers: getAuthHeaders(),
+                    body: JSON.stringify({ receiver_id: targetId })
+                });
+                const data = await res.json();
+                el.innerText = JSON.stringify(data, null, 2);
+                
+                if (data.id) {
+                    document.getElementById('matchId').value = data.id;
+                }
+            } catch (e) {
+                el.innerText = "Error: " + e.message;
+            }
+        }
+
+        async function generateIcebreaker() {
+            const el = document.getElementById('icebreakerResult');
+            const matchId = document.getElementById('matchId').value;
+            if (!matchId) return alert("Enter a match ID first!");
+            
+            el.innerText = "Generating icebreaker with LLM...";
+            try {
+                const res = await fetch(getUrl(`/api/v1/ai/icebreaker/${matchId}`), {
+                    headers: getAuthHeaders()
+                });
+                const data = await res.json();
+                el.innerText = JSON.stringify(data, null, 2);
+            } catch (e) {
+                el.innerText = "Error: " + e.message;
+            }
+        }
+    </script>
+</body>
+</html>

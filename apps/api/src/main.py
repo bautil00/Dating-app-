@@ -1,10 +1,12 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Header, Request
+from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 from typing import Optional
 import math
 import json
 import re
+import os
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -830,6 +832,11 @@ app.include_router(ai_router, prefix="/api/v1")
 def root():
     return {"message": "BLOWTORCH API", "docs": "/docs"}
 
+@app.get("/demo", response_class=HTMLResponse)
+def get_demo():
+    file_path = os.path.join(os.path.dirname(__file__), "demo.html")
+    with open(file_path, "r", encoding="utf-8") as f:
+        return f.read()
 
 @app.get("/health")
 def health():
