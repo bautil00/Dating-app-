@@ -1,7 +1,7 @@
 """Tests for utility functions (haversine, compatibility scoring, gender filtering)."""
 import math
 import pytest
-from src.main import haversine_distance, filter_by_gender, calculate_compatibility
+from src.main import haversine_distance, filter_by_gender, calculate_compatibility, interests_from_profile
 
 
 class TestHaversineDistance:
@@ -141,6 +141,16 @@ class TestCalculateCompatibility:
     def test_compatibility_not_below_0(self):
         result = calculate_compatibility("Music", "Gaming")
         assert result >= 0
+
+
+class TestInterestsFromProfile:
+    def test_null_interest_field_uses_legacy_columns(self):
+        p = {"interests": None, "interest_1": "coding", "interest_2": "music"}
+        assert interests_from_profile(p) == "coding, music"
+
+    def test_prefers_interests_when_present(self):
+        p = {"interests": "hiking", "interest_1": "coding"}
+        assert interests_from_profile(p) == "hiking"
 
 
 class TestNormalizeInterests:

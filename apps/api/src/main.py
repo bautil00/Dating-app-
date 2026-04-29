@@ -139,7 +139,33 @@ def filter_by_gender(profiles, seeking):
     return [p for p in profiles if (p.get('gender') or '').lower() == seeking.lower()]
 
 
+def _coerce_interests_text(val) -> str:
+    if val is None:
+        return ""
+    if isinstance(val, list):
+        parts = [str(x).strip() for x in val if x is not None and str(x).strip()]
+        return ", ".join(parts)
+    return str(val).strip()
+
+
+def interests_from_profile(profile: dict) -> str:
+    """Single string for LLM scoring. Handles null `interests` and legacy interest_1..3."""
+    if not profile:
+        return ""
+    combined = _coerce_interests_text(profile.get("interests"))
+    if combined:
+        return combined
+    parts = []
+    for key in ("interest_1", "interest_2", "interest_3"):
+        part = _coerce_interests_text(profile.get(key))
+        if part:
+            parts.append(part)
+    return ", ".join(parts)
+
+
 def calculate_compatibility(user_interests, candidate_interests):
+    user_interests = _coerce_interests_text(user_interests)
+    candidate_interests = _coerce_interests_text(candidate_interests)
     if not user_interests or not candidate_interests:
         return 50.0
     
@@ -240,8 +266,8 @@ def get_candidates(limit: int = 10, authorization: str = Header(None)):
         filtered = filter_by_gender(candidates, seeking)
         
         for c in filtered:
-            my_int = my_profile.get('interests', '')
-            c_int = c.get('interests', '')
+            my_int = interests_from_profile(my_profile)
+            c_int = interests_from_profile(c)
             c['compatibility_score'] = calculate_compatibility(my_int, c_int)
         
         filtered.sort(key=lambda x: x.get('compatibility_score', 0), reverse=True)
@@ -379,8 +405,8 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
         receiver_profile = receiver_profiles[0]
 
         compatibility_score = calculate_compatibility(
-            my_profile.get("interests", ""),
-            receiver_profile.get("interests", ""),
+            interests_from_profile(my_profile),
+            interests_from_profile(receiver_profile),
         )
 
         outgoing_resp = client.get(
@@ -787,8 +813,8 @@ def get_icebreaker(target_user_id: str, authorization: str = Header(None)):
         if not (sent_match or received_match):
             raise HTTPException(status_code=403, detail="Users must match before requesting an icebreaker")
 
-        my_interests = my_profiles[0].get("interests", "")
-        target_interests = target_profiles[0].get("interests", "")
+        my_interests = interests_from_profile(my_profiles[0])
+        target_interests = interests_from_profile(target_profiles[0])
         ai_text = _generate_ai_icebreaker(settings, my_interests, target_interests)
         return {"icebreaker": ai_text or _fallback_icebreaker(my_interests, target_interests)}
 
@@ -821,8 +847,8 @@ def get_compatibility(target_user_id: str, authorization: str = Header(None)):
             raise HTTPException(status_code=404, detail="Target profile not found")
 
         score = calculate_compatibility(
-            my_profiles[0].get("interests", ""),
-            target_profiles[0].get("interests", ""),
+            interests_from_profile(my_profiles[0]),
+            interests_from_profile(target_profiles[0]),
         )
         return {"profile_id": target_user_id, "compatibility_score": score}
 
