@@ -20,7 +20,7 @@ The "Backend URL" field at the top should automatically be populated with our se
 
 ### Step 2: Authentication
 We need a user account to run the AI tools and match with others.
-1. The **Email** and **Password** are pre-filled with test credentials (`test@test.com` / `Test@123`).
+1. The **Email** and **Password** are pre-filled with test credentials (`demo@blowtorch.com` / `Demo@1234!`).
 2. Click **Sign Up** to create the user in our real production Supabase database.
    *(If you've already signed up before, just click **Login** instead).*
 3. When successful, a long line of text will automatically appear in the **Bearer Token** box. This is your secure "digital ID badge" that tells the database you are authorized.
