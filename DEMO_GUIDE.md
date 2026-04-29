@@ -13,7 +13,7 @@ Once the `dev` branch deployment finishes, you can access the live dashboard by 
 
 ## 2. Step-by-Step Demo Flow
 
-Follow the steps in the dashboard in order from **1 to 6**. 
+Follow the steps in the dashboard: **1**, **2**, **2.5**, then **3** through **5** (icebreaker demo removed; use the main app chat for icebreakers).
 
 ### Step 1: Configuration
 The "Backend URL" field at the top should automatically be populated with our secure preview URL (`https://blowtorch-api-dev.vercel.app`). Leave this exactly as it is.
@@ -24,6 +24,9 @@ We need a user account to run the AI tools and match with others.
 2. Click **Sign Up** to create the user in our real production Supabase database.
    *(If you've already signed up before, just click **Login** instead).*
 3. When successful, a long line of text will automatically appear in the **Bearer Token** box. This is your secure "digital ID badge" that tells the database you are authorized.
+
+### Step 2.5: View My Profile (optional check)
+After login, click **View Profile** to confirm your `user_data` row and fields (including interests) look correct before running candidates.
 
 ### Step 3: Fetch Match Candidates
 Now, let's test the recommendation engine!
@@ -40,14 +43,7 @@ Let's see what the OpenAI algorithm thinks of this pairing.
 ### Step 5: Create Match (Database Call)
 Let's "Like" this person and save the match to the database.
 1. Click **Like/Match User**.
-2. The backend performs duplicate-checks and mutual preference-checks. Since everything looks good, it securely inserts a new row into the `matches` table in our Supabase database.
-3. Notice that the **Match ID** field below automatically populates with the newly created database ID.
-
-### Step 6: Generate AI Icebreaker
-Finally, let's get some help starting the conversation.
-1. Click **Generate Icebreaker**.
-2. The backend contacts OpenAI again, passing in the shared `Match ID`.
-3. The AI analyzes both profiles, finds common ground, and generates a personalized opening message you can use to start chatting!
+2. The backend performs duplicate checks and writes a row to the `matches` table in Supabase. The JSON response includes match metadata (for example `id`, `matched`, `compatibility_score`).
 
 ---
-**🎉 You've successfully tested the entire backend matchmaking pipeline from Auth, to AI scoring, to Database insertion, to AI messaging!**
+**🎉 You've exercised auth, profile read, candidates, AI compatibility scoring, and persisting a match.**

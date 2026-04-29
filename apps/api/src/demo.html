@@ -52,6 +52,13 @@
     </div>
 
     <div class="card">
+        <h2>2.5. View My Profile</h2>
+        <p>Hits <code>GET /api/v1/profiles/me</code> to view the currently authenticated user's profile setup in the database.</p>
+        <button onclick="fetchMyProfile()">View Profile</button>
+        <pre id="myProfileResult">// Profile will appear here...</pre>
+    </div>
+
+    <div class="card">
         <h2>3. Fetch Match Candidates</h2>
         <p>Hits <code>GET /api/v1/profiles/candidates</code> to run the recommendation engine.</p>
         <button onclick="fetchCandidates()">Get Candidates</button>
@@ -72,15 +79,6 @@
         <p>Hits <code>POST /api/v1/matches/</code> to save the match to the Supabase database.</p>
         <button onclick="createMatch()">Like/Match User</button>
         <pre id="matchResult">// Match result will appear here...</pre>
-    </div>
-
-    <div class="card">
-        <h2>6. Generate AI Icebreaker</h2>
-        <p>Hits <code>GET /api/v1/ai/icebreaker/{match_id}</code> to use the LLM to generate an opening message.</p>
-        <label>Match ID</label>
-        <input type="text" id="matchId" placeholder="e.g. 12">
-        <button onclick="generateIcebreaker()">Generate Icebreaker</button>
-        <pre id="icebreakerResult">// AI icebreaker will appear here...</pre>
     </div>
 
     <script>
@@ -154,6 +152,20 @@
             }
         }
 
+        async function fetchMyProfile() {
+            const el = document.getElementById('myProfileResult');
+            el.innerText = "Loading profile...";
+            try {
+                const res = await fetch(getUrl('/api/v1/profiles/me'), {
+                    headers: getAuthHeaders()
+                });
+                const data = await res.json();
+                el.innerText = JSON.stringify(data, null, 2);
+            } catch (e) {
+                el.innerText = "Error: " + e.message;
+            }
+        }
+
         async function fetchCandidates() {
             const el = document.getElementById('candidatesResult');
             el.innerText = "Loading...";
@@ -200,27 +212,6 @@
                     method: 'POST',
                     headers: getAuthHeaders(),
                     body: JSON.stringify({ receiver_id: targetId })
-                });
-                const data = await res.json();
-                el.innerText = JSON.stringify(data, null, 2);
-                
-                if (data.id) {
-                    document.getElementById('matchId').value = data.id;
-                }
-            } catch (e) {
-                el.innerText = "Error: " + e.message;
-            }
-        }
-
-        async function generateIcebreaker() {
-            const el = document.getElementById('icebreakerResult');
-            const matchId = document.getElementById('matchId').value;
-            if (!matchId) return alert("Enter a match ID first!");
-            
-            el.innerText = "Generating icebreaker with LLM...";
-            try {
-                const res = await fetch(getUrl(`/api/v1/ai/icebreaker/${matchId}`), {
-                    headers: getAuthHeaders()
                 });
                 const data = await res.json();
                 el.innerText = JSON.stringify(data, null, 2);
