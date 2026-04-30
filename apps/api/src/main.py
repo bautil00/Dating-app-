@@ -222,7 +222,7 @@ def calculate_compatibility(user_interests, candidate_interests, *, use_llm: boo
                 resp = client.post(
                     "https://openrouter.ai/api/v1/chat/completions",
                     json={
-                        "model": os.environ.get("OPENROUTER_MODEL", "tencent/hy3-preview:free"),
+                        "model": os.environ.get("OPENROUTER_MODEL", "google/gemma-4-26b-a4b-it:free"),
                         "messages": [{"role": "user", "content": prompt}],
                         "max_tokens": 20,
                     },
@@ -789,7 +789,7 @@ def _generate_ai_icebreaker(settings, my_interests, target_interests):
             resp = client.post(
                 "https://openrouter.ai/api/v1/chat/completions",
                 json={
-                    "model": os.environ.get("OPENROUTER_MODEL", "tencent/hy3-preview:free"),
+                    "model": os.environ.get("OPENROUTER_MODEL", "google/gemma-4-26b-a4b-it:free"),
                     "messages": [
                         {
                             "role": "system",
