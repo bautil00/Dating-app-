@@ -28,22 +28,63 @@ jobs:
       - name: Install Vercel CLI
         run: npm install -g vercel
 
-      - name: Sync OpenRouter key to Vercel project env
-        working-directory: apps/api
+      - name: Sync OpenRouter key to Vercel (API)
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
-          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
           VERCEL_PROJECT_ID: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           set -e
-          mkdir -p .vercel
-          python3 -c 'import json,os; json.dump({"projectId":os.environ["VERCEL_PROJECT_ID"],"orgId":os.environ["VERCEL_ORG_ID"],"projectName":"api"}, open(".vercel/project.json","w"))'
-          for ENV in production preview development; do
-            vercel env add OPENROUTER_API_KEY "$ENV" \
-              --value "$OPENROUTER_API_KEY" \
-              --yes --sensitive --force --token "$VERCEL_TOKEN"
-          done
+          python3 << 'PY'
+          import json, os, urllib.error, urllib.request
+
+          token = os.environ["VERCEL_TOKEN"]
+          pid = os.environ["VERCEL_PROJECT_ID"]
+          value = os.environ["OPENROUTER_API_KEY"]
+          base_list = f"https://api.vercel.com/v9/projects/{pid}/env"
+          base_create = f"https://api.vercel.com/v10/projects/{pid}/env"
+
+          def api_json(method, url, body=None):
+              req = urllib.request.Request(
+                  url,
+                  data=json.dumps(body).encode() if body else None,
+                  headers={
+                      "Authorization": f"Bearer {token}",
+                      "Content-Type": "application/json",
+                  },
+                  method=method,
+              )
+              try:
+                  with urllib.request.urlopen(req, timeout=60) as resp:
+                      return resp.status, resp.read().decode()
+              except urllib.error.HTTPError as e:
+                  return e.code, e.read().decode()
+
+          # Remove existing OPENROUTER_API_KEY entries (upsert)
+          code, text = api_json("GET", base_list)
+          if code != 200:
+              raise SystemExit(f"LIST env failed {code}: {text[:400]}")
+          existing = json.loads(text).get("envs") or []
+          for row in existing:
+              if row.get("key") == "OPENROUTER_API_KEY":
+                  eid = row.get("id")
+                  del_url = f"{base_list}/{eid}"
+                  c, t = api_json("DELETE", del_url)
+                  if c not in (200, 204):
+                      print(f"warn: delete env {eid} -> {c}: {t[:200]}")
+
+          payload = {
+              "key": "OPENROUTER_API_KEY",
+              "value": value,
+              "type": "encrypted",
+              "target": ["production", "preview", "development"],
+          }
+          code, text = api_json("POST", base_create, payload)
+          if code not in (200, 201):
+              raise SystemExit(f"CREATE env failed {code}: {text[:500]}")
+          print("OPENROUTER_API_KEY synced to Vercel project env")
+          PY
+        continue-on-error: true
 
       - name: Deploy to Vercel
         env:
