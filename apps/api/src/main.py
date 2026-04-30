@@ -190,14 +190,31 @@ def interests_from_profile(profile: dict) -> str:
     return ", ".join(fallback)
 
 
-def calculate_compatibility(user_interests, candidate_interests):
+def _compatibility_heuristic_score(user_s: str, cand_s: str) -> float:
+    """Non-LLM score for ranking. Args must be non-empty normalized interest strings."""
+    user_int = user_s.lower()
+    cand_int = cand_s.lower()
+    if user_int == cand_int:
+        return 100.0
+    u_tokens = {t for t in re.split(r"\W+", user_int) if len(t) > 1}
+    c_tokens = {t for t in re.split(r"\W+", cand_int) if len(t) > 1}
+    overlap = len(u_tokens & c_tokens)
+    if overlap:
+        return min(95.0, 35.0 + overlap * 12.0)
+    return 30.0
+
+
+def calculate_compatibility(user_interests, candidate_interests, *, use_llm: bool = True):
     user_interests = _coerce_interests_text(user_interests)
     candidate_interests = _coerce_interests_text(candidate_interests)
     if not user_interests or not candidate_interests:
         return 50.0
     
-    settings = get_settings()
-    or_key = (settings.openrouter_api_key or "").strip()
+    if use_llm:
+        settings = get_settings()
+        or_key = (settings.openrouter_api_key or "").strip()
+    else:
+        or_key = ""
     if or_key:
         prompt = f"You are a dating compatibility AI. Given two profiles' interests, return ONLY a single integer score between 0 and 100 representing their compatibility. Do not include any explanation or additional text. Profile 1 interests: {user_interests}. Profile 2 interests: {candidate_interests}."
         try:
@@ -226,11 +243,7 @@ def calculate_compatibility(user_interests, candidate_interests):
         except Exception:
             pass
 
-    user_int = str(user_interests).lower() if not isinstance(user_interests, list) else user_interests[0].lower() if user_interests else ""
-    cand_int = str(candidate_interests).lower() if not isinstance(candidate_interests, list) else candidate_interests[0].lower() if candidate_interests else ""
-    if user_int == cand_int:
-        return 100.0
-    return 30.0
+    return _compatibility_heuristic_score(user_interests, candidate_interests)
 
 
 @profiles_router.get("/me")
@@ -299,7 +312,8 @@ def get_candidates(limit: int = 10, authorization: str = Header(None)):
         for c in filtered:
             my_int = interests_from_profile(my_profile)
             c_int = interests_from_profile(c)
-            c['compatibility_score'] = calculate_compatibility(my_int, c_int)
+            # Listing must stay fast (Vercel limit); LLM scoring is on /match and /ai/compatibility.
+            c['compatibility_score'] = calculate_compatibility(my_int, c_int, use_llm=False)
         
         filtered.sort(key=lambda x: x.get('compatibility_score', 0), reverse=True)
         return filtered[:limit]
