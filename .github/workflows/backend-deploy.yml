@@ -37,6 +37,8 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
         run: |
           set -e
+          mkdir -p .vercel
+          python3 -c 'import json,os; json.dump({"projectId":os.environ["VERCEL_PROJECT_ID"],"orgId":os.environ["VERCEL_ORG_ID"],"projectName":"api"}, open(".vercel/project.json","w"))'
           for ENV in production preview development; do
             vercel env add OPENROUTER_API_KEY "$ENV" \
               --value "$OPENROUTER_API_KEY" \
