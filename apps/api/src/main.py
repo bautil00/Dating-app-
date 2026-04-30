@@ -149,18 +149,45 @@ def _coerce_interests_text(val) -> str:
 
 
 def interests_from_profile(profile: dict) -> str:
-    """Single string for LLM scoring. Handles null `interests` and legacy interest_1..3."""
+    """
+    Text blob for LLM/heuristic compatibility. Many live rows have interests=null but job filled;
+    without a fallback we always return neutral 50 and never call the model.
+    """
     if not profile:
         return ""
-    combined = _coerce_interests_text(profile.get("interests"))
-    if combined:
-        return combined
-    parts = []
-    for key in ("interest_1", "interest_2", "interest_3"):
-        part = _coerce_interests_text(profile.get(key))
+
+    for k, v in profile.items():
+        if not isinstance(k, str):
+            continue
+        kl = k.lower()
+        if kl in ("interests", "interest"):
+            t = _coerce_interests_text(v)
+            if t:
+                return t
+
+    parts_by_n: dict[int, str] = {}
+    for k, v in profile.items():
+        if not isinstance(k, str):
+            continue
+        kl = k.lower()
+        if kl.startswith("interest_"):
+            suffix = kl.split("_", 1)[-1]
+            if suffix.isdigit():
+                part = _coerce_interests_text(v)
+                if part:
+                    parts_by_n[int(suffix)] = part
+    if parts_by_n:
+        return ", ".join(parts_by_n[i] for i in sorted(parts_by_n))
+
+    ci = {
+        str(k).lower(): v for k, v in profile.items() if isinstance(k, str)
+    }
+    fallback: list[str] = []
+    for key in ("job", "mbti", "zodiac", "education", "relationship"):
+        part = _coerce_interests_text(ci.get(key))
         if part:
-            parts.append(part)
-    return ", ".join(parts)
+            fallback.append(part)
+    return ", ".join(fallback)
 
 
 def calculate_compatibility(user_interests, candidate_interests):
@@ -170,28 +197,32 @@ def calculate_compatibility(user_interests, candidate_interests):
         return 50.0
     
     settings = get_settings()
-    if settings.openrouter_api_key:
+    or_key = (settings.openrouter_api_key or "").strip()
+    if or_key:
         prompt = f"You are a dating compatibility AI. Given two profiles' interests, return ONLY a single integer score between 0 and 100 representing their compatibility. Do not include any explanation or additional text. Profile 1 interests: {user_interests}. Profile 2 interests: {candidate_interests}."
         try:
             with httpx.Client() as client:
                 resp = client.post(
                     "https://openrouter.ai/api/v1/chat/completions",
                     json={
-                        "model": "tencent/hy3-preview:free",
+                        "model": os.environ.get("OPENROUTER_MODEL", "tencent/hy3-preview:free"),
                         "messages": [{"role": "user", "content": prompt}],
                         "max_tokens": 20,
                     },
                     headers={
-                        "Authorization": f"Bearer {settings.openrouter_api_key}",
+                        "Authorization": f"Bearer {or_key}",
                         "Content-Type": "application/json",
+                        "HTTP-Referer": os.environ.get("OPENROUTER_HTTP_REFERER", "https://blowtorch-api-dev.vercel.app"),
+                        "X-Title": "BLOWTORCH",
                     },
-                    timeout=10
+                    timeout=15
                 )
                 if resp.status_code == 200:
                     content = resp.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
                     match = re.search(r'\d+', content)
                     if match:
-                        return float(match.group())
+                        score = float(match.group())
+                        return min(100.0, max(0.0, score))
         except Exception:
             pass
 
@@ -728,7 +759,8 @@ def _fallback_icebreaker(my_interests, target_interests):
 
 
 def _generate_ai_icebreaker(settings, my_interests, target_interests):
-    if not settings.openrouter_api_key:
+    or_key = (settings.openrouter_api_key or "").strip()
+    if not or_key:
         return None
 
     prompt = (
@@ -743,7 +775,7 @@ def _generate_ai_icebreaker(settings, my_interests, target_interests):
             resp = client.post(
                 "https://openrouter.ai/api/v1/chat/completions",
                 json={
-                    "model": "tencent/hy3-preview:free",
+                    "model": os.environ.get("OPENROUTER_MODEL", "tencent/hy3-preview:free"),
                     "messages": [
                         {
                             "role": "system",
@@ -754,8 +786,10 @@ def _generate_ai_icebreaker(settings, my_interests, target_interests):
                     "max_tokens": 80,
                 },
                 headers={
-                    "Authorization": f"Bearer {settings.openrouter_api_key}",
+                    "Authorization": f"Bearer {or_key}",
                     "Content-Type": "application/json",
+                    "HTTP-Referer": os.environ.get("OPENROUTER_HTTP_REFERER", "https://blowtorch-api-dev.vercel.app"),
+                    "X-Title": "BLOWTORCH",
                 },
                 timeout=20,
             )

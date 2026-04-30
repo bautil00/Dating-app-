@@ -152,6 +152,14 @@ class TestInterestsFromProfile:
         p = {"interests": "hiking", "interest_1": "coding"}
         assert interests_from_profile(p) == "hiking"
 
+    def test_job_fallback_when_interests_null(self):
+        p = {"interests": None, "job": "programmer"}
+        assert interests_from_profile(p) == "programmer"
+
+    def test_combines_job_and_mbti_when_no_interests(self):
+        p = {"interests": None, "job": "teacher", "mbti": "INFP"}
+        assert interests_from_profile(p) == "teacher, INFP"
+
 
 class TestNormalizeInterests:
     def test_normalize_comma_separated(self):
