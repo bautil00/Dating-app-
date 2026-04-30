@@ -183,7 +183,7 @@ def interests_from_profile(profile: dict) -> str:
         str(k).lower(): v for k, v in profile.items() if isinstance(k, str)
     }
     fallback: list[str] = []
-    for key in ("job", "mbti", "zodiac", "education", "relationship"):
+    for key in ("job", "mbti", "zodiac", "education", "relationship", "gender", "name"):
         part = _coerce_interests_text(ci.get(key))
         if part:
             fallback.append(part)

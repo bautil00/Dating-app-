@@ -160,6 +160,10 @@ class TestInterestsFromProfile:
         p = {"interests": None, "job": "teacher", "mbti": "INFP"}
         assert interests_from_profile(p) == "teacher, INFP"
 
+    def test_name_fallback_when_job_and_interests_null(self):
+        p = {"interests": None, "job": None, "name": "River"}
+        assert interests_from_profile(p) == "River"
+
 
 class TestNormalizeInterests:
     def test_normalize_comma_separated(self):
