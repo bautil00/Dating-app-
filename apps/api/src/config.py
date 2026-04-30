@@ -1,7 +1,5 @@
-import os
 from pathlib import Path
 from pydantic_settings import BaseSettings, SettingsConfigDict
-from functools import lru_cache
 
 _API_ROOT = Path(__file__).resolve().parent.parent
 
@@ -23,6 +21,6 @@ class Settings(BaseSettings):
     )
 
 
-@lru_cache()
 def get_settings() -> Settings:
+    # No lru_cache: serverless warm starts must re-read env (e.g. OPENROUTER_API_KEY from Vercel).
     return Settings()

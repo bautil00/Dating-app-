@@ -28,6 +28,21 @@ jobs:
       - name: Install Vercel CLI
         run: npm install -g vercel
 
+      - name: Sync OpenRouter key to Vercel project env
+        working-directory: apps/api
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_BACKEND_PROJECT_ID }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+        run: |
+          set -e
+          for ENV in production preview development; do
+            vercel env add OPENROUTER_API_KEY "$ENV" \
+              --value "$OPENROUTER_API_KEY" \
+              --yes --sensitive --force --token "$VERCEL_TOKEN"
+          done
+
       - name: Deploy to Vercel
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
