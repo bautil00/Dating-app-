@@ -1,7 +1,13 @@
 from pathlib import Path
+import os
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 _API_ROOT = Path(__file__).resolve().parent.parent
+
+# On Vercel, only process env (Dashboard / deploy). Loading .env from the bundle can mask OPENROUTER_API_KEY.
+_settings_kw: dict = {"env_file_encoding": "utf-8", "extra": "ignore"}
+if not os.environ.get("VERCEL"):
+    _settings_kw["env_file"] = str(_API_ROOT / ".env")
 
 
 class Settings(BaseSettings):
@@ -14,11 +20,7 @@ class Settings(BaseSettings):
     openrouter_api_key: str | None = None
     openai_api_key: str | None = None
 
-    model_config = SettingsConfigDict(
-        env_file=str(_API_ROOT / ".env"),
-        env_file_encoding="utf-8",
-        extra="ignore",
-    )
+    model_config = SettingsConfigDict(**_settings_kw)
 
 
 def get_settings() -> Settings:
