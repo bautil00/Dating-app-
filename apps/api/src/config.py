@@ -6,7 +6,7 @@ _API_ROOT = Path(__file__).resolve().parent.parent
 
 # On Vercel, only process env (Dashboard / deploy). Loading .env from the bundle can mask OPENROUTER_API_KEY.
 _settings_kw: dict = {"env_file_encoding": "utf-8", "extra": "ignore"}
-if not os.environ.get("VERCEL"):
+if not (os.environ.get("VERCEL") or os.environ.get("VERCEL_ENV")):
     _settings_kw["env_file"] = str(_API_ROOT / ".env")
 
 
