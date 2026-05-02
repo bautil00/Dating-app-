@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Header, Request
+from fastapi import FastAPI, APIRouter, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 from typing import Optional
@@ -183,11 +183,6 @@ def get_database_compatibility_score(settings, token: str, user1_id: str, user2_
 def get_match_compatibility_score(settings, token: str, user1_id: str, user2_id: str) -> float:
     score = get_database_compatibility_score(settings, token, user1_id, user2_id)
     return float(score) if score is not None else 0.0
-
-
-def calculate_ai_match_score_placeholder(user_profile: dict, candidate_profile: dict):
-    """Placeholder for future AI matching. Matching currently uses only database RPC scores."""
-    return None
 
 
 def response_failed(resp) -> bool:

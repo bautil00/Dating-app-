@@ -1,7 +1,6 @@
-"""Tests for utility functions (haversine, matching score placeholders, gender filtering)."""
+"""Tests for utility functions (haversine, database matching score, gender filtering)."""
 import math
 from src.main import (
-    calculate_ai_match_score_placeholder,
     get_match_compatibility_score,
     haversine_distance,
     filter_by_gender,
@@ -106,13 +105,6 @@ class TestMatchCompatibility:
 
         result = get_match_compatibility_score(Settings(), "tok", "alice", "bob")
         assert result == 0.0
-
-    def test_ai_match_placeholder_is_inert(self):
-        result = calculate_ai_match_score_placeholder(
-            {"interests": "Music"}, {"interests": "Music"}
-        )
-        assert result is None
-
 
 class TestNormalizeInterests:
     def test_normalize_comma_separated(self):
