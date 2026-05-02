@@ -55,7 +55,7 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Run unit tests (no coverage, fast)
-        run: python -m pytest tests/test_utils.py tests/test_schemas.py tests/test_services.py -v
+        run: python -m pytest tests/test_utils.py tests/test_auth.py tests/test_profiles.py tests/test_match.py tests/test_matches_messages.py tests/test_ai.py -v
 
   test-frontend:
     runs-on: ubuntu-latest
