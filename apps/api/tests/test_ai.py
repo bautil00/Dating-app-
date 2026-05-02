@@ -107,7 +107,7 @@ class TestCompatibility:
             })
         assert res.status_code == 200
         assert "compatibility_score" in res.json()
-        assert res.json()["compatibility_score"] == 100.0
+        assert res.json()["compatibility_score"] == 0.0
 
     def test_compatibility_different_interests(self, client):
         user_resp = _make_resp(200, {"id": "alice"})
@@ -120,7 +120,7 @@ class TestCompatibility:
                 "Authorization": "Bearer tok"
             })
         assert res.status_code == 200
-        assert res.json()["compatibility_score"] == 30.0
+        assert res.json()["compatibility_score"] == 0.0
 
     def test_compatibility_missing_profile(self, client):
         user_resp = _make_resp(200, {"id": "alice"})

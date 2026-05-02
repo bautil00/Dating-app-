@@ -3,13 +3,13 @@ from fastapi.middleware.cors import CORSMiddleware
 import httpx
 from typing import Optional
 import math
-import json
-import re
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from .config import get_settings
+
+PROFILE_TABLE = "user_data"
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 app = FastAPI(title="BLOWTORCH", version="0.1.0")
@@ -34,6 +34,165 @@ app.add_middleware(
 def get_supabase_client():
     settings = get_settings()
     return httpx.Client(base_url=settings.supabase_url, headers={"apikey": settings.supabase_key})
+
+
+def supabase_headers(settings, token: Optional[str] = None, content_type: bool = False):
+    headers = {"apikey": settings.supabase_key}
+    if token:
+        headers["Authorization"] = f"Bearer {token}"
+    if content_type:
+        headers["Content-Type"] = "application/json"
+    return headers
+
+
+def _compact_dict(data: dict) -> dict:
+    return {k: v for k, v in data.items() if v is not None}
+
+
+def _coerce_float(value):
+    if value in (None, ""):
+        return None
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _coerce_int(value):
+    if value in (None, ""):
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _enum_value(value):
+    if value in (None, ""):
+        return None
+    return str(value).strip().lower().replace("/", "_").replace("-", "_").replace(" ", "_")
+
+
+def _enum_array(value):
+    if value in (None, ""):
+        return None
+    if isinstance(value, list):
+        values = value
+    else:
+        values = str(value).split(",")
+    normalized = [_enum_value(v) for v in values]
+    return [v for v in normalized if v]
+
+
+def normalize_profile_row(row: dict) -> dict:
+    """Keep current frontend aliases while using the live database schema."""
+    if not isinstance(row, dict):
+        return row
+    normalized = dict(row)
+    alias_pairs = {
+        "Name": "name",
+        "Age": "age",
+        "Location": "location",
+        "Job": "job",
+        "Zodiac": "zodiac",
+        "display_name": "name",
+        "relationship_status": "relationship",
+        "living_status": "living",
+    }
+    for alias, source in alias_pairs.items():
+        if alias not in normalized and source in normalized:
+            normalized[alias] = normalized[source]
+    return normalized
+
+
+def normalize_profile_rows(rows):
+    if not isinstance(rows, list):
+        return rows
+    return [normalize_profile_row(row) for row in rows]
+
+
+def build_profile_rpc_payload(profile_data: dict, user_id: str) -> dict:
+    interests = profile_data.get("interests")
+    payload = {
+        "p_user_id": user_id,
+        "p_name": profile_data.get("display_name") or profile_data.get("name"),
+        "p_age": _coerce_int(profile_data.get("age")),
+        "p_location": _coerce_float(profile_data.get("location")),
+        "p_interests": _enum_array(interests),
+        "p_gender": _enum_value(profile_data.get("gender")),
+        "p_job": _enum_value(profile_data.get("job")),
+        "p_sexual_pref": _enum_value(profile_data.get("sexual_pref")),
+        "p_pronouns": _enum_value(profile_data.get("pronouns")),
+        "p_zodiac": _enum_value(profile_data.get("zodiac")),
+        "p_education": _enum_value(profile_data.get("education")),
+        "p_relationship": _enum_value(
+            profile_data.get("relationship_status") or profile_data.get("relationship")
+        ),
+        "p_living": _enum_value(profile_data.get("living_status") or profile_data.get("living")),
+        "p_seeking_gender": profile_data.get("seeking_gender", "everyone"),
+        "p_max_distance_km": _coerce_int(profile_data.get("max_distance_km")) or 50,
+    }
+    return _compact_dict(payload)
+
+
+def build_profile_rest_payload(profile_data: dict, user_id: str) -> dict:
+    """Direct table payload for local/mocked clients; production uses create_user_profile RPC."""
+    payload = {
+        "user_id": user_id,
+        "name": profile_data.get("display_name") or profile_data.get("name"),
+        "age": _coerce_int(profile_data.get("age")),
+        "location": _coerce_float(profile_data.get("location")),
+        "interests": _enum_array(profile_data.get("interests")),
+        "gender": _enum_value(profile_data.get("gender")),
+        "job": _enum_value(profile_data.get("job")),
+        "sexual_pref": _enum_value(profile_data.get("sexual_pref")),
+        "pronouns": _enum_value(profile_data.get("pronouns")),
+        "zodiac": _enum_value(profile_data.get("zodiac")),
+        "education": _enum_value(profile_data.get("education")),
+        "relationship": _enum_value(
+            profile_data.get("relationship_status") or profile_data.get("relationship")
+        ),
+        "living": _enum_value(profile_data.get("living_status") or profile_data.get("living")),
+        "seeking_gender": profile_data.get("seeking_gender", "everyone"),
+        "max_distance_km": _coerce_int(profile_data.get("max_distance_km")) or 50,
+        "is_complete": True,
+    }
+    return _compact_dict(payload)
+
+
+def get_database_compatibility_score(settings, token: str, user1_id: str, user2_id: str):
+    if not user1_id or not user2_id:
+        return None
+    if ".supabase.co" not in settings.supabase_url or "fake" in settings.supabase_url or settings.supabase_key == "fake-key":
+        return None
+    try:
+        with httpx.Client() as client:
+            resp = client.post(
+                f"{settings.supabase_url}/rest/v1/rpc/compatibility_score",
+                json={"user1_id": user1_id, "user2_id": user2_id},
+                headers=supabase_headers(settings, token, content_type=True),
+            )
+            if resp.status_code >= 400:
+                return None
+            value = resp.json()
+            return float(value)
+    except Exception:
+        return None
+
+
+def get_match_compatibility_score(settings, token: str, user1_id: str, user2_id: str) -> float:
+    score = get_database_compatibility_score(settings, token, user1_id, user2_id)
+    return float(score) if score is not None else 0.0
+
+
+def calculate_ai_match_score_placeholder(user_profile: dict, candidate_profile: dict):
+    """Placeholder for future AI matching. Matching currently uses only database RPC scores."""
+    return None
+
+
+def response_failed(resp) -> bool:
+    status_code = getattr(resp, "status_code", None)
+    return isinstance(status_code, int) and status_code >= 400
 
 
 auth_router = APIRouter(prefix="/auth", tags=["Authentication"])
@@ -135,43 +294,6 @@ def filter_by_gender(profiles, seeking):
     return [p for p in profiles if p.get('gender', '').lower() == seeking.lower()]
 
 
-def calculate_compatibility(user_interests, candidate_interests):
-    if not user_interests or not candidate_interests:
-        return 50.0
-    
-    settings = get_settings()
-    if settings.openrouter_api_key:
-        prompt = f"You are a dating compatibility AI. Given two profiles' interests, return ONLY a single integer score between 0 and 100 representing their compatibility. Do not include any explanation or additional text. Profile 1 interests: {user_interests}. Profile 2 interests: {candidate_interests}."
-        try:
-            with httpx.Client() as client:
-                resp = client.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    json={
-                        "model": "tencent/hy3-preview:free",
-                        "messages": [{"role": "user", "content": prompt}],
-                        "max_tokens": 20,
-                    },
-                    headers={
-                        "Authorization": f"Bearer {settings.openrouter_api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    timeout=10
-                )
-                if resp.status_code == 200:
-                    content = resp.json().get("choices", [{}])[0].get("message", {}).get("content", "").strip()
-                    match = re.search(r'\d+', content)
-                    if match:
-                        return float(match.group())
-        except Exception:
-            pass
-
-    user_int = str(user_interests).lower() if not isinstance(user_interests, list) else user_interests[0].lower() if user_interests else ""
-    cand_int = str(candidate_interests).lower() if not isinstance(candidate_interests, list) else candidate_interests[0].lower() if candidate_interests else ""
-    if user_int == cand_int:
-        return 100.0
-    return 30.0
-
-
 @profiles_router.get("/me")
 def get_my_profile(authorization: str = Header(None)):
     if not authorization:
@@ -189,13 +311,13 @@ def get_my_profile(authorization: str = Header(None)):
         user_id = user_resp.json().get("id")
         
         resp = client.get(
-            f"{settings.supabase_url}/rest/v1/UserData",
+            f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
             params={"user_id": f"eq.{user_id}"},
-            headers={"apikey": settings.supabase_key}
+            headers=supabase_headers(settings, token)
         )
         profiles = resp.json()
         if profiles:
-            return profiles[0]
+            return normalize_profile_row(profiles[0])
         return {"user_id": user_id, "is_complete": False}
 
 
@@ -214,18 +336,18 @@ def get_candidates(limit: int = 10, authorization: str = Header(None)):
         user_id = me_resp.json().get("id")
         
         my_resp = client.get(
-            f"{settings.supabase_url}/rest/v1/UserData",
+            f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
             params={"user_id": f"eq.{user_id}"},
-            headers={"apikey": settings.supabase_key}
+            headers=supabase_headers(settings, token)
         )
         if not my_resp.json():
             raise HTTPException(status_code=404, detail="Create profile first")
         my_profile = my_resp.json()[0]
         
         all_resp = client.get(
-            f"{settings.supabase_url}/rest/v1/UserData",
+            f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
             params={"is_complete": "eq.true"},
-            headers={"apikey": settings.supabase_key}
+            headers=supabase_headers(settings, token)
         )
         
         candidates = [c for c in all_resp.json() if c.get('user_id') != user_id]
@@ -236,12 +358,12 @@ def get_candidates(limit: int = 10, authorization: str = Header(None)):
         filtered = filter_by_gender(candidates, seeking)
         
         for c in filtered:
-            my_int = my_profile.get('interests', '')
-            c_int = c.get('interests', '')
-            c['compatibility_score'] = calculate_compatibility(my_int, c_int)
+            c['compatibility_score'] = get_match_compatibility_score(
+                settings, token, user_id, c.get("user_id")
+            )
         
         filtered.sort(key=lambda x: x.get('compatibility_score', 0), reverse=True)
-        return filtered[:limit]
+        return normalize_profile_rows(filtered[:limit])
 
 
 @profiles_router.post("/")
@@ -258,61 +380,58 @@ def create_profile(profile_data: dict, authorization: str = Header(None)):
         )
         user_id = me_resp.json().get("id")
         
-        # Location column is double precision (latitude) in DB, not text
-        location_val = profile_data.get('location')
-        try:
-            location_num = float(location_val) if location_val else None
-        except (ValueError, TypeError):
-            location_num = None
-
-        mapped = {
-            'Name': profile_data.get('display_name'),
-            'Age': profile_data.get('age'),
-            'Location': location_num,
-            'interests': profile_data.get('interests'),
-            'gender': profile_data.get('gender'),
-            'Job': profile_data.get('job'),
-            'sexual pref': profile_data.get('sexual_pref'),
-            'pro-nouns': profile_data.get('pronouns'),
-            'Zodiac': profile_data.get('zodiac'),
-            'education': profile_data.get('education'),
-            'relationship': profile_data.get('relationship_status'),
-            'living': profile_data.get('living_status'),
-            'seeking_gender': profile_data.get('seeking_gender', 'everyone'),
-            'max_distance_km': profile_data.get('max_distance_km', 50),
-            'is_complete': True,
-            'user_id': user_id,
-        }
-        # Remove None values to avoid overwriting with nulls
-        mapped = {k: v for k, v in mapped.items() if v is not None}
-        
         existing = client.get(
-            f"{settings.supabase_url}/rest/v1/UserData",
+            f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
             params={"user_id": f"eq.{user_id}"},
-            headers={"apikey": settings.supabase_key}
+            headers=supabase_headers(settings, token)
         )
-        if existing.json():
-            client.patch(
-                f"{settings.supabase_url}/rest/v1/UserData",
-                params={"user_id": f"eq.{user_id}"},
-                json=mapped,
-                headers={"apikey": settings.supabase_key, "Content-Type": "application/json"}
+        existed = bool(existing.json())
+
+        if ".supabase.co" in settings.supabase_url:
+            result = client.post(
+                f"{settings.supabase_url}/rest/v1/rpc/create_user_profile",
+                json=build_profile_rpc_payload(profile_data, user_id),
+                headers=supabase_headers(settings, token, content_type=True),
             )
-            return {"status": "updated", "user_id": user_id}
-        
-        result = client.post(
-            f"{settings.supabase_url}/rest/v1/UserData",
-            json=mapped,
-            headers={
-                "apikey": settings.supabase_key,
-                "Content-Type": "application/json",
-                "Prefer": "return=representation",
-            }
-        )
-        if result.status_code >= 400:
+        elif existed:
+            result = client.patch(
+                f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
+                params={"user_id": f"eq.{user_id}"},
+                json=build_profile_rest_payload(profile_data, user_id),
+                headers=supabase_headers(settings, token, content_type=True),
+            )
+        else:
+            result = client.post(
+                f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
+                json=build_profile_rest_payload(profile_data, user_id),
+                headers={
+                    **supabase_headers(settings, token, content_type=True),
+                    "Prefer": "return=representation",
+                },
+            )
+
+        if response_failed(result):
             raise HTTPException(status_code=result.status_code, detail=result.text)
+
+        try:
+            refreshed = client.get(
+                f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
+                params={"user_id": f"eq.{user_id}"},
+                headers=supabase_headers(settings, token)
+            )
+            rows = refreshed.json() if not response_failed(refreshed) else []
+        except Exception:
+            rows = []
+        if rows:
+            row = normalize_profile_row(rows[0])
+            row["status"] = "updated" if existed else "created"
+            return row
         data = result.json()
-        return data[0] if isinstance(data, list) and data else {"status": "created", "user_id": user_id}
+        if isinstance(data, list) and data:
+            row = normalize_profile_row(data[0])
+            row["status"] = "updated" if existed else "created"
+            return row
+        return {"status": "updated" if existed else "created", "user_id": user_id}
 
 
 app.include_router(profiles_router, prefix="/api/v1")
@@ -355,7 +474,7 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
 
     with httpx.Client() as client:
         my_profile_resp = client.get(
-            f"{settings.supabase_url}/rest/v1/UserData",
+            f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
             params={"user_id": f"eq.{sender_id}"},
             headers=base_headers,
         )
@@ -363,7 +482,7 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
         my_profile = my_profiles[0] if my_profiles else {}
 
         receiver_profile_resp = client.get(
-            f"{settings.supabase_url}/rest/v1/UserData",
+            f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
             params={"user_id": f"eq.{receiver_id}"},
             headers=base_headers,
         )
@@ -374,9 +493,8 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
             raise HTTPException(status_code=404, detail="Candidate not found")
         receiver_profile = receiver_profiles[0]
 
-        compatibility_score = calculate_compatibility(
-            my_profile.get("interests", ""),
-            receiver_profile.get("interests", ""),
+        compatibility_score = get_match_compatibility_score(
+            settings, token, sender_id, receiver_id
         )
 
         outgoing_resp = client.get(
@@ -747,11 +865,11 @@ def _generate_ai_icebreaker(settings, my_interests, target_interests):
 def get_icebreaker(target_user_id: str, authorization: str = Header(None)):
     settings = get_settings()
     user_id, token = _get_user_id_and_token(authorization, settings)
-    headers = {"apikey": settings.supabase_key, "Authorization": f"Bearer {token}"}
+    headers = supabase_headers(settings, token)
 
     with httpx.Client() as client:
         my_profile_resp = client.get(
-            f"{settings.supabase_url}/rest/v1/UserData",
+            f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
             params={"user_id": f"eq.{user_id}"},
             headers=headers,
         )
@@ -760,7 +878,7 @@ def get_icebreaker(target_user_id: str, authorization: str = Header(None)):
             raise HTTPException(status_code=400, detail="Create your profile first")
 
         target_profile_resp = client.get(
-            f"{settings.supabase_url}/rest/v1/UserData",
+            f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
             params={"user_id": f"eq.{target_user_id}"},
             headers=headers,
         )
@@ -793,11 +911,11 @@ def get_icebreaker(target_user_id: str, authorization: str = Header(None)):
 def get_compatibility(target_user_id: str, authorization: str = Header(None)):
     settings = get_settings()
     user_id, token = _get_user_id_and_token(authorization, settings)
-    headers = {"apikey": settings.supabase_key, "Authorization": f"Bearer {token}"}
+    headers = supabase_headers(settings, token)
 
     with httpx.Client() as client:
         my_profile_resp = client.get(
-            f"{settings.supabase_url}/rest/v1/UserData",
+            f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
             params={"user_id": f"eq.{user_id}"},
             headers=headers,
         )
@@ -806,7 +924,7 @@ def get_compatibility(target_user_id: str, authorization: str = Header(None)):
             raise HTTPException(status_code=400, detail="Create your profile first")
 
         target_profile_resp = client.get(
-            f"{settings.supabase_url}/rest/v1/UserData",
+            f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
             params={"user_id": f"eq.{target_user_id}"},
             headers=headers,
         )
@@ -816,10 +934,7 @@ def get_compatibility(target_user_id: str, authorization: str = Header(None)):
         if not target_profiles:
             raise HTTPException(status_code=404, detail="Target profile not found")
 
-        score = calculate_compatibility(
-            my_profiles[0].get("interests", ""),
-            target_profiles[0].get("interests", ""),
-        )
+        score = get_match_compatibility_score(settings, token, user_id, target_user_id)
         return {"profile_id": target_user_id, "compatibility_score": score}
 
 

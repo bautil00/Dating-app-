@@ -102,7 +102,7 @@ class TestLikeCandidate:
         assert res.status_code == 404
 
     def test_compatibility_score_returned(self, client):
-        """Score defaults to 50 when OpenRouter is skipped."""
+        """Score is returned from the database scoring wrapper."""
         user_resp = _make_resp(200, {"id": "alice"})
         alice_profile = _make_resp(200, [{"user_id": "alice", "interests": "Music"}])
         bob_profile = _make_resp(200, [{"user_id": "bob", "interests": "Gaming"}])

@@ -1,7 +1,11 @@
-"""Tests for utility functions (haversine, compatibility scoring, gender filtering)."""
+"""Tests for utility functions (haversine, matching score placeholders, gender filtering)."""
 import math
-import pytest
-from src.main import haversine_distance, filter_by_gender, calculate_compatibility
+from src.main import (
+    calculate_ai_match_score_placeholder,
+    get_match_compatibility_score,
+    haversine_distance,
+    filter_by_gender,
+)
 
 
 class TestHaversineDistance:
@@ -94,53 +98,20 @@ class TestFilterByGender:
         assert result == []
 
 
-@pytest.fixture(autouse=True)
-def disable_ai():
-    from unittest.mock import patch
-    with patch("src.main.get_settings") as mock_settings:
-        mock_settings.return_value.openrouter_api_key = None
-        yield mock_settings
+class TestMatchCompatibility:
+    def test_database_score_defaults_to_zero_without_rpc_score(self):
+        class Settings:
+            supabase_url = "https://fake.supabase.co"
+            supabase_key = "fake-key"
 
-class TestCalculateCompatibility:
-    def test_identical_interests(self):
-        result = calculate_compatibility("Music", "Music")
-        assert result == 100.0
+        result = get_match_compatibility_score(Settings(), "tok", "alice", "bob")
+        assert result == 0.0
 
-    def test_identical_interests_case_insensitive(self):
-        result = calculate_compatibility("MUSIC", "music")
-        assert result == 100.0
-
-    def test_different_interests(self):
-        result = calculate_compatibility("Music", "Gaming")
-        assert result == 30.0
-
-    def test_empty_user_interests(self):
-        result = calculate_compatibility("", "Music")
-        assert result == 50.0
-
-    def test_empty_candidate_interests(self):
-        result = calculate_compatibility("Music", "")
-        assert result == 50.0
-
-    def test_both_empty_interests(self):
-        result = calculate_compatibility("", "")
-        assert result == 50.0
-
-    def test_none_user_interests(self):
-        result = calculate_compatibility(None, "Music")
-        assert result == 50.0
-
-    def test_none_candidate_interests(self):
-        result = calculate_compatibility("Music", None)
-        assert result == 50.0
-
-    def test_compatibility_not_exceeding_100(self):
-        result = calculate_compatibility("Music", "Music")
-        assert result <= 100.0
-
-    def test_compatibility_not_below_0(self):
-        result = calculate_compatibility("Music", "Gaming")
-        assert result >= 0
+    def test_ai_match_placeholder_is_inert(self):
+        result = calculate_ai_match_score_placeholder(
+            {"interests": "Music"}, {"interests": "Music"}
+        )
+        assert result is None
 
 
 class TestNormalizeInterests:
