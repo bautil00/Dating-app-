@@ -63,6 +63,11 @@ class TestFilterByGender:
         assert len(result) == 2
         assert all(p["gender"] in ["Male", "Female"] for p in result)
 
+    def test_both_ignores_missing_gender(self):
+        profiles = [{"gender": "male"}, {"gender": None}, {}]
+        result = filter_by_gender(profiles, "both")
+        assert result == [{"gender": "male"}]
+
     def test_filter_male(self):
         profiles = [
             {"gender": "Male"},
@@ -95,6 +100,11 @@ class TestFilterByGender:
         profiles = [{"gender": "Female"}]
         result = filter_by_gender(profiles, "male")
         assert result == []
+
+    def test_specific_filter_ignores_missing_gender(self):
+        profiles = [{"gender": None}, {}, {"gender": "Male"}]
+        result = filter_by_gender(profiles, "male")
+        assert result == [{"gender": "Male"}]
 
 
 class TestMatchCompatibility:

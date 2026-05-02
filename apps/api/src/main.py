@@ -113,6 +113,7 @@ def normalize_profile_rows(rows):
 
 def build_profile_rpc_payload(profile_data: dict, user_id: str) -> dict:
     interests = profile_data.get("interests")
+    pronouns = profile_data.get("pronouns")
     payload = {
         "p_user_id": user_id,
         "p_name": profile_data.get("display_name") or profile_data.get("name"),
@@ -122,7 +123,7 @@ def build_profile_rpc_payload(profile_data: dict, user_id: str) -> dict:
         "p_gender": _enum_value(profile_data.get("gender")),
         "p_job": _enum_value(profile_data.get("job")),
         "p_sexual_pref": _enum_value(profile_data.get("sexual_pref")),
-        "p_pronouns": _enum_value(profile_data.get("pronouns")),
+        "p_pronouns": str(pronouns).strip() if pronouns not in (None, "") else None,
         "p_zodiac": _enum_value(profile_data.get("zodiac")),
         "p_education": _enum_value(profile_data.get("education")),
         "p_relationship": _enum_value(
@@ -285,8 +286,14 @@ def filter_by_gender(profiles, seeking):
     if not seeking or seeking == 'everyone':
         return profiles
     if seeking == 'both':
-        return [p for p in profiles if p.get('gender') in ['Male', 'Female']]
-    return [p for p in profiles if p.get('gender', '').lower() == seeking.lower()]
+        return [
+            p for p in profiles
+            if str(p.get('gender') or '').lower() in {'male', 'female'}
+        ]
+    return [
+        p for p in profiles
+        if str(p.get('gender') or '').lower() == str(seeking).lower()
+    ]
 
 
 @profiles_router.get("/me")
@@ -388,6 +395,13 @@ def create_profile(profile_data: dict, authorization: str = Header(None)):
                 json=build_profile_rpc_payload(profile_data, user_id),
                 headers=supabase_headers(settings, token, content_type=True),
             )
+            if not response_failed(result):
+                client.patch(
+                    f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
+                    params={"user_id": f"eq.{user_id}"},
+                    json={"is_complete": True},
+                    headers=supabase_headers(settings, token, content_type=True),
+                )
         elif existed:
             result = client.patch(
                 f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
