@@ -123,7 +123,11 @@ def build_profile_rpc_payload(profile_data: dict, user_id: str) -> dict:
         "p_gender": _enum_value(profile_data.get("gender")),
         "p_job": _enum_value(profile_data.get("job")),
         "p_sexual_pref": _enum_value(profile_data.get("sexual_pref")),
-        "p_pronouns": str(pronouns).strip() if pronouns not in (None, "") else None,
+        "p_pronouns": (
+            str(pronouns).strip().lower().replace("/", " ")
+            if pronouns not in (None, "")
+            else None
+        ),
         "p_zodiac": _enum_value(profile_data.get("zodiac")),
         "p_education": _enum_value(profile_data.get("education")),
         "p_relationship": _enum_value(

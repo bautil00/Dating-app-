@@ -1,6 +1,7 @@
 """Tests for utility functions (haversine, database matching score, gender filtering)."""
 import math
 from src.main import (
+    build_profile_rpc_payload,
     get_match_compatibility_score,
     haversine_distance,
     filter_by_gender,
@@ -115,6 +116,12 @@ class TestMatchCompatibility:
 
         result = get_match_compatibility_score(Settings(), "tok", "alice", "bob")
         assert result == 0.0
+
+
+class TestBuildProfileRpcPayload:
+    def test_pronouns_match_database_enum_format(self):
+        result = build_profile_rpc_payload({"pronouns": "She/Her"}, "u1")
+        assert result["p_pronouns"] == "she her"
 
 class TestNormalizeInterests:
     def test_normalize_comma_separated(self):
