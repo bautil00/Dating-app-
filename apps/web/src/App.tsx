@@ -3,6 +3,7 @@ import { useAuth } from './hooks/useAuth'
 import Login from './pages/Login'
 import Register from './pages/Register'
 import Dashboard from './pages/Dashboard'
+import Discover from './pages/Discover'
 import Profile from './pages/Profile'
 import Matches from './pages/Matches'
 import Chat from './pages/Chat'
@@ -15,13 +16,14 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/login" element={user ? <Navigate to="/dashboard" /> : <Login />} />
-        <Route path="/register" element={user ? <Navigate to="/dashboard" /> : <Register />} />
+        <Route path="/login" element={user ? <Navigate to="/discover" /> : <Login />} />
+        <Route path="/register" element={user ? <Navigate to="/discover" /> : <Register />} />
+        <Route path="/discover" element={user ? <Discover /> : <Navigate to="/login" />} />
         <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
         <Route path="/profile" element={user ? <Profile /> : <Navigate to="/login" />} />
         <Route path="/matches" element={user ? <Matches /> : <Navigate to="/login" />} />
         <Route path="/chat/:userId" element={user ? <Chat /> : <Navigate to="/login" />} />
-        <Route path="*" element={<Navigate to={user ? "/dashboard" : "/login"} />} />
+        <Route path="*" element={<Navigate to={user ? "/discover" : "/login"} />} />
       </Routes>
     </BrowserRouter>
   )
