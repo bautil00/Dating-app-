@@ -1,3 +1,5 @@
+@tailwind utilities;
+
 :root {
   --primary: #ff4d6d;
   --primary-light: #ff758f;
