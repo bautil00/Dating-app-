@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Bell, Flame } from "lucide-react";
 
@@ -16,16 +17,14 @@ export default function Navbar() {
 
   return (
     <nav className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
-      <div className="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 no-underline">
-          <Flame className="w-7 h-7 text-orange-500" fill="currentColor" />
-          <span className="text-xl font-extrabold tracking-tight bg-gradient-to-r from-[#FF7A18] to-[#FF3D2E] bg-clip-text text-transparent">
-            Blowtorch
-          </span>
+          <Flame className="w-6 h-6 text-orange-500" fill="currentColor" />
+          <span className="text-lg font-extrabold tracking-tight text-gray-900">Blowtorch</span>
         </Link>
 
-        {/* Center nav */}
+        {/* Center nav — underline active */}
         <div className="flex items-center gap-1">
           {navLinks.map(({ href, label }) => {
             const active = pathname === href;
@@ -33,27 +32,34 @@ export default function Navbar() {
               <Link
                 key={href}
                 href={href}
-                className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all duration-150 no-underline ${
-                  active
-                    ? "bg-orange-50 text-orange-500"
-                    : "text-gray-500 hover:text-gray-800 hover:bg-gray-50"
+                className={`relative px-4 py-5 text-sm font-semibold transition-colors no-underline ${
+                  active ? "text-orange-500" : "text-gray-500 hover:text-gray-800"
                 }`}
               >
                 {label}
+                {active && (
+                  <span className="absolute bottom-0 left-0 right-0 h-[2px] bg-orange-500 rounded-full" />
+                )}
               </Link>
             );
           })}
         </div>
 
-        {/* Right side */}
+        {/* Right: bell + avatar */}
         <div className="flex items-center gap-3">
           <button className="relative p-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-all">
             <Bell className="w-5 h-5" />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-orange-500 rounded-full" />
+            <span className="absolute top-2 right-2 w-2 h-2 bg-orange-500 rounded-full" />
           </button>
-          <button className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#FF7A18] to-[#FF3D2E] flex items-center justify-center text-white text-sm font-bold shadow-md hover:shadow-glow transition-all">
-            A
-          </button>
+          <div className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-orange-200">
+            <Image
+              src="https://picsum.photos/seed/avatar/40/40"
+              alt="Avatar"
+              width={36}
+              height={36}
+              className="object-cover"
+            />
+          </div>
         </div>
       </div>
     </nav>
