@@ -1,0 +1,17 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm install *)",
+      "Bash(npx tailwindcss *)",
+      "Bash(npm run *)",
+      "mcp__Claude_in_Chrome__tabs_context_mcp",
+      "Bash(curl -s \"https://api.github.com/repos/zachning/Dating-app-/pulls?head=zachning:claude/wonderful-mestorf-58763f&state=open\")",
+      "WebFetch(domain:github.com)",
+      "PowerShell(winget install GitHub.cli --accept-source-agreements --accept-package-agreements --silent 2>&1)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:3000)",
+      "Bash(npx tsc *)"
+    ]
+  }
+}
