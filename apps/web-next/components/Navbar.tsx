@@ -6,7 +6,7 @@ import { usePathname } from "next/navigation";
 import { Bell, Flame } from "lucide-react";
 
 const navLinks = [
-  { href: "/", label: "Discover" },
+  { href: "/discover", label: "Discover" },
   { href: "/sparks", label: "Sparks" },
   { href: "/messages", label: "Messages" },
   { href: "/profile", label: "Profile" },
@@ -19,7 +19,7 @@ export default function Navbar() {
     <nav className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
       <div className="max-w-5xl mx-auto px-6 h-16 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2 no-underline">
+        <Link href="/discover" className="flex items-center gap-2 no-underline">
           <Flame className="w-6 h-6 text-orange-500" fill="currentColor" />
           <span className="text-lg font-extrabold tracking-tight text-gray-900">Blowtorch</span>
         </Link>
