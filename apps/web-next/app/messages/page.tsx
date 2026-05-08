@@ -1,9 +1,33 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Navbar from "@/components/Navbar";
-import { Send, Search, Phone, Video, MoreHorizontal, Flame } from "lucide-react";
+import { Send, Search, Phone, Video, MoreHorizontal, Flame, Smile } from "lucide-react";
+
+/* ── Emoji picker data ── */
+const EMOJI_CATEGORIES = [
+  {
+    label: "😊 Smileys",
+    emojis: ["😀","😃","😄","😁","😆","😅","🤣","😂","🙂","😊","😇","🥰","😍","🤩","😘","😗","😚","😙","🥲","😋","😛","😜","🤪","😝","🤑","🤗","🤭","🫢","🤫","🤔","🤐","🥴","😐","😑","😶","😏","😒","🙄","😬","🤥","😌","😔","😪","🤤","😴","😷","🤒","🤕","🤢","🤧","🥵","🥶","😵","🤯","🤠","🥳","🥸","😎","🤓","🧐"],
+  },
+  {
+    label: "❤️ Hearts",
+    emojis: ["❤️","🧡","💛","💚","💙","💜","🖤","🤍","🤎","💔","❣️","💕","💞","💓","💗","💖","💘","💝","💟","♥️","❤️‍🔥","❤️‍🩹","💑","👫","👬","👭","💏"],
+  },
+  {
+    label: "👋 Gestures",
+    emojis: ["👋","🤚","🖐️","✋","🖖","🫱","🫲","🫳","🫴","👌","🤌","🤏","✌️","🤞","🫰","🤟","🤘","🤙","👈","👉","👆","🖕","👇","☝️","🫵","👍","👎","✊","👊","🤛","🤜","👏","🙌","🫶","👐","🤲","🙏","✍️","💅","🤳"],
+  },
+  {
+    label: "🔥 Hot",
+    emojis: ["🔥","✨","💫","⭐","🌟","💥","🎉","🎊","🎈","🎁","🏆","🥇","👑","💎","🌈","☀️","🌙","⚡","🌊","💯","🎯","🚀","💪","🦋","🌸","🌺","🌻","🌹","🌷","🍀"],
+  },
+  {
+    label: "😂 Funny",
+    emojis: ["💀","☠️","👻","🤡","💩","🤮","🤢","🫠","🥴","😵‍💫","🤪","🙃","😈","👿","🤬","😤","😡","🤯","🤦","🤷","🙅","🙆","💁","🙋","🤦‍♂️","🤦‍♀️","🤷‍♂️","🤷‍♀️","🫡","🫣","🫨"],
+  },
+];
 
 type Message = { id: number; text: string; sent: boolean; time: string };
 type Conversation = {
@@ -60,6 +84,26 @@ export default function MessagesPage() {
   const [search, setSearch] = useState("");
   const [input, setInput] = useState("");
   const [convos, setConvos] = useState<Conversation[]>(MOCK_CONVOS);
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const [emojiTab, setEmojiTab] = useState(0);
+  const emojiRef = useRef<HTMLDivElement>(null);
+  const inputRef  = useRef<HTMLInputElement>(null);
+
+  /* Close emoji picker on outside click */
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (emojiRef.current && !emojiRef.current.contains(e.target as Node)) {
+        setEmojiOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  const insertEmoji = (emoji: string) => {
+    setInput((prev) => prev + emoji);
+    inputRef.current?.focus();
+  };
 
   const filtered = convos.filter((c) =>
     c.name.toLowerCase().includes(search.toLowerCase())
@@ -209,7 +253,61 @@ export default function MessagesPage() {
               {/* Input */}
               <div className="px-5 py-4 border-t border-gray-100">
                 <div className="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-2xl px-4 py-2 focus-within:border-orange-400 focus-within:bg-white transition-all">
+
+                  {/* Emoji picker trigger */}
+                  <div ref={emojiRef} className="relative flex-shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => setEmojiOpen((p) => !p)}
+                      className={`text-gray-400 hover:text-orange-400 transition-colors ${emojiOpen ? "text-orange-400" : ""}`}
+                    >
+                      <Smile className="w-5 h-5" />
+                    </button>
+
+                    {/* Emoji dropdown */}
+                    {emojiOpen && (
+                      <div className="absolute bottom-full mb-3 left-0 w-72 bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden">
+                        {/* Category tabs */}
+                        <div className="flex border-b border-gray-100 bg-gray-50">
+                          {EMOJI_CATEGORIES.map((cat, i) => (
+                            <button
+                              key={i}
+                              onClick={() => setEmojiTab(i)}
+                              className={`flex-1 py-2 text-base transition-all ${
+                                emojiTab === i
+                                  ? "bg-white border-b-2 border-orange-400"
+                                  : "hover:bg-gray-100"
+                              }`}
+                              title={cat.label}
+                            >
+                              {cat.emojis[0]}
+                            </button>
+                          ))}
+                        </div>
+
+                        {/* Category label */}
+                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wide px-3 pt-2 pb-1">
+                          {EMOJI_CATEGORIES[emojiTab].label.split(" ").slice(1).join(" ")}
+                        </p>
+
+                        {/* Emoji grid */}
+                        <div className="grid grid-cols-8 gap-0.5 px-2 pb-3 max-h-44 overflow-y-auto">
+                          {EMOJI_CATEGORIES[emojiTab].emojis.map((emoji) => (
+                            <button
+                              key={emoji}
+                              onClick={() => insertEmoji(emoji)}
+                              className="w-8 h-8 flex items-center justify-center text-lg rounded-lg hover:bg-orange-50 transition-all"
+                            >
+                              {emoji}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <input
+                    ref={inputRef}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && sendMessage()}
@@ -219,7 +317,7 @@ export default function MessagesPage() {
                   <button
                     onClick={sendMessage}
                     disabled={!input.trim()}
-                    className="w-8 h-8 rounded-xl flex items-center justify-center transition-all disabled:opacity-40"
+                    className="w-8 h-8 rounded-xl flex items-center justify-center transition-all disabled:opacity-40 flex-shrink-0"
                     style={{ background: "linear-gradient(to right,#FF7A18,#FF3D2E)" }}
                   >
                     <Send className="w-3.5 h-3.5 text-white" />
