@@ -250,7 +250,7 @@ export default function OnboardingPage() {
 
               <p className="text-center text-sm text-gray-500 mt-5">
                 Already have an account?{" "}
-                <Link href="/discover" className="text-orange-500 font-semibold hover:text-orange-600">
+                <Link href="/login" className="text-orange-500 font-semibold hover:text-orange-600">
                   Log in
                 </Link>
               </p>
