@@ -227,6 +227,19 @@ def me(authorization: str = Header(None)):
             raise HTTPException(status_code=401, detail="Invalid token")
         return response.json()
 
+@auth_router.get("/google/url")
+def get_google_oauth_url(request: Request):
+    # Get the origin or referer to know where to redirect back to
+    origin = request.headers.get("origin")
+    referer = request.headers.get("referer")
+    
+    redirect_to = origin if origin else (referer if referer else "http://localhost:5173")
+    if redirect_to.endswith("/"):
+        redirect_to = redirect_to[:-1]
+    
+    url = f"{settings.supabase_url}/auth/v1/authorize?provider=google&redirect_to={redirect_to}"
+    return {"url": url}
+
 
 app.include_router(auth_router, prefix="/api/v1")
 

@@ -24,6 +24,18 @@ export default function Login() {
     }
   }
 
+  const handleGoogleLogin = async () => {
+    setError('')
+    setLoading(true)
+    try {
+      const res = await authService.getGoogleUrl()
+      window.location.href = res.data.url
+    } catch (error: unknown) {
+      setError('Failed to initiate Google login.')
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="auth-container">
       <div className="logo">
@@ -54,6 +66,12 @@ export default function Login() {
           {loading ? 'Signing in...' : 'Sign In'}
         </button>
       </form>
+
+      <div className="social-login">
+        <button type="button" onClick={handleGoogleLogin} disabled={loading} className="google-btn">
+          Sign In with Google
+        </button>
+      </div>
       
       <p className="switch-link">
         Don't have an account? <Link to="/register">Sign up</Link>

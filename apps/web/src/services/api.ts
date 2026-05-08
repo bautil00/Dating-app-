@@ -28,6 +28,9 @@ export const authService = {
   login: (email: string, password: string) =>
     api.post('/auth/login', { email, password }),
 
+  getGoogleUrl: () =>
+    api.get('/auth/google/url'),
+
   getMe: () =>
     api.get('/auth/me'),
 }

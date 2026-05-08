@@ -37,6 +37,18 @@ export default function Register() {
     }
   }
 
+  const handleGoogleLogin = async () => {
+    setError('')
+    setLoading(true)
+    try {
+      const res = await authService.getGoogleUrl()
+      window.location.href = res.data.url
+    } catch (error: unknown) {
+      setError('Failed to initiate Google registration.')
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="auth-container">
       <div className="logo">
@@ -75,6 +87,12 @@ export default function Register() {
           {loading ? 'Creating account...' : 'Create Account'}
         </button>
       </form>
+
+      <div className="social-login">
+        <button type="button" onClick={handleGoogleLogin} disabled={loading} className="google-btn">
+          Sign Up with Google
+        </button>
+      </div>
       
       <p className="switch-link">
         Already have an account? <Link to="/login">Sign in</Link>

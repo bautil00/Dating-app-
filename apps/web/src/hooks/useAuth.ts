@@ -6,6 +6,17 @@ export function useAuth() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Check if there's an access_token in the URL hash (from Supabase OAuth redirect)
+    if (window.location.hash && window.location.hash.includes('access_token')) {
+      const hashParams = new URLSearchParams(window.location.hash.substring(1))
+      const accessToken = hashParams.get('access_token')
+      if (accessToken) {
+        localStorage.setItem('token', accessToken)
+        // Clean up the URL
+        window.history.replaceState(null, '', window.location.pathname + window.location.search)
+      }
+    }
+
     const token = localStorage.getItem('token')
     if (token) {
       authService.getMe()
