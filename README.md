@@ -79,9 +79,13 @@ OPENAI_API_KEY=sk-your-openai-key
 - AI-generated icebreaker messages
 
 ### PostgreSQL (Supabase)
-- User accounts and authentication
+- User accounts and authentication (Email/Password & Google OAuth)
 - Profile data
 - Matches and messages
+
+**Note on Google OAuth Setup**: 
+To use Google login, you must configure your Google Cloud Console OAuth 2.0 Client credentials to include the following Authorized Redirect URI:
+`https://<your-supabase-project>.supabase.co/auth/v1/callback`
 
 ## Architecture
 ```
@@ -93,7 +97,7 @@ React (Vercel) → FastAPI (Vercel) → Supabase PostgreSQL
 ## Features
 
 ### In Progress (v0.5)
-- [ ] User registration + Supabase auth
+- [x] User registration + Supabase auth (Email/Password & Google OAuth)
 - [ ] Profile CRUD
 - [ ] Candidate ranking (AI-powered)
 - [ ] Match workflow (create/accept/reject)

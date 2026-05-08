@@ -22,6 +22,12 @@ Body: { "email": "string", "password": "string" }
 Response: { "access_token": "string", "token_type": "bearer" }
 ```
 
+### Get Google OAuth URL
+```
+GET /auth/google/url
+Response: { "url": "string" }
+```
+
 ### Get Current User
 ```
 GET /auth/me

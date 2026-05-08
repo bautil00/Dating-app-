@@ -142,7 +142,7 @@ Team members to be added:
 ## Features (MVP Scope)
 
 ### In Progress (v0.5)
-- [ ] User registration and Supabase authentication
+- [x] User registration and Supabase authentication (Email/Password & Google OAuth)
 - [ ] Profile creation and editing
 - [ ] Swipe-based candidate browsing
 - [ ] Match request/accept/reject workflow
