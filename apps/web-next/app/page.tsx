@@ -394,7 +394,7 @@ export default function OnboardingPage() {
   return (
     <div className="min-h-screen bg-[#FAFAFA] flex items-center justify-center px-4 py-10">
       <div className="w-full max-w-lg text-center">
-        <h2 className="text-2xl font-bold text-gray-900 mb-2">Add at least 3 photos</h2>
+        <h2 className="text-2xl font-bold text-gray-900 mb-2">Add up to 3 photos</h2>
         <p className="text-sm text-gray-400 mb-8">
           Great photos help AI find your <span className="font-semibold text-gray-600">best matches</span>
         </p>
@@ -434,7 +434,7 @@ export default function OnboardingPage() {
                     </div>
                     <span className={`text-xs font-medium ${isFirst ? "text-orange-500" : "text-gray-400"}`}>
                       Add photo
-                      {isFirst && <span className="block text-[10px] opacity-75">(min. 3)</span>}
+                      {isFirst && <span className="block text-[10px] opacity-75">(3 max)</span>}
                     </span>
                   </button>
                 )}
@@ -453,11 +453,11 @@ export default function OnboardingPage() {
         />
 
         <ContinueBtn
-          disabled={photos.length < 3}
+          disabled={photos.length === 0}
           onClick={() => router.push("/discover")}
         />
-        {photos.length < 3 && (
-          <p className="text-xs text-gray-400 mt-2">Add at least 3 photos to continue ({photos.length}/3 added)</p>
+        {photos.length === 0 && (
+          <p className="text-xs text-gray-400 mt-2">Add at least one photo to continue</p>
         )}
       </div>
     </div>
