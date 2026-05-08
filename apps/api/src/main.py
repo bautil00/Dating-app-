@@ -1,4 +1,4 @@
-from fastapi import FastAPI, APIRouter, HTTPException, Header
+from fastapi import FastAPI, APIRouter, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
 from typing import Optional
@@ -229,6 +229,7 @@ def me(authorization: str = Header(None)):
 
 @auth_router.get("/google/url")
 def get_google_oauth_url(request: Request):
+    settings = get_settings()
     # Get the origin or referer to know where to redirect back to
     origin = request.headers.get("origin")
     referer = request.headers.get("referer")
