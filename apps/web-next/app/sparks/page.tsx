@@ -1,10 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import Navbar from "@/components/Navbar";
-import { Flame, MessageCircle, Heart, Star } from "lucide-react";
+import { Flame, MessageCircle, Heart, Star, MoreHorizontal, UserX, ShieldOff } from "lucide-react";
 
 type Match = {
   id: number;
@@ -27,12 +27,33 @@ const MOCK_MATCHES: Match[] = [
 ];
 
 type Filter = "all" | "new";
+type ConfirmAction = { type: "unmatch" | "block"; matchId: number; name: string } | null;
 
 export default function SparksPage() {
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter,  setFilter]  = useState<Filter>("all");
+  const [list,    setList]    = useState<Match[]>(MOCK_MATCHES);
+  const [confirm, setConfirm] = useState<ConfirmAction>(null);
+  const [toast,   setToast]   = useState<string | null>(null);
 
-  const matches = filter === "new" ? MOCK_MATCHES.filter((m) => m.is_new) : MOCK_MATCHES;
-  const newCount = MOCK_MATCHES.filter((m) => m.is_new).length;
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleAction = () => {
+    if (!confirm) return;
+    setList((prev) => prev.filter((m) => m.id !== confirm.matchId));
+    showToast(
+      confirm.type === "unmatch"
+        ? `You unmatched ${confirm.name}.`
+        : `${confirm.name} has been blocked.`
+    );
+    setConfirm(null);
+  };
+
+  const allCount = list.length;
+  const newCount = list.filter((m) => m.is_new).length;
+  const matches  = filter === "new" ? list.filter((m) => m.is_new) : list;
 
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
@@ -54,13 +75,11 @@ export default function SparksPage() {
                 key={f}
                 onClick={() => setFilter(f)}
                 className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-                  filter === f
-                    ? "text-white shadow"
-                    : "text-gray-500 hover:text-gray-700"
+                  filter === f ? "text-white shadow" : "text-gray-500 hover:text-gray-700"
                 }`}
                 style={filter === f ? { background: "linear-gradient(to right,#FF7A18,#FF3D2E)" } : {}}
               >
-                {f === "all" ? `All (${MOCK_MATCHES.length})` : `New 🔥 (${newCount})`}
+                {f === "all" ? `All (${allCount})` : `New 🔥 (${newCount})`}
               </button>
             ))}
           </div>
@@ -71,17 +90,89 @@ export default function SparksPage() {
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             {matches.map((match) => (
-              <MatchCard key={match.id} match={match} />
+              <MatchCard
+                key={match.id}
+                match={match}
+                onUnmatch={() => setConfirm({ type: "unmatch", matchId: match.id, name: match.name })}
+                onBlock={()   => setConfirm({ type: "block",   matchId: match.id, name: match.name })}
+              />
             ))}
           </div>
         )}
       </div>
+
+      {/* ── Confirmation modal ── */}
+      {confirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 mx-auto ${
+              confirm.type === "block" ? "bg-red-100" : "bg-orange-100"
+            }`}>
+              {confirm.type === "block"
+                ? <ShieldOff className="w-6 h-6 text-red-500" />
+                : <UserX className="w-6 h-6 text-orange-500" />
+              }
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 text-center mb-1">
+              {confirm.type === "unmatch" ? `Unmatch ${confirm.name}?` : `Block ${confirm.name}?`}
+            </h3>
+            <p className="text-sm text-gray-500 text-center mb-6">
+              {confirm.type === "unmatch"
+                ? "This will remove your match and delete your conversation. This can't be undone."
+                : "They won't be able to see your profile or contact you. This can't be undone."}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirm(null)}
+                className="flex-1 py-3 rounded-xl border-2 border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleAction}
+                className={`flex-1 py-3 rounded-xl text-sm font-semibold text-white transition-all ${
+                  confirm.type === "block"
+                    ? "bg-red-500 hover:bg-red-600"
+                    : "bg-orange-500 hover:bg-orange-600"
+                }`}
+              >
+                {confirm.type === "unmatch" ? "Unmatch" : "Block"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Toast ── */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 bg-gray-900 text-white text-sm font-medium rounded-2xl shadow-xl animate-fade-in">
+          {toast}
+        </div>
+      )}
     </div>
   );
 }
 
-function MatchCard({ match }: { match: Match }) {
+function MatchCard({
+  match,
+  onUnmatch,
+  onBlock,
+}: {
+  match: Match;
+  onUnmatch: () => void;
+  onBlock: () => void;
+}) {
   const sparkPct = Math.round(match.spark_score * 100);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) setMenuOpen(false);
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
 
   return (
     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-md transition-shadow group">
@@ -125,14 +216,46 @@ function MatchCard({ match }: { match: Match }) {
           <Star className="w-3.5 h-3.5 text-orange-400" fill="currentColor" />
           {match.matched_at}
         </div>
-        <Link
-          href="/messages"
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white transition-all hover:shadow-md"
-          style={{ background: "linear-gradient(to right,#FF7A18,#FF3D2E)" }}
-        >
-          <MessageCircle className="w-3.5 h-3.5" />
-          Message
-        </Link>
+
+        <div className="flex items-center gap-1.5">
+          <Link
+            href="/messages"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-semibold text-white transition-all hover:shadow-md"
+            style={{ background: "linear-gradient(to right,#FF7A18,#FF3D2E)" }}
+          >
+            <MessageCircle className="w-3.5 h-3.5" />
+            Message
+          </Link>
+
+          {/* 3-dot menu */}
+          <div ref={menuRef} className="relative">
+            <button
+              onClick={() => setMenuOpen((p) => !p)}
+              className="p-1.5 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-all"
+            >
+              <MoreHorizontal className="w-4 h-4" />
+            </button>
+
+            {menuOpen && (
+              <div className="absolute right-0 bottom-full mb-2 w-44 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-20">
+                <button
+                  onClick={() => { setMenuOpen(false); onUnmatch(); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-orange-600 hover:bg-orange-50 transition-colors"
+                >
+                  <UserX className="w-4 h-4" />
+                  Unmatch
+                </button>
+                <button
+                  onClick={() => { setMenuOpen(false); onBlock(); }}
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                >
+                  <ShieldOff className="w-4 h-4" />
+                  Block
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
       </div>
     </div>
   );

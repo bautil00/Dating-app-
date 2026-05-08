@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect } from "react";
 import Image from "next/image";
 import Navbar from "@/components/Navbar";
-import { Send, Search, Phone, Video, MoreHorizontal, Flame, Smile } from "lucide-react";
+import { Send, Search, Phone, Video, MoreHorizontal, Flame, Smile, UserX, ShieldOff } from "lucide-react";
 
 /* ── Emoji picker data ── */
 const EMOJI_CATEGORIES = [
@@ -84,17 +84,36 @@ export default function MessagesPage() {
   const [search, setSearch] = useState("");
   const [input, setInput] = useState("");
   const [convos, setConvos] = useState<Conversation[]>(MOCK_CONVOS);
-  const [emojiOpen, setEmojiOpen] = useState(false);
-  const [emojiTab, setEmojiTab] = useState(0);
+  const [emojiOpen,   setEmojiOpen]   = useState(false);
+  const [emojiTab,    setEmojiTab]    = useState(0);
+  const [moreOpen,    setMoreOpen]    = useState(false);
+  const [confirm,     setConfirm]     = useState<{ type: "unmatch" | "block"; name: string } | null>(null);
+  const [toast,       setToast]       = useState<string | null>(null);
   const emojiRef = useRef<HTMLDivElement>(null);
-  const inputRef  = useRef<HTMLInputElement>(null);
+  const moreRef  = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  /* Close emoji picker on outside click */
+  const showToast = (msg: string) => {
+    setToast(msg);
+    setTimeout(() => setToast(null), 3000);
+  };
+
+  const handleConfirmAction = () => {
+    if (!confirm) return;
+    const name = confirm.name;
+    const type = confirm.type;
+    setConvos((prev) => prev.filter((c) => c.id !== activeId));
+    const next = convos.find((c) => c.id !== activeId);
+    if (next) setActiveId(next.id);
+    showToast(type === "unmatch" ? `You unmatched ${name}.` : `${name} has been blocked.`);
+    setConfirm(null);
+  };
+
+  /* Close dropdowns on outside click */
   useEffect(() => {
     const handler = (e: MouseEvent) => {
-      if (emojiRef.current && !emojiRef.current.contains(e.target as Node)) {
-        setEmojiOpen(false);
-      }
+      if (emojiRef.current && !emojiRef.current.contains(e.target as Node)) setEmojiOpen(false);
+      if (moreRef.current  && !moreRef.current.contains(e.target as Node))  setMoreOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
@@ -214,11 +233,41 @@ export default function MessagesPage() {
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  {[Phone, Video, MoreHorizontal].map((Icon, i) => (
-                    <button key={i} className="p-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-all">
-                      <Icon className="w-4 h-4" />
+                  <button className="p-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-all">
+                    <Phone className="w-4 h-4" />
+                  </button>
+                  <button className="p-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-all">
+                    <Video className="w-4 h-4" />
+                  </button>
+
+                  {/* More options (unmatch / block) */}
+                  <div ref={moreRef} className="relative">
+                    <button
+                      onClick={() => setMoreOpen((p) => !p)}
+                      className={`p-2 rounded-xl transition-all ${moreOpen ? "text-gray-700 bg-gray-100" : "text-gray-400 hover:text-gray-700 hover:bg-gray-50"}`}
+                    >
+                      <MoreHorizontal className="w-4 h-4" />
                     </button>
-                  ))}
+
+                    {moreOpen && (
+                      <div className="absolute right-0 top-full mt-2 w-44 bg-white rounded-xl shadow-xl border border-gray-100 py-1 z-30">
+                        <button
+                          onClick={() => { setMoreOpen(false); setConfirm({ type: "unmatch", name: active.name }); }}
+                          className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-orange-600 hover:bg-orange-50 transition-colors"
+                        >
+                          <UserX className="w-4 h-4" />
+                          Unmatch
+                        </button>
+                        <button
+                          onClick={() => { setMoreOpen(false); setConfirm({ type: "block", name: active.name }); }}
+                          className="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                          <ShieldOff className="w-4 h-4" />
+                          Block
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -333,6 +382,53 @@ export default function MessagesPage() {
           )}
         </div>
       </div>
+
+      {/* ── Confirmation modal ── */}
+      {confirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm px-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6">
+            <div className={`w-12 h-12 rounded-2xl flex items-center justify-center mb-4 mx-auto ${
+              confirm.type === "block" ? "bg-red-100" : "bg-orange-100"
+            }`}>
+              {confirm.type === "block"
+                ? <ShieldOff className="w-6 h-6 text-red-500" />
+                : <UserX className="w-6 h-6 text-orange-500" />
+              }
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 text-center mb-1">
+              {confirm.type === "unmatch" ? `Unmatch ${confirm.name}?` : `Block ${confirm.name}?`}
+            </h3>
+            <p className="text-sm text-gray-500 text-center mb-6">
+              {confirm.type === "unmatch"
+                ? "This will remove your match and delete your conversation. This can't be undone."
+                : "They won't be able to see your profile or contact you. This can't be undone."}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirm(null)}
+                className="flex-1 py-3 rounded-xl border-2 border-gray-200 text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmAction}
+                className={`flex-1 py-3 rounded-xl text-sm font-semibold text-white transition-all ${
+                  confirm.type === "block" ? "bg-red-500 hover:bg-red-600" : "bg-orange-500 hover:bg-orange-600"
+                }`}
+              >
+                {confirm.type === "unmatch" ? "Unmatch" : "Block"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Toast ── */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 bg-gray-900 text-white text-sm font-medium rounded-2xl shadow-xl">
+          {toast}
+        </div>
+      )}
     </div>
   );
 }
