@@ -110,6 +110,17 @@ export default function Profile() {
       </nav>
 
       <main className="profile-content">
+        <section className="profile-hero">
+          <div className="profile-avatar">
+            <span>{(formData.display_name || 'B').charAt(0).toUpperCase()}</span>
+          </div>
+          <div>
+            <p className="eyebrow">Profile setup</p>
+            <h2>{formData.display_name || 'Your Blowtorch profile'}</h2>
+            <p>Keep your profile complete so the matching engine can rank better candidates.</p>
+          </div>
+        </section>
+
         <form onSubmit={handleSubmit} className="profile-form">
           <div className="form-section">
             <h2>Basic Info</h2>

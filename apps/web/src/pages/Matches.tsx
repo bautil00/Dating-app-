@@ -61,6 +61,12 @@ export default function Matches() {
     }
   })
   const accepted = Array.from(acceptedMap.values())
+  const totalSparks = accepted.length
+
+  const otherUserId = (match: { sender_id: string, receiver_id: string }) =>
+    String(match.sender_id) === String(currentUserId)
+      ? String(match.receiver_id)
+      : String(match.sender_id)
 
   if (loading) {
     return (
@@ -74,14 +80,26 @@ export default function Matches() {
     <div className="matches-page">
       <nav className="navbar">
         <Link to="/dashboard" className="back-btn">← Back</Link>
-        <h1>Your Matches</h1>
+        <h1>Your Sparks</h1>
         <div></div>
       </nav>
 
       <main className="matches-content">
+        <section className="sparks-hero">
+          <div>
+            <p className="eyebrow">Mutual connections</p>
+            <h2>Your Sparks</h2>
+            <p>People who liked you back show up here. Open a spark to start chatting.</p>
+          </div>
+          <div className="sparks-count">
+            <span>{totalSparks}</span>
+            <small>active</small>
+          </div>
+        </section>
+
         {matches.length === 0 ? (
           <div className="empty-state">
-            <div className="empty-icon">♡</div>
+            <div className="empty-icon">🔥</div>
             <h2>No matches yet</h2>
             <p>Start liking profiles to get matches!</p>
             <Link to="/dashboard" className="btn-primary">Discover People</Link>
@@ -93,7 +111,10 @@ export default function Matches() {
                 <h2>Pending Requests</h2>
                 <div className="matches-list">
                   {pendingIncoming.map(match => (
-                    <div key={match.id} className="match-card pending">
+                    <div key={match.id} className="match-card pending spark-row">
+                      <div className="match-avatar">
+                        <span>{String(match.sender_id).charAt(0).toUpperCase()}</span>
+                      </div>
                       <div className="match-info">
                         <span className="match-name">User #{match.sender_id}</span>
                         <span className="match-time">
@@ -125,7 +146,10 @@ export default function Matches() {
                 <h2>Waiting For Response</h2>
                 <div className="matches-list">
                   {pendingOutgoing.map(match => (
-                    <div key={match.id} className="match-card pending">
+                    <div key={match.id} className="match-card pending spark-row">
+                      <div className="match-avatar waiting">
+                        <span>⌛</span>
+                      </div>
                       <div className="match-info">
                         <span className="match-name">User #{match.receiver_id}</span>
                         <span className="match-time">
@@ -140,22 +164,25 @@ export default function Matches() {
 
             {accepted.length > 0 && (
               <section className="matches-section">
-                <h2>Your Matches</h2>
-                <div className="matches-list">
+                <h2>Ready To Message</h2>
+                <div className="sparks-grid">
                   {accepted.map(match => (
                     <Link 
                       key={match.id} 
-                      to={`/chat/${match.sender_id === currentUserId ? match.receiver_id : match.sender_id}`}
-                      className="match-card accepted"
+                      to={`/chat/${otherUserId(match)}`}
+                      className="spark-card"
                     >
-                      <div className="match-avatar">
-                        <span>♡</span>
+                      <div className="spark-card-image">
+                        <span>{otherUserId(match).charAt(0).toUpperCase()}</span>
+                        <div className="spark-score">🔥</div>
                       </div>
-                      <div className="match-info">
-                        <span className="match-name">Match #{match.id}</span>
-                        <span className="match-status">Click to chat</span>
+                      <div className="spark-card-body">
+                        <div>
+                          <span className="match-name">User #{otherUserId(match)}</span>
+                          <span className="match-status">Spark #{match.id}</span>
+                        </div>
+                        <span className="message-pill">Message</span>
                       </div>
-                      <span className="chat-arrow">→</span>
                     </Link>
                   ))}
                 </div>
