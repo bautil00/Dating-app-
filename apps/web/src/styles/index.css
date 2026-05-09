@@ -1,12 +1,12 @@
 :root {
-  --primary: #ff4d6d;
-  --primary-light: #ff758f;
-  --primary-dark: #c9184a;
-  --accent: #ff8fa3;
+  --primary: #ff7a18;
+  --primary-light: #ffaf5f;
+  --primary-dark: #ff3d2e;
+  --accent: #fb923c;
   --dark: #1a1a2e;
   --dark-light: #16213e;
   --dark-surface: #222244;
-  --light: #fff5f7;
+  --light: #fff7ed;
   --white: #ffffff;
   --gray: #6c757d;
   --gray-light: #e9ecef;
@@ -18,7 +18,7 @@
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
   --shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
   --shadow-lg: 0 12px 32px rgba(0, 0, 0, 0.12);
-  --shadow-primary: 0 4px 16px rgba(255, 77, 109, 0.25);
+  --shadow-primary: 0 4px 16px rgba(255, 122, 24, 0.25);
   --radius: 16px;
   --radius-sm: 10px;
   --radius-xl: 24px;
@@ -52,7 +52,7 @@ body {
   flex-direction: column;
   justify-content: center;
   align-items: center;
-  background: linear-gradient(160deg, #fff5f7 0%, #ffe0e6 50%, #ffd1dc 100%);
+  background: linear-gradient(160deg, #fff7ed 0%, #ffedd5 50%, #fed7aa 100%);
 }
 
 .auth-container form,
@@ -72,7 +72,7 @@ body {
   font-size: 2.5rem;
   color: var(--primary);
   line-height: 1;
-  filter: drop-shadow(0 2px 4px rgba(255, 77, 109, 0.3));
+  filter: drop-shadow(0 2px 4px rgba(255, 122, 24, 0.3));
 }
 
 .auth-container .logo h1:last-child {
@@ -113,7 +113,7 @@ body {
 .auth-container input:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(255, 77, 109, 0.1);
+  box-shadow: 0 0 0 3px rgba(255, 122, 24, 0.1);
 }
 
 .auth-container button {
@@ -131,7 +131,7 @@ body {
 
 .auth-container button:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(255, 77, 109, 0.35);
+  box-shadow: 0 6px 20px rgba(255, 122, 24, 0.35);
 }
 
 .auth-container button:active:not(:disabled) {
@@ -148,7 +148,7 @@ body {
   color: var(--primary-dark);
   font-size: 0.85rem;
   text-align: center;
-  background: #fff0f3;
+  background: #fff7ed;
   padding: 0.5rem;
   border-radius: var(--radius-sm);
 }
@@ -201,7 +201,7 @@ body {
 .nav-brand .logo-text {
   font-size: 1.5rem;
   color: var(--primary);
-  filter: drop-shadow(0 0 6px rgba(255, 77, 109, 0.4));
+  filter: drop-shadow(0 0 6px rgba(255, 122, 24, 0.4));
 }
 
 .nav-brand .brand-name {
@@ -236,7 +236,7 @@ body {
 }
 
 .nav-links a.active {
-  background: rgba(255, 77, 109, 0.2);
+  background: rgba(255, 122, 24, 0.2);
   color: var(--accent);
 }
 
@@ -262,6 +262,233 @@ body {
 
 .welcome-section p {
   color: var(--text-muted);
+}
+
+.eyebrow {
+  color: var(--primary);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  margin-bottom: 0.35rem;
+  text-transform: uppercase;
+}
+
+.discover-hero {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.discover-hero h2 {
+  font-size: clamp(2rem, 5vw, 3.5rem);
+  letter-spacing: -0.05em;
+}
+
+.queue-pill {
+  background: var(--white);
+  border: 1px solid rgba(255, 122, 24, 0.18);
+  border-radius: 999px;
+  box-shadow: var(--shadow);
+  color: var(--primary);
+  font-size: 0.85rem;
+  font-weight: 700;
+  padding: 0.55rem 1rem;
+  white-space: nowrap;
+}
+
+.discover-section {
+  display: flex;
+  justify-content: center;
+}
+
+.discover-layout {
+  align-items: flex-start;
+  display: grid;
+  gap: 2rem;
+  grid-template-columns: minmax(300px, 420px) minmax(260px, 320px);
+}
+
+.spotlight-card,
+.match-insight-card {
+  background: var(--white);
+  border: 1px solid rgba(15, 23, 42, 0.06);
+  border-radius: var(--radius-xl);
+  box-shadow: var(--shadow-lg);
+}
+
+.spotlight-card {
+  overflow: hidden;
+}
+
+.spotlight-image {
+  background: linear-gradient(135deg, var(--primary-light), var(--primary), var(--primary-dark));
+  height: 460px;
+  overflow: hidden;
+  position: relative;
+}
+
+.spotlight-image img {
+  height: 100%;
+  object-fit: cover;
+  width: 100%;
+}
+
+.spotlight-overlay {
+  align-items: flex-end;
+  background: linear-gradient(180deg, transparent 0%, rgba(0, 0, 0, 0.72) 100%);
+  bottom: 0;
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  left: 0;
+  padding: 5rem 1.5rem 1.35rem;
+  position: absolute;
+  right: 0;
+}
+
+.spotlight-overlay h3 {
+  font-size: 1.8rem;
+  letter-spacing: -0.03em;
+}
+
+.spotlight-overlay p {
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.9rem;
+}
+
+.spark-badge {
+  align-items: center;
+  background: rgba(255, 255, 255, 0.94);
+  border-radius: 18px;
+  color: var(--primary);
+  display: flex;
+  flex-direction: column;
+  line-height: 1;
+  min-width: 66px;
+  padding: 0.55rem 0.65rem;
+}
+
+.spark-badge span {
+  font-size: 1.1rem;
+  font-weight: 800;
+}
+
+.spark-badge small {
+  color: var(--text-muted);
+  font-size: 0.68rem;
+  font-weight: 700;
+  margin-top: 0.2rem;
+  text-transform: uppercase;
+}
+
+.spotlight-content {
+  padding: 1.4rem;
+}
+
+.spotlight-content .bio {
+  color: var(--text);
+  font-size: 0.95rem;
+  margin-bottom: 1rem;
+}
+
+.spotlight-content .interests {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1.25rem;
+}
+
+.swipe-actions {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: 1fr 1fr;
+}
+
+.pass-btn,
+.ignite-btn {
+  border: none;
+  border-radius: 14px;
+  cursor: pointer;
+  font-size: 1rem;
+  font-weight: 800;
+  padding: 0.9rem 1rem;
+  transition: all var(--transition);
+}
+
+.pass-btn {
+  background: var(--white);
+  border: 2px solid var(--gray-light);
+  color: var(--text-muted);
+}
+
+.pass-btn:hover {
+  border-color: #cbd5e1;
+  color: var(--text);
+}
+
+.ignite-btn {
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  box-shadow: var(--shadow-primary);
+  color: white;
+}
+
+.ignite-btn:hover {
+  box-shadow: 0 8px 24px rgba(255, 122, 24, 0.34);
+  transform: translateY(-2px);
+}
+
+.match-insight-card {
+  padding: 1.5rem;
+  position: sticky;
+  top: 5.5rem;
+}
+
+.insight-icon {
+  align-items: center;
+  background: linear-gradient(135deg, var(--primary), var(--primary-dark));
+  border-radius: 18px;
+  box-shadow: var(--shadow-primary);
+  display: flex;
+  font-size: 1.4rem;
+  height: 54px;
+  justify-content: center;
+  margin-bottom: 1.25rem;
+  width: 54px;
+}
+
+.match-insight-card h3 {
+  color: var(--dark);
+  font-size: 1.35rem;
+  letter-spacing: -0.03em;
+  line-height: 1.15;
+  margin-bottom: 0.75rem;
+}
+
+.match-insight-card p {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+}
+
+.insight-list {
+  border-top: 1px solid var(--gray-light);
+  display: grid;
+  gap: 0.75rem;
+  margin-top: 1.25rem;
+  padding-top: 1.25rem;
+}
+
+.insight-list span {
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.insight-list span::before {
+  color: var(--primary);
+  content: "•";
+  font-weight: 900;
+  margin-right: 0.5rem;
 }
 
 .profile-prompt {
@@ -406,7 +633,7 @@ body {
 }
 
 .profile-card .interest-tag {
-  background: linear-gradient(135deg, #fff0f3, #ffe0e6);
+  background: linear-gradient(135deg, #fff7ed, #ffedd5);
   color: var(--primary);
   padding: 0.25rem 0.75rem;
   border-radius: 20px;
@@ -430,7 +657,7 @@ body {
 
 .profile-card .like-btn:hover {
   transform: translateY(-1px);
-  box-shadow: 0 6px 20px rgba(255, 77, 109, 0.35);
+  box-shadow: 0 6px 20px rgba(255, 122, 24, 0.35);
 }
 
 .profile-card .like-btn:active {
@@ -456,7 +683,7 @@ body {
 
 .btn-primary:hover {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(255, 77, 109, 0.35);
+  box-shadow: 0 6px 20px rgba(255, 122, 24, 0.35);
 }
 
 /* ============================
@@ -604,7 +831,7 @@ body {
 .form-group select:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(255, 77, 109, 0.1);
+  box-shadow: 0 0 0 3px rgba(255, 122, 24, 0.1);
 }
 
 .form-group textarea {
@@ -659,7 +886,7 @@ body {
 
 .save-btn:hover:not(:disabled) {
   transform: translateY(-2px);
-  box-shadow: 0 6px 20px rgba(255, 77, 109, 0.35);
+  box-shadow: 0 6px 20px rgba(255, 122, 24, 0.35);
 }
 
 .save-btn:disabled {
@@ -995,7 +1222,7 @@ body {
 .message-form input:focus {
   outline: none;
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(255, 77, 109, 0.1);
+  box-shadow: 0 0 0 3px rgba(255, 122, 24, 0.1);
 }
 
 .message-form button {
@@ -1042,6 +1269,24 @@ body {
 
   .dashboard-content {
     padding: 1.25rem 1rem;
+  }
+
+  .discover-hero {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .discover-layout {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+
+  .spotlight-image {
+    height: 420px;
+  }
+
+  .match-insight-card {
+    position: static;
   }
 
   .nav-links {
