@@ -1,7 +1,7 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 import httpx
-from typing import Optional
+from typing import Optional, Any, cast, Dict
 import math
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -15,7 +15,7 @@ limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 app = FastAPI(title="BLOWTORCH", version="0.1.0")
 
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore
 app.add_middleware(SlowAPIMiddleware)
 
 app.add_middleware(
@@ -33,7 +33,9 @@ app.add_middleware(
 
 def get_supabase_client():
     settings = get_settings()
-    return httpx.Client(base_url=settings.supabase_url, headers={"apikey": settings.supabase_key})
+    return httpx.Client(
+        base_url=settings.supabase_url, headers={"apikey": settings.supabase_key}
+    )
 
 
 def supabase_headers(settings, token: Optional[str] = None, content_type: bool = False):
@@ -70,7 +72,9 @@ def _coerce_int(value):
 def _enum_value(value):
     if value in (None, ""):
         return None
-    return str(value).strip().lower().replace("/", "_").replace("-", "_").replace(" ", "_")
+    return (
+        str(value).strip().lower().replace("/", "_").replace("-", "_").replace(" ", "_")
+    )
 
 
 def _enum_array(value):
@@ -133,7 +137,9 @@ def build_profile_rpc_payload(profile_data: dict, user_id: str) -> dict:
         "p_relationship": _enum_value(
             profile_data.get("relationship_status") or profile_data.get("relationship")
         ),
-        "p_living": _enum_value(profile_data.get("living_status") or profile_data.get("living")),
+        "p_living": _enum_value(
+            profile_data.get("living_status") or profile_data.get("living")
+        ),
         "p_seeking_gender": profile_data.get("seeking_gender", "everyone"),
         "p_max_distance_km": _coerce_int(profile_data.get("max_distance_km")) or 50,
     }
@@ -157,7 +163,9 @@ def build_profile_rest_payload(profile_data: dict, user_id: str) -> dict:
         "relationship": _enum_value(
             profile_data.get("relationship_status") or profile_data.get("relationship")
         ),
-        "living": _enum_value(profile_data.get("living_status") or profile_data.get("living")),
+        "living": _enum_value(
+            profile_data.get("living_status") or profile_data.get("living")
+        ),
         "seeking_gender": profile_data.get("seeking_gender", "everyone"),
         "max_distance_km": _coerce_int(profile_data.get("max_distance_km")) or 50,
         "is_complete": True,
@@ -165,10 +173,16 @@ def build_profile_rest_payload(profile_data: dict, user_id: str) -> dict:
     return _compact_dict(payload)
 
 
-def get_database_compatibility_score(settings, token: str, user1_id: str, user2_id: str):
+def get_database_compatibility_score(
+    settings, token: str, user1_id: str, user2_id: str
+):
     if not user1_id or not user2_id:
         return None
-    if ".supabase.co" not in settings.supabase_url or "fake" in settings.supabase_url or settings.supabase_key == "fake-key":
+    if (
+        ".supabase.co" not in settings.supabase_url
+        or "fake" in settings.supabase_url
+        or settings.supabase_key == "fake-key"
+    ):
         return None
     try:
         with httpx.Client() as client:
@@ -185,7 +199,9 @@ def get_database_compatibility_score(settings, token: str, user1_id: str, user2_
         return None
 
 
-def get_match_compatibility_score(settings, token: str, user1_id: str, user2_id: str) -> float:
+def get_match_compatibility_score(
+    settings, token: str, user1_id: str, user2_id: str
+) -> float:
     score = get_database_compatibility_score(settings, token, user1_id, user2_id)
     return float(score) if score is not None else 0.0
 
@@ -222,10 +238,13 @@ def me(authorization: str = Header(None)):
         raise HTTPException(status_code=401, detail="Missing authorization header")
     token = authorization.replace("Bearer ", "").strip()
     with get_supabase_client() as client:
-        response = client.get("/auth/v1/user", headers={"Authorization": f"Bearer {token}"})
+        response = client.get(
+            "/auth/v1/user", headers={"Authorization": f"Bearer {token}"}
+        )
         if response.status_code >= 400:
             raise HTTPException(status_code=401, detail="Invalid token")
         return response.json()
+
 
 @auth_router.get("/google/url")
 def get_google_oauth_url(request: Request):
@@ -233,11 +252,13 @@ def get_google_oauth_url(request: Request):
     # Get the origin or referer to know where to redirect back to
     origin = request.headers.get("origin")
     referer = request.headers.get("referer")
-    
-    redirect_to = origin if origin else (referer if referer else "http://localhost:5173")
+
+    redirect_to = (
+        origin if origin else (referer if referer else "http://localhost:5173")
+    )
     if redirect_to.endswith("/"):
         redirect_to = redirect_to[:-1]
-    
+
     url = f"{settings.supabase_url}/auth/v1/authorize?provider=google&redirect_to={redirect_to}"
     return {"url": url}
 
@@ -256,7 +277,10 @@ def get_user_from_token(authorization: str = Header(None)):
     with httpx.Client() as client:
         response = client.get(
             f"{settings.supabase_url}/auth/v1/user",
-            headers={"apikey": settings.supabase_key, "Authorization": f"Bearer {token}"}
+            headers={
+                "apikey": settings.supabase_key,
+                "Authorization": f"Bearer {token}",
+            },
         )
         if response.status_code >= 400:
             raise HTTPException(status_code=401, detail="Invalid token")
@@ -296,21 +320,26 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     R = 6371
     lat1, lon1, lat2, lon2 = map(math.radians, [lat1, lon1, lat2, lon2])
     dlat, dlon = lat2 - lat1, lon2 - lon1
-    a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
+    a = (
+        math.sin(dlat / 2) ** 2
+        + math.cos(lat1) * math.cos(lat2) * math.sin(dlon / 2) ** 2
+    )
     return R * 2 * math.asin(math.sqrt(a))
 
 
 def filter_by_gender(profiles, seeking):
-    if not seeking or seeking == 'everyone':
+    if not seeking or seeking == "everyone":
         return profiles
-    if seeking == 'both':
+    if seeking == "both":
         return [
-            p for p in profiles
-            if str(p.get('gender') or '').lower() in {'male', 'female'}
+            p
+            for p in profiles
+            if str(p.get("gender") or "").lower() in {"male", "female"}
         ]
     return [
-        p for p in profiles
-        if str(p.get('gender') or '').lower() == str(seeking).lower()
+        p
+        for p in profiles
+        if str(p.get("gender") or "").lower() == str(seeking).lower()
     ]
 
 
@@ -320,20 +349,23 @@ def get_my_profile(authorization: str = Header(None)):
         raise HTTPException(status_code=401, detail="Missing authorization")
     token = authorization.replace("Bearer ", "")
     settings = get_settings()
-    
+
     with httpx.Client() as client:
         user_resp = client.get(
             f"{settings.supabase_url}/auth/v1/user",
-            headers={"apikey": settings.supabase_key, "Authorization": f"Bearer {token}"}
+            headers={
+                "apikey": settings.supabase_key,
+                "Authorization": f"Bearer {token}",
+            },
         )
         if user_resp.status_code != 200:
             raise HTTPException(status_code=401, detail="Invalid token")
         user_id = user_resp.json().get("id")
-        
+
         resp = client.get(
             f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
             params={"user_id": f"eq.{user_id}"},
-            headers=supabase_headers(settings, token)
+            headers=supabase_headers(settings, token),
         )
         profiles = resp.json()
         if profiles:
@@ -347,42 +379,45 @@ def get_candidates(limit: int = 10, authorization: str = Header(None)):
         raise HTTPException(status_code=401, detail="Missing authorization")
     token = authorization.replace("Bearer ", "")
     settings = get_settings()
-    
+
     with httpx.Client() as client:
         me_resp = client.get(
             f"{settings.supabase_url}/auth/v1/user",
-            headers={"apikey": settings.supabase_key, "Authorization": f"Bearer {token}"}
+            headers={
+                "apikey": settings.supabase_key,
+                "Authorization": f"Bearer {token}",
+            },
         )
         user_id = me_resp.json().get("id")
-        
+
         my_resp = client.get(
             f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
             params={"user_id": f"eq.{user_id}"},
-            headers=supabase_headers(settings, token)
+            headers=supabase_headers(settings, token),
         )
         if not my_resp.json():
             raise HTTPException(status_code=404, detail="Create profile first")
         my_profile = my_resp.json()[0]
-        
+
         all_resp = client.get(
             f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
             params={"is_complete": "eq.true"},
-            headers=supabase_headers(settings, token)
+            headers=supabase_headers(settings, token),
         )
-        
-        candidates = [c for c in all_resp.json() if c.get('user_id') != user_id]
+
+        candidates = [c for c in all_resp.json() if c.get("user_id") != user_id]
         if not candidates:
             return []
-        
-        seeking = my_profile.get('seeking_gender', 'everyone')
+
+        seeking = my_profile.get("seeking_gender", "everyone")
         filtered = filter_by_gender(candidates, seeking)
-        
+
         for c in filtered:
-            c['compatibility_score'] = get_match_compatibility_score(
+            c["compatibility_score"] = get_match_compatibility_score(
                 settings, token, user_id, c.get("user_id")
             )
-        
-        filtered.sort(key=lambda x: x.get('compatibility_score', 0), reverse=True)
+
+        filtered.sort(key=lambda x: x.get("compatibility_score", 0), reverse=True)
         return normalize_profile_rows(filtered[:limit])
 
 
@@ -392,18 +427,21 @@ def create_profile(profile_data: dict, authorization: str = Header(None)):
         raise HTTPException(status_code=401, detail="Missing authorization")
     token = authorization.replace("Bearer ", "")
     settings = get_settings()
-    
+
     with httpx.Client() as client:
         me_resp = client.get(
             f"{settings.supabase_url}/auth/v1/user",
-            headers={"apikey": settings.supabase_key, "Authorization": f"Bearer {token}"}
+            headers={
+                "apikey": settings.supabase_key,
+                "Authorization": f"Bearer {token}",
+            },
         )
         user_id = me_resp.json().get("id")
-        
+
         existing = client.get(
             f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
             params={"user_id": f"eq.{user_id}"},
-            headers=supabase_headers(settings, token)
+            headers=supabase_headers(settings, token),
         )
         existed = bool(existing.json())
 
@@ -444,7 +482,7 @@ def create_profile(profile_data: dict, authorization: str = Header(None)):
             refreshed = client.get(
                 f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
                 params={"user_id": f"eq.{user_id}"},
-                headers=supabase_headers(settings, token)
+                headers=supabase_headers(settings, token),
             )
             rows = refreshed.json() if not response_failed(refreshed) else []
         except Exception:
@@ -476,7 +514,10 @@ def _get_user_id_and_token(authorization: str, settings):
     with httpx.Client() as client:
         resp = client.get(
             f"{settings.supabase_url}/auth/v1/user",
-            headers={"apikey": settings.supabase_key, "Authorization": f"Bearer {token}"}
+            headers={
+                "apikey": settings.supabase_key,
+                "Authorization": f"Bearer {token}",
+            },
         )
         if resp.status_code != 200:
             raise HTTPException(status_code=401, detail="Invalid token")
@@ -500,13 +541,6 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
     }
 
     with httpx.Client() as client:
-        my_profile_resp = client.get(
-            f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
-            params={"user_id": f"eq.{sender_id}"},
-            headers=base_headers,
-        )
-        my_profiles = my_profile_resp.json() if my_profile_resp.status_code < 400 else []
-        my_profile = my_profiles[0] if my_profiles else {}
 
         receiver_profile_resp = client.get(
             f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
@@ -514,11 +548,12 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
             headers=base_headers,
         )
         receiver_profiles = (
-            receiver_profile_resp.json() if receiver_profile_resp.status_code < 400 else []
+            receiver_profile_resp.json()
+            if receiver_profile_resp.status_code < 400
+            else []
         )
         if not receiver_profiles:
             raise HTTPException(status_code=404, detail="Candidate not found")
-        receiver_profile = receiver_profiles[0]
 
         compatibility_score = get_match_compatibility_score(
             settings, token, sender_id, receiver_id
@@ -535,17 +570,19 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
             headers=base_headers,
         )
         outgoing_rows = outgoing_resp.json() if outgoing_resp.status_code < 400 else []
-        outgoing = outgoing_rows[0] if outgoing_rows else None
+        outgoing = cast(Dict[str, Any], outgoing_rows[0]) if outgoing_rows else None
 
         if outgoing and outgoing.get("status") in {"accepted", "matched"}:
             return {
                 **outgoing,
                 "matched": True,
-                "compatibility_score": outgoing.get("compatibility_score", compatibility_score),
+                "compatibility_score": outgoing.get(
+                    "compatibility_score", compatibility_score
+                ),
             }
 
         if not outgoing:
-            fallback_payload = {
+            fallback_payload: Dict[str, Any] = {
                 "sender_id": sender_id,
                 "receiver_id": receiver_id,
                 "status": "pending",
@@ -571,10 +608,16 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
                 )
 
             if save_resp.status_code >= 400:
-                raise HTTPException(status_code=save_resp.status_code, detail=save_resp.text)
+                raise HTTPException(
+                    status_code=save_resp.status_code, detail=save_resp.text
+                )
 
             saved_rows = save_resp.json()
-            outgoing = saved_rows[0] if isinstance(saved_rows, list) and saved_rows else fallback_payload
+            outgoing = (
+                saved_rows[0]
+                if isinstance(saved_rows, list) and saved_rows
+                else fallback_payload
+            )
         elif outgoing.get("status") == "rejected":
             reset_resp = client.patch(
                 f"{settings.supabase_url}/rest/v1/matches",
@@ -595,7 +638,9 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
             },
             headers=base_headers,
         )
-        reciprocal_rows = reciprocal_resp.json() if reciprocal_resp.status_code < 400 else []
+        reciprocal_rows = (
+            reciprocal_resp.json() if reciprocal_resp.status_code < 400 else []
+        )
         reciprocal = reciprocal_rows[0] if reciprocal_rows else None
 
         matched = bool(reciprocal and reciprocal.get("status") != "rejected")
@@ -603,19 +648,27 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
             patch_headers = {**base_headers, "Content-Type": "application/json"}
             client.patch(
                 f"{settings.supabase_url}/rest/v1/matches",
-                params={"sender_id": f"eq.{sender_id}", "receiver_id": f"eq.{receiver_id}"},
+                params={
+                    "sender_id": f"eq.{sender_id}",
+                    "receiver_id": f"eq.{receiver_id}",
+                },
                 json={"status": "accepted"},
                 headers=patch_headers,
             )
             client.patch(
                 f"{settings.supabase_url}/rest/v1/matches",
-                params={"sender_id": f"eq.{receiver_id}", "receiver_id": f"eq.{sender_id}"},
+                params={
+                    "sender_id": f"eq.{receiver_id}",
+                    "receiver_id": f"eq.{sender_id}",
+                },
                 json={"status": "accepted"},
                 headers=patch_headers,
             )
             outgoing["status"] = "accepted"
 
-        outgoing["compatibility_score"] = outgoing.get("compatibility_score", compatibility_score)
+        outgoing["compatibility_score"] = outgoing.get(
+            "compatibility_score", compatibility_score
+        )
         outgoing["matched"] = matched
         return outgoing
 
@@ -668,7 +721,11 @@ def get_my_matches(authorization: str = Header(None)):
 def accept_match(match_id: int, authorization: str = Header(None)):
     settings = get_settings()
     user_id, token = _get_user_id_and_token(authorization, settings)
-    rls_headers = {"apikey": settings.supabase_key, "Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    rls_headers = {
+        "apikey": settings.supabase_key,
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+    }
     with httpx.Client() as client:
         match_resp = client.get(
             f"{settings.supabase_url}/rest/v1/matches",
@@ -695,7 +752,11 @@ def accept_match(match_id: int, authorization: str = Header(None)):
 def reject_match(match_id: int, authorization: str = Header(None)):
     settings = get_settings()
     user_id, token = _get_user_id_and_token(authorization, settings)
-    rls_headers = {"apikey": settings.supabase_key, "Authorization": f"Bearer {token}", "Content-Type": "application/json"}
+    rls_headers = {
+        "apikey": settings.supabase_key,
+        "Authorization": f"Bearer {token}",
+        "Content-Type": "application/json",
+    }
     with httpx.Client() as client:
         match_resp = client.get(
             f"{settings.supabase_url}/rest/v1/matches",
@@ -741,12 +802,16 @@ def send_message(data: dict, authorization: str = Header(None)):
                 "Authorization": f"Bearer {token}",
                 "Content-Type": "application/json",
                 "Prefer": "return=representation",
-            }
+            },
         )
         if resp.status_code >= 400:
             raise HTTPException(status_code=resp.status_code, detail=resp.text)
         messages = resp.json()
-        return messages[0] if messages else {"sender_id": user_id, "receiver_id": receiver_id, "content": content}
+        return (
+            messages[0]
+            if messages
+            else {"sender_id": user_id, "receiver_id": receiver_id, "content": content}
+        )
 
 
 @messages_router.get("/conversations/{target_user_id}")
@@ -802,16 +867,26 @@ def get_all_conversations(authorization: str = Header(None)):
         conversations = []
         all_msgs = sent + received
         for uid in user_ids:
-            msgs = [m for m in all_msgs if m.get("sender_id") == uid or m.get("receiver_id") == uid]
+            msgs = [
+                m
+                for m in all_msgs
+                if m.get("sender_id") == uid or m.get("receiver_id") == uid
+            ]
             msgs.sort(key=lambda m: m.get("created_at", ""), reverse=True)
             last = msgs[0] if msgs else None
-            unread = sum(1 for m in received if m.get("sender_id") == uid and not m.get("is_read"))
-            conversations.append({
-                "user_id": uid,
-                "last_message": last.get("content") if last else None,
-                "last_timestamp": last.get("created_at") if last else None,
-                "unread_count": unread,
-            })
+            unread = sum(
+                1
+                for m in received
+                if m.get("sender_id") == uid and not m.get("is_read")
+            )
+            conversations.append(
+                {
+                    "user_id": uid,
+                    "last_message": last.get("content") if last else None,
+                    "last_timestamp": last.get("created_at") if last else None,
+                    "unread_count": unread,
+                }
+            )
         return conversations
 
 
@@ -900,7 +975,9 @@ def get_icebreaker(target_user_id: str, authorization: str = Header(None)):
             params={"user_id": f"eq.{user_id}"},
             headers=headers,
         )
-        my_profiles = my_profile_resp.json() if my_profile_resp.status_code < 400 else []
+        my_profiles = (
+            my_profile_resp.json() if my_profile_resp.status_code < 400 else []
+        )
         if not my_profiles:
             raise HTTPException(status_code=400, detail="Create your profile first")
 
@@ -917,21 +994,33 @@ def get_icebreaker(target_user_id: str, authorization: str = Header(None)):
 
         sent_match = client.get(
             f"{settings.supabase_url}/rest/v1/matches",
-            params={"sender_id": f"eq.{user_id}", "receiver_id": f"eq.{target_user_id}"},
+            params={
+                "sender_id": f"eq.{user_id}",
+                "receiver_id": f"eq.{target_user_id}",
+            },
             headers=headers,
         ).json()
         received_match = client.get(
             f"{settings.supabase_url}/rest/v1/matches",
-            params={"sender_id": f"eq.{target_user_id}", "receiver_id": f"eq.{user_id}"},
+            params={
+                "sender_id": f"eq.{target_user_id}",
+                "receiver_id": f"eq.{user_id}",
+            },
             headers=headers,
         ).json()
         if not (sent_match or received_match):
-            raise HTTPException(status_code=403, detail="Users must match before requesting an icebreaker")
+            raise HTTPException(
+                status_code=403,
+                detail="Users must match before requesting an icebreaker",
+            )
 
         my_interests = my_profiles[0].get("interests", "")
         target_interests = target_profiles[0].get("interests", "")
         ai_text = _generate_ai_icebreaker(settings, my_interests, target_interests)
-        return {"icebreaker": ai_text or _fallback_icebreaker(my_interests, target_interests)}
+        return {
+            "icebreaker": ai_text
+            or _fallback_icebreaker(my_interests, target_interests)
+        }
 
 
 @ai_router.get("/compatibility/{target_user_id}")
@@ -946,7 +1035,9 @@ def get_compatibility(target_user_id: str, authorization: str = Header(None)):
             params={"user_id": f"eq.{user_id}"},
             headers=headers,
         )
-        my_profiles = my_profile_resp.json() if my_profile_resp.status_code < 400 else []
+        my_profiles = (
+            my_profile_resp.json() if my_profile_resp.status_code < 400 else []
+        )
         if not my_profiles:
             raise HTTPException(status_code=400, detail="Create your profile first")
 
