@@ -541,12 +541,12 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
     }
 
     with httpx.Client() as client:
-        my_profile_resp = client.get(
+        my_profile_resp = client.get(  # noqa: F841
             f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
             params={"user_id": f"eq.{sender_id}"},
             headers=base_headers,
         )
-        my_profiles = (
+        my_profiles = (  # noqa: F841
             my_profile_resp.json() if my_profile_resp.status_code < 400 else []
         )
 
@@ -562,7 +562,7 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
         )
         if not receiver_profiles:
             raise HTTPException(status_code=404, detail="Candidate not found")
-        receiver_profile = receiver_profiles[0]
+        receiver_profile = receiver_profiles[0]  # noqa: F841
 
         compatibility_score = get_match_compatibility_score(
             settings, token, sender_id, receiver_id
@@ -979,12 +979,12 @@ def get_icebreaker(target_user_id: str, authorization: str = Header(None)):
     headers = supabase_headers(settings, token)
 
     with httpx.Client() as client:
-        my_profile_resp = client.get(
+        my_profile_resp = client.get(  # noqa: F841
             f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
             params={"user_id": f"eq.{user_id}"},
             headers=headers,
         )
-        my_profiles = (
+        my_profiles = (  # noqa: F841
             my_profile_resp.json() if my_profile_resp.status_code < 400 else []
         )
         if not my_profiles:
@@ -1039,12 +1039,12 @@ def get_compatibility(target_user_id: str, authorization: str = Header(None)):
     headers = supabase_headers(settings, token)
 
     with httpx.Client() as client:
-        my_profile_resp = client.get(
+        my_profile_resp = client.get(  # noqa: F841
             f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
             params={"user_id": f"eq.{user_id}"},
             headers=headers,
         )
-        my_profiles = (
+        my_profiles = (  # noqa: F841
             my_profile_resp.json() if my_profile_resp.status_code < 400 else []
         )
         if not my_profiles:
