@@ -1,54 +1,54 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { authService } from '../services/api'
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { authService } from '../services/api';
 
 export default function Register() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    
+    e.preventDefault();
+    setError('');
+
     if (password !== confirmPassword) {
-      setError('Passwords do not match')
-      return
+      setError('Passwords do not match');
+      return;
     }
-    
+
     if (password.length < 6) {
-      setError('Password must be at least 6 characters')
-      return
+      setError('Password must be at least 6 characters');
+      return;
     }
-    
-    setLoading(true)
+
+    setLoading(true);
     try {
-      await authService.register(email, password)
-      const loginRes = await authService.login(email, password)
-      localStorage.setItem('token', loginRes.data.access_token)
-      window.location.href = '/dashboard'
+      await authService.register(email, password);
+      const loginRes = await authService.login(email, password);
+      localStorage.setItem('token', loginRes.data.access_token);
+      window.location.href = '/dashboard';
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { detail?: string } } }
-      setError(err.response?.data?.detail || 'Registration failed')
+      const err = error as { response?: { data?: { detail?: string } } };
+      setError(err.response?.data?.detail || 'Registration failed');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleGoogleLogin = async () => {
-    setError('')
-    setLoading(true)
+    setError('');
+    setLoading(true);
     try {
-      const res = await authService.getGoogleUrl()
-      window.location.href = res.data.url
+      const res = await authService.getGoogleUrl();
+      window.location.href = res.data.url;
     } catch (error: unknown) {
-      setError('Failed to initiate Google registration.')
-      setLoading(false)
+      setError('Failed to initiate Google registration.');
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="auth-split">
@@ -60,7 +60,10 @@ export default function Register() {
         <div className="auth-copy">
           <p className="eyebrow">Start matching</p>
           <h1>Spark your connections.</h1>
-          <p>Create an account, complete your profile, and let the matching engine find compatible people.</p>
+          <p>
+            Create an account, complete your profile, and let the matching engine find compatible
+            people.
+          </p>
           <div className="auth-benefits">
             <span>🔥 AI-powered matching</span>
             <span>🧭 Preference-based discovery</span>
@@ -77,7 +80,12 @@ export default function Register() {
           </div>
           <p className="tagline">Create your account</p>
 
-          <button type="button" onClick={handleGoogleLogin} disabled={loading} className="google-btn">
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            disabled={loading}
+            className="google-btn"
+          >
             Sign Up with Google
           </button>
 
@@ -92,7 +100,7 @@ export default function Register() {
                 type="email"
                 placeholder="Email address"
                 value={email}
-                onChange={e => setEmail(e.target.value)}
+                onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
               />
@@ -106,11 +114,11 @@ export default function Register() {
                   type={showPassword ? 'text' : 'password'}
                   placeholder="Password (min 6 characters)"
                   value={password}
-                  onChange={e => setPassword(e.target.value)}
+                  onChange={(e) => setPassword(e.target.value)}
                   required
                   autoComplete="new-password"
                 />
-                <button type="button" onClick={() => setShowPassword(prev => !prev)}>
+                <button type="button" onClick={() => setShowPassword((prev) => !prev)}>
                   {showPassword ? 'Hide' : 'Show'}
                 </button>
               </div>
@@ -122,7 +130,7 @@ export default function Register() {
                 type={showPassword ? 'text' : 'password'}
                 placeholder="Confirm password"
                 value={confirmPassword}
-                onChange={e => setConfirmPassword(e.target.value)}
+                onChange={(e) => setConfirmPassword(e.target.value)}
                 required
                 autoComplete="new-password"
               />
@@ -140,5 +148,5 @@ export default function Register() {
         </div>
       </main>
     </div>
-  )
+  );
 }

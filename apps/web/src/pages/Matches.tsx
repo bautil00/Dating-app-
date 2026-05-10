@@ -1,85 +1,92 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
-import api from '../services/api'
+import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
+import api from '../services/api';
 
 export default function Matches() {
-  const [matches, setMatches] = useState<{ id: number, sender_id: string, receiver_id: string, status: string, created_at: string }[]>([])
-  const [currentUserId, setCurrentUserId] = useState<string>('')
-  const [loading, setLoading] = useState(true)
+  const [matches, setMatches] = useState<
+    { id: number; sender_id: string; receiver_id: string; status: string; created_at: string }[]
+  >([]);
+  const [currentUserId, setCurrentUserId] = useState<string>('');
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadMatches()
-    api.get('/auth/me').then(res => setCurrentUserId(res.data.id)).catch(() => {})
-  }, [])
+    loadMatches();
+    api
+      .get('/auth/me')
+      .then((res) => setCurrentUserId(res.data.id))
+      .catch(() => {});
+  }, []);
 
   const loadMatches = async () => {
     try {
-      const res = await api.get('/matches/')
-      setMatches(res.data || [])
+      const res = await api.get('/matches/');
+      setMatches(res.data || []);
     } catch (err) {
-      console.error('Failed to load matches:', err)
+      console.error('Failed to load matches:', err);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleAccept = async (matchId: number) => {
     try {
-      await api.patch(`/matches/${matchId}/accept`)
-      setMatches(prev =>
-        prev.map(m => (m.id === matchId ? { ...m, status: 'accepted' } : m))
-      )
+      await api.patch(`/matches/${matchId}/accept`);
+      setMatches((prev) => prev.map((m) => (m.id === matchId ? { ...m, status: 'accepted' } : m)));
     } catch (err) {
-      console.error('Failed to accept:', err)
+      console.error('Failed to accept:', err);
     }
-  }
+  };
 
   const handleReject = async (matchId: number) => {
     try {
-      await api.patch(`/matches/${matchId}/reject`)
-      setMatches(prev => prev.filter(m => m.id !== matchId))
+      await api.patch(`/matches/${matchId}/reject`);
+      setMatches((prev) => prev.filter((m) => m.id !== matchId));
     } catch (err) {
-      console.error('Failed to reject:', err)
+      console.error('Failed to reject:', err);
     }
-  }
+  };
 
   const pendingIncoming = matches.filter(
-    m => m.status === 'pending' && String(m.receiver_id) === String(currentUserId)
-  )
+    (m) => m.status === 'pending' && String(m.receiver_id) === String(currentUserId),
+  );
   const pendingOutgoing = matches.filter(
-    m => m.status === 'pending' && String(m.sender_id) === String(currentUserId)
-  )
+    (m) => m.status === 'pending' && String(m.sender_id) === String(currentUserId),
+  );
 
-  const acceptedMap = new Map<string, { id: number, sender_id: string, receiver_id: string, status: string, created_at: string }>()
+  const acceptedMap = new Map<
+    string,
+    { id: number; sender_id: string; receiver_id: string; status: string; created_at: string }
+  >();
   matches.forEach((m) => {
-    if (m.status !== 'accepted' && m.status !== 'matched') return
-    const otherUserId = String(m.sender_id) === String(currentUserId)
-      ? String(m.receiver_id)
-      : String(m.sender_id)
+    if (m.status !== 'accepted' && m.status !== 'matched') return;
+    const otherUserId =
+      String(m.sender_id) === String(currentUserId) ? String(m.receiver_id) : String(m.sender_id);
     if (!acceptedMap.has(otherUserId)) {
-      acceptedMap.set(otherUserId, m)
+      acceptedMap.set(otherUserId, m);
     }
-  })
-  const accepted = Array.from(acceptedMap.values())
-  const totalSparks = accepted.length
+  });
+  const accepted = Array.from(acceptedMap.values());
+  const totalSparks = accepted.length;
 
-  const otherUserId = (match: { sender_id: string, receiver_id: string }) =>
+  const otherUserId = (match: { sender_id: string; receiver_id: string }) =>
     String(match.sender_id) === String(currentUserId)
       ? String(match.receiver_id)
-      : String(match.sender_id)
+      : String(match.sender_id);
 
   if (loading) {
     return (
       <div className="loading-screen">
         <div className="spinner"></div>
       </div>
-    )
+    );
   }
 
   return (
     <div className="matches-page">
       <nav className="navbar">
-        <Link to="/dashboard" className="back-btn">← Back</Link>
+        <Link to="/dashboard" className="back-btn">
+          ← Back
+        </Link>
         <h1>Your Sparks</h1>
         <div></div>
       </nav>
@@ -102,7 +109,9 @@ export default function Matches() {
             <div className="empty-icon">🔥</div>
             <h2>No matches yet</h2>
             <p>Start liking profiles to get matches!</p>
-            <Link to="/dashboard" className="btn-primary">Discover People</Link>
+            <Link to="/dashboard" className="btn-primary">
+              Discover People
+            </Link>
           </div>
         ) : (
           <>
@@ -110,7 +119,7 @@ export default function Matches() {
               <section className="matches-section">
                 <h2>Pending Requests</h2>
                 <div className="matches-list">
-                  {pendingIncoming.map(match => (
+                  {pendingIncoming.map((match) => (
                     <div key={match.id} className="match-card pending spark-row">
                       <div className="match-avatar">
                         <span>{String(match.sender_id).charAt(0).toUpperCase()}</span>
@@ -122,16 +131,10 @@ export default function Matches() {
                         </span>
                       </div>
                       <div className="match-actions">
-                        <button 
-                          onClick={() => handleAccept(match.id)}
-                          className="accept-btn"
-                        >
+                        <button onClick={() => handleAccept(match.id)} className="accept-btn">
                           Accept
                         </button>
-                        <button 
-                          onClick={() => handleReject(match.id)}
-                          className="reject-btn"
-                        >
+                        <button onClick={() => handleReject(match.id)} className="reject-btn">
                           Pass
                         </button>
                       </div>
@@ -145,7 +148,7 @@ export default function Matches() {
               <section className="matches-section">
                 <h2>Waiting For Response</h2>
                 <div className="matches-list">
-                  {pendingOutgoing.map(match => (
+                  {pendingOutgoing.map((match) => (
                     <div key={match.id} className="match-card pending spark-row">
                       <div className="match-avatar waiting">
                         <span>⌛</span>
@@ -166,12 +169,8 @@ export default function Matches() {
               <section className="matches-section">
                 <h2>Ready To Message</h2>
                 <div className="sparks-grid">
-                  {accepted.map(match => (
-                    <Link 
-                      key={match.id} 
-                      to={`/chat/${otherUserId(match)}`}
-                      className="spark-card"
-                    >
+                  {accepted.map((match) => (
+                    <Link key={match.id} to={`/chat/${otherUserId(match)}`} className="spark-card">
                       <div className="spark-card-image">
                         <span>{otherUserId(match).charAt(0).toUpperCase()}</span>
                         <div className="spark-score">🔥</div>
@@ -192,5 +191,5 @@ export default function Matches() {
         )}
       </main>
     </div>
-  )
+  );
 }

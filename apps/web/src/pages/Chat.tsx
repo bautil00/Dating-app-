@@ -1,94 +1,98 @@
-import { useEffect, useState, useRef } from 'react'
-import { useParams, useNavigate, Link } from 'react-router-dom'
-import api from '../services/api'
+import { useEffect, useState, useRef } from 'react';
+import { useParams, useNavigate, Link } from 'react-router-dom';
+import api from '../services/api';
 
 export default function Chat() {
-  const { userId } = useParams()
-  const [messages, setMessages] = useState<{ id: number, content: string, created_at: string, sender_id: string }[]>([])
-  const [newMessage, setNewMessage] = useState('')
-  const [icebreaker, setIcebreaker] = useState('')
-  const [emojiOpen, setEmojiOpen] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [sending, setSending] = useState(false)
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-  const navigate = useNavigate()
-  const quickEmojis = ['🔥', '❤️', '😂', '😊', '✨', '👋', '💯', '🎉']
+  const { userId } = useParams();
+  const [messages, setMessages] = useState<
+    { id: number; content: string; created_at: string; sender_id: string }[]
+  >([]);
+  const [newMessage, setNewMessage] = useState('');
+  const [icebreaker, setIcebreaker] = useState('');
+  const [emojiOpen, setEmojiOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const navigate = useNavigate();
+  const quickEmojis = ['🔥', '❤️', '😂', '😊', '✨', '👋', '💯', '🎉'];
 
   useEffect(() => {
-    const token = localStorage.getItem('token')
+    const token = localStorage.getItem('token');
     if (!token) {
-      navigate('/login')
-      return
+      navigate('/login');
+      return;
     }
     if (userId) {
-      loadMessages()
+      loadMessages();
     }
-  }, [userId, navigate])
+  }, [userId, navigate]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   const loadMessages = async () => {
-    if (!userId) return
+    if (!userId) return;
     try {
-      const res = await api.get(`/messages/conversations/${userId}`)
-      setMessages(res.data || [])
+      const res = await api.get(`/messages/conversations/${userId}`);
+      setMessages(res.data || []);
     } catch (err) {
-      console.error('Failed to load messages:', err)
+      console.error('Failed to load messages:', err);
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleSend = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!newMessage.trim() || !userId) return
-    
-    setSending(true)
+    e.preventDefault();
+    if (!newMessage.trim() || !userId) return;
+
+    setSending(true);
     try {
-      const res = await api.post('/messages/', { 
-        receiver_id: userId, 
-        content: newMessage 
-      })
-      setMessages([...messages, res.data])
-      setNewMessage('')
+      const res = await api.post('/messages/', {
+        receiver_id: userId,
+        content: newMessage,
+      });
+      setMessages([...messages, res.data]);
+      setNewMessage('');
     } catch (err) {
-      console.error('Failed to send:', err)
+      console.error('Failed to send:', err);
     } finally {
-      setSending(false)
+      setSending(false);
     }
-  }
+  };
 
   const handleIcebreaker = async () => {
-    if (!userId) return
+    if (!userId) return;
     try {
-      const res = await api.get(`/ai/icebreaker/${userId}`)
-      setIcebreaker(res.data.icebreaker)
+      const res = await api.get(`/ai/icebreaker/${userId}`);
+      setIcebreaker(res.data.icebreaker);
     } catch (err) {
-      console.error('Failed to get icebreaker:', err)
+      console.error('Failed to get icebreaker:', err);
     }
-  }
+  };
 
   const useIcebreaker = () => {
     if (icebreaker) {
-      setNewMessage(icebreaker)
-      setIcebreaker('')
+      setNewMessage(icebreaker);
+      setIcebreaker('');
     }
-  }
+  };
 
   if (loading) {
     return (
       <div className="loading-screen">
         <div className="spinner"></div>
       </div>
-    )
+    );
   }
 
   return (
     <div className="chat-page">
       <nav className="chat-navbar">
-        <Link to="/matches" className="back-btn">← Matches</Link>
+        <Link to="/matches" className="back-btn">
+          ← Matches
+        </Link>
         <div>
           <h2>Chat</h2>
           <p>User #{userId}</p>
@@ -104,7 +108,9 @@ export default function Chat() {
           <div className="icebreaker-tip">
             <p>{icebreaker}</p>
             <button onClick={useIcebreaker}>Use This</button>
-            <button onClick={() => setIcebreaker('')} className="dismiss">✕</button>
+            <button onClick={() => setIcebreaker('')} className="dismiss">
+              ✕
+            </button>
           </div>
         )}
       </div>
@@ -117,13 +123,16 @@ export default function Chat() {
           </div>
         ) : (
           messages.map((msg, index) => (
-            <div 
-              key={index} 
+            <div
+              key={index}
               className={`message ${msg.sender_id === userId ? 'received' : 'sent'}`}
             >
               <p>{msg.content}</p>
               <span className="time">
-                {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                {new Date(msg.created_at).toLocaleTimeString([], {
+                  hour: '2-digit',
+                  minute: '2-digit',
+                })}
               </span>
             </div>
           ))
@@ -133,7 +142,11 @@ export default function Chat() {
 
       <form onSubmit={handleSend} className="message-form">
         <div className="emoji-popover-wrap">
-          <button type="button" className="emoji-toggle" onClick={() => setEmojiOpen(prev => !prev)}>
+          <button
+            type="button"
+            className="emoji-toggle"
+            onClick={() => setEmojiOpen((prev) => !prev)}
+          >
             😊
           </button>
           {emojiOpen && (
@@ -143,8 +156,8 @@ export default function Chat() {
                   key={emoji}
                   type="button"
                   onClick={() => {
-                    setNewMessage(prev => prev + emoji)
-                    setEmojiOpen(false)
+                    setNewMessage((prev) => prev + emoji);
+                    setEmojiOpen(false);
                   }}
                 >
                   {emoji}
@@ -156,7 +169,7 @@ export default function Chat() {
         <input
           type="text"
           value={newMessage}
-          onChange={e => setNewMessage(e.target.value)}
+          onChange={(e) => setNewMessage(e.target.value)}
           placeholder="Type a message..."
           disabled={sending}
         />
@@ -165,5 +178,5 @@ export default function Chat() {
         </button>
       </form>
     </div>
-  )
+  );
 }

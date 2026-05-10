@@ -1,41 +1,41 @@
-import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { authService } from '../services/api'
+import { useState } from 'react';
+import { Link } from 'react-router-dom';
+import { authService } from '../services/api';
 
 export default function Login() {
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
-  const [showPassword, setShowPassword] = useState(false)
-  const [error, setError] = useState('')
-  const [loading, setLoading] = useState(false)
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setError('')
-    setLoading(true)
+    e.preventDefault();
+    setError('');
+    setLoading(true);
     try {
-      const res = await authService.login(email, password)
-      localStorage.setItem('token', res.data.access_token)
-      window.location.href = '/dashboard'
+      const res = await authService.login(email, password);
+      localStorage.setItem('token', res.data.access_token);
+      window.location.href = '/dashboard';
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { detail?: string } } }
-      setError(err.response?.data?.detail || 'Login failed. Check your credentials.')
+      const err = error as { response?: { data?: { detail?: string } } };
+      setError(err.response?.data?.detail || 'Login failed. Check your credentials.');
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const handleGoogleLogin = async () => {
-    setError('')
-    setLoading(true)
+    setError('');
+    setLoading(true);
     try {
-      const res = await authService.getGoogleUrl()
-      window.location.href = res.data.url
+      const res = await authService.getGoogleUrl();
+      window.location.href = res.data.url;
     } catch (error: unknown) {
-      setError('Failed to initiate Google login.')
-      setLoading(false)
+      setError('Failed to initiate Google login.');
+      setLoading(false);
     }
-  }
+  };
 
   return (
     <div className="auth-split">
@@ -47,7 +47,9 @@ export default function Login() {
         <div className="auth-copy">
           <p className="eyebrow">Welcome back</p>
           <h1>Keep the spark alive.</h1>
-          <p>Find your perfect match with AI-powered discovery, real profiles, and live matching.</p>
+          <p>
+            Find your perfect match with AI-powered discovery, real profiles, and live matching.
+          </p>
           <div className="auth-benefits">
             <span>🔥 Your matches are waiting</span>
             <span>💬 Pick up real conversations</span>
@@ -64,7 +66,12 @@ export default function Login() {
           </div>
           <p className="tagline">Find your perfect match</p>
 
-          <button type="button" onClick={handleGoogleLogin} disabled={loading} className="google-btn">
+          <button
+            type="button"
+            onClick={handleGoogleLogin}
+            disabled={loading}
+            className="google-btn"
+          >
             Sign In with Google
           </button>
 
@@ -79,7 +86,7 @@ export default function Login() {
                 type="email"
                 placeholder="Email address"
                 value={email}
-                onChange={e => setEmail(e.target.value)}
+                onChange={(e) => setEmail(e.target.value)}
                 required
                 autoComplete="email"
               />
@@ -93,11 +100,11 @@ export default function Login() {
                   type={showPassword ? 'text' : 'password'}
                   placeholder="Password"
                   value={password}
-                  onChange={e => setPassword(e.target.value)}
+                  onChange={(e) => setPassword(e.target.value)}
                   required
                   autoComplete="current-password"
                 />
-                <button type="button" onClick={() => setShowPassword(prev => !prev)}>
+                <button type="button" onClick={() => setShowPassword((prev) => !prev)}>
                   {showPassword ? 'Hide' : 'Show'}
                 </button>
               </div>
@@ -115,5 +122,5 @@ export default function Login() {
         </div>
       </main>
     </div>
-  )
+  );
 }
