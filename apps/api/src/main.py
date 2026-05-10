@@ -541,6 +541,14 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
     }
 
     with httpx.Client() as client:
+        my_profile_resp = client.get(
+            f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
+            params={"user_id": f"eq.{sender_id}"},
+            headers=base_headers,
+        )
+        my_profiles = (
+            my_profile_resp.json() if my_profile_resp.status_code < 400 else []
+        )
 
         receiver_profile_resp = client.get(
             f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
@@ -554,6 +562,7 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
         )
         if not receiver_profiles:
             raise HTTPException(status_code=404, detail="Candidate not found")
+        receiver_profile = receiver_profiles[0]
 
         compatibility_score = get_match_compatibility_score(
             settings, token, sender_id, receiver_id
