@@ -1,5 +1,6 @@
 import httpx
 
+# LLM-based compatibility scoring using OpenRouter
 
 def build_compatibility_prompt(profile_a: dict, profile_b: dict) -> str:
     def get_interests(profile):
