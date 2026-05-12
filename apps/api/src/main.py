@@ -8,6 +8,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from .config import get_settings
+from .compatibility import get_llm_compatibility_score
 
 PROFILE_TABLE = "user_data"
 
@@ -204,6 +205,7 @@ def get_match_compatibility_score(
 ) -> float:
     score = get_database_compatibility_score(settings, token, user1_id, user2_id)
     return float(score) if score is not None else 0.0
+
 
 
 def response_failed(resp) -> bool:
