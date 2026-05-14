@@ -207,7 +207,6 @@ def get_match_compatibility_score(
     return float(score) if score is not None else 0.0
 
 
-
 def response_failed(resp) -> bool:
     status_code = getattr(resp, "status_code", None)
     return isinstance(status_code, int) and status_code >= 400
@@ -1064,6 +1063,13 @@ def get_compatibility(target_user_id: str, authorization: str = Header(None)):
             raise HTTPException(status_code=404, detail="Target profile not found")
 
         score = get_match_compatibility_score(settings, token, user_id, target_user_id)
+        llm_score = get_llm_compatibility_score(
+            getattr(settings, "openrouter_api_key", ""),
+            my_profiles[0],
+            target_profiles[0],
+        )
+        if llm_score > 0:
+            score = llm_score
         return {"profile_id": target_user_id, "compatibility_score": score}
 
 

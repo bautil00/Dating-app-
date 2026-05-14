@@ -2,14 +2,15 @@ import httpx
 
 # LLM-based compatibility scoring using OpenRouter
 
+
 def build_compatibility_prompt(profile_a: dict, profile_b: dict) -> str:
     def get_interests(profile):
         interests = [
-            profile.get('interest_1', ''),
-            profile.get('interest_2', ''),
-            profile.get('interest_3', ''),
+            profile.get("interest_1", ""),
+            profile.get("interest_2", ""),
+            profile.get("interest_3", ""),
         ]
-        return ', '.join([i for i in interests if i])
+        return ", ".join([i for i in interests if i])
 
     return (
         "You are a dating app compatibility analyzer. "
@@ -21,19 +22,21 @@ def build_compatibility_prompt(profile_a: dict, profile_b: dict) -> str:
         "Use the data available to you, as well as your own judgment, to decide on this 'trait compatibility' portion.\n\n"
         f"Person A:\n"
         f"- Interests: {get_interests(profile_a)}\n"
-        f"- Age: {profile_a.get('Age', 'unknown')}\n"
-        f"- Job: {profile_a.get('Job', 'unknown')}\n"
+        f"- Age: {profile_a.get('age', 'unknown')}\n"
+        f"- Job: {profile_a.get('job', 'unknown')}\n"
         f"- Gender: {profile_a.get('gender', 'unknown')}\n\n"
         f"Person B:\n"
         f"- Interests: {get_interests(profile_b)}\n"
-        f"- Age: {profile_b.get('Age', 'unknown')}\n"
-        f"- Job: {profile_b.get('Job', 'unknown')}\n"
+        f"- Age: {profile_b.get('age', 'unknown')}\n"
+        f"- Job: {profile_b.get('job', 'unknown')}\n"
         f"- Gender: {profile_b.get('gender', 'unknown')}\n\n"
         "Compatibility score (0-100):"
     )
 
 
-def get_llm_compatibility_score(api_key: str, profile_a: dict, profile_b: dict) -> float:
+def get_llm_compatibility_score(
+    api_key: str, profile_a: dict, profile_b: dict
+) -> float:
     if not api_key:
         return 0.0
 
