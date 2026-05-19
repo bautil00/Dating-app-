@@ -6,11 +6,11 @@ The pipeline script is [`scripts/deploy_prod.sh`](../scripts/deploy_prod.sh). It
 
 ## Accepted PRs In The Past Week
 
-As of May 17, 2026, the public GitHub API shows one merged PR in the past week:
+As of May 18, 2026, the public GitHub API shows one merged PR in the past week:
 
 | PR | Merged | Static analysis | Review evidence |
 | --- | --- | --- | --- |
-| [#1 Llm compatibility](https://github.com/bautil00/Dating-app-/pull/1) | 2026-05-13 | Covered by the repository checks and by this pipeline before deployment. | Public API shows an automated Copilot review/comment. Add or confirm a teammate review before final submission if the grader requires a human teammate review. |
+| [#1 Llm compatibility](https://github.com/bautil00/Dating-app-/pull/1) | 2026-05-13 | Covered by the repository checks and by this pipeline before deployment. | Human review/comment added by `owenisas` on 2026-05-18; Copilot also reviewed the PR. |
 
 Repository link for PR and code standards review: <https://github.com/bautil00/Dating-app->
 
