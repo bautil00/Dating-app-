@@ -1,11 +1,10 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { Eye, EyeOff, Flame } from 'lucide-react';
 import { authService } from '../services/api';
 import GoogleIcon from '../components/GoogleIcon';
 
 export default function Login() {
-  const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -23,7 +22,7 @@ export default function Login() {
     try {
       const res = await authService.login(email, password);
       localStorage.setItem('token', res.data.access_token);
-      navigate('/discover');
+      window.location.href = '/discover';
     } catch (error: unknown) {
       const err = error as { response?: { data?: { detail?: string } } };
       setError(err.response?.data?.detail || 'Login failed. Check your credentials.');
