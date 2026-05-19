@@ -12,6 +12,7 @@ LOCAL_API_PORT="${LOCAL_API_PORT:-4010}"
 LOCAL_WEB_PORT="${LOCAL_WEB_PORT:-4173}"
 DEPLOY_TIMEOUT_SECONDS="${DEPLOY_TIMEOUT_SECONDS:-600}"
 DEPLOY_POLL_SECONDS="${DEPLOY_POLL_SECONDS:-10}"
+CURRENT_COMMIT_WAIT_SECONDS="${CURRENT_COMMIT_WAIT_SECONDS:-45}"
 PROD_API_HEALTH_URL="${PROD_API_HEALTH_URL:-https://api-lemon-psi-31.vercel.app/health}"
 PROD_WEB_URL="${PROD_WEB_URL:-https://web-two-beta-72.vercel.app/}"
 SKIP_PULL="${SKIP_PULL:-0}"
@@ -177,8 +178,8 @@ deploy_to_production() {
   fi
 
   require_vercel_api_env
-  create_vercel_redeployment "${BLOWTORCH_API_PROJECT_ID}" "api"
-  create_vercel_redeployment "${BLOWTORCH_WEB_PROJECT_ID}" "web"
+  deploy_vercel_project "${BLOWTORCH_API_PROJECT_ID}" "api"
+  deploy_vercel_project "${BLOWTORCH_WEB_PROJECT_ID}" "web"
 }
 
 require_vercel_api_env() {
@@ -191,6 +192,71 @@ vercel_team_query() {
   if [[ -n "${VERCEL_TEAM_ID:-}" ]]; then
     printf '?teamId=%s' "${VERCEL_TEAM_ID}"
   fi
+}
+
+vercel_team_query_joiner() {
+  if [[ -n "${VERCEL_TEAM_ID:-}" ]]; then
+    printf '&teamId=%s' "${VERCEL_TEAM_ID}"
+  fi
+}
+
+deploy_vercel_project() {
+  local project_id="$1"
+  local label="$2"
+
+  if promote_current_commit_deployment "$project_id" "$label"; then
+    return
+  fi
+
+  log "No READY deployment for the current commit found for ${label}; falling back to redeploying latest READY production deployment"
+  create_vercel_redeployment "$project_id" "$label"
+}
+
+promote_current_commit_deployment() {
+  local project_id="$1"
+  local label="$2"
+  local git_sha deadline
+
+  git_sha="$(git rev-parse HEAD)"
+  deadline=$((SECONDS + CURRENT_COMMIT_WAIT_SECONDS))
+
+  while true; do
+    local body info deployment_id state deployment_url error_message
+    body="$(curl -fsS -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+      "https://api.vercel.com/v6/deployments?projectId=${project_id}&target=production&limit=20$(vercel_team_query_joiner)")"
+    info="$("${VENV_DIR}/bin/python" -c 'import json,sys; git_sha=sys.argv[1]; data=json.load(sys.stdin); matches=[d for d in data.get("deployments", []) if ((d.get("meta") or {}).get("gitCommitSha") == git_sha)]; d=matches[0] if matches else {}; print("\t".join(str(v or "") for v in (d.get("uid") or d.get("id"), d.get("state") or d.get("readyState"), d.get("url"), d.get("errorMessage") or d.get("errorCode"))))' "$git_sha" <<< "$body")"
+    IFS=$'\t' read -r deployment_id state deployment_url error_message <<< "$info"
+
+    if [[ -n "$deployment_id" ]]; then
+      if [[ "$state" == "READY" ]]; then
+        log "Promoting ${label} deployment for current commit ${git_sha:0:7}: https://${deployment_url}"
+        promote_vercel_deployment "$project_id" "$deployment_id" "$label"
+        return 0
+      fi
+
+      if [[ "$state" == "ERROR" || "$state" == "CANCELED" ]]; then
+        fail "Vercel ${label} deployment for current commit ended with ${state}: ${error_message}"
+      fi
+    fi
+
+    if (( SECONDS >= deadline )); then
+      return 1
+    fi
+    sleep "$DEPLOY_POLL_SECONDS"
+  done
+}
+
+promote_vercel_deployment() {
+  local project_id="$1"
+  local deployment_id="$2"
+  local label="$3"
+
+  curl -fsS -X POST \
+    -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+    "https://api.vercel.com/v10/projects/${project_id}/promote/${deployment_id}$(vercel_team_query)" \
+    >/dev/null
+
+  log "Promoted ${label} deployment: ${deployment_id}"
 }
 
 latest_vercel_deployment_id() {
