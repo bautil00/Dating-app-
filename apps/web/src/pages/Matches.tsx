@@ -2,10 +2,27 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import api from '../services/api';
 
+type ProfileSummary = {
+  user_id?: string;
+  name?: string;
+  Name?: string;
+  display_name?: string;
+};
+
+type MatchRecord = {
+  id: number;
+  sender_id: string;
+  receiver_id: string;
+  status: string;
+  created_at: string;
+  sender_profile?: ProfileSummary | null;
+  receiver_profile?: ProfileSummary | null;
+  other_user_id?: string;
+  other_profile?: ProfileSummary | null;
+};
+
 export default function Matches() {
-  const [matches, setMatches] = useState<
-    { id: number; sender_id: string; receiver_id: string; status: string; created_at: string }[]
-  >([]);
+  const [matches, setMatches] = useState<MatchRecord[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string>('');
   const [loading, setLoading] = useState(true);
 
@@ -53,10 +70,7 @@ export default function Matches() {
     (m) => m.status === 'pending' && String(m.sender_id) === String(currentUserId),
   );
 
-  const acceptedMap = new Map<
-    string,
-    { id: number; sender_id: string; receiver_id: string; status: string; created_at: string }
-  >();
+  const acceptedMap = new Map<string, MatchRecord>();
   matches.forEach((m) => {
     if (m.status !== 'accepted' && m.status !== 'matched') return;
     const otherUserId =
@@ -72,6 +86,26 @@ export default function Matches() {
     String(match.sender_id) === String(currentUserId)
       ? String(match.receiver_id)
       : String(match.sender_id);
+
+  const shortUserId = (userId: string) => (userId ? userId.slice(0, 8) : 'unknown');
+
+  const profileName = (profile?: ProfileSummary | null) =>
+    profile?.Name || profile?.name || profile?.display_name || '';
+
+  const otherProfile = (match: MatchRecord) =>
+    match.other_profile ||
+    (otherUserId(match) === String(match.sender_id)
+      ? match.sender_profile
+      : match.receiver_profile);
+
+  const senderName = (match: MatchRecord) =>
+    profileName(match.sender_profile) || `User ${shortUserId(match.sender_id)}`;
+
+  const receiverName = (match: MatchRecord) =>
+    profileName(match.receiver_profile) || `User ${shortUserId(match.receiver_id)}`;
+
+  const otherName = (match: MatchRecord) =>
+    profileName(otherProfile(match)) || `User ${shortUserId(otherUserId(match))}`;
 
   if (loading) {
     return (
@@ -122,10 +156,10 @@ export default function Matches() {
                   {pendingIncoming.map((match) => (
                     <div key={match.id} className="match-card pending spark-row">
                       <div className="match-avatar">
-                        <span>{String(match.sender_id).charAt(0).toUpperCase()}</span>
+                        <span>{senderName(match).charAt(0).toUpperCase()}</span>
                       </div>
                       <div className="match-info">
-                        <span className="match-name">User #{match.sender_id}</span>
+                        <span className="match-name">{senderName(match)}</span>
                         <span className="match-time">
                           {new Date(match.created_at).toLocaleDateString()}
                         </span>
@@ -154,7 +188,7 @@ export default function Matches() {
                         <span>⌛</span>
                       </div>
                       <div className="match-info">
-                        <span className="match-name">User #{match.receiver_id}</span>
+                        <span className="match-name">{receiverName(match)}</span>
                         <span className="match-time">
                           Sent {new Date(match.created_at).toLocaleDateString()}
                         </span>
@@ -172,12 +206,12 @@ export default function Matches() {
                   {accepted.map((match) => (
                     <Link key={match.id} to={`/chat/${otherUserId(match)}`} className="spark-card">
                       <div className="spark-card-image">
-                        <span>{otherUserId(match).charAt(0).toUpperCase()}</span>
+                        <span>{otherName(match).charAt(0).toUpperCase()}</span>
                         <div className="spark-score">🔥</div>
                       </div>
                       <div className="spark-card-body">
                         <div>
-                          <span className="match-name">User #{otherUserId(match)}</span>
+                          <span className="match-name">{otherName(match)}</span>
                           <span className="match-status">Spark #{match.id}</span>
                         </div>
                         <span className="message-pill">Message</span>

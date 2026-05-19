@@ -40,7 +40,7 @@ export const profileService = {
 
   getCandidates: (limit = 10) => api.get(`/profiles/candidates?limit=${limit}`),
 
-  getById: (id: number) => api.get(`/profiles/${id}`),
+  getById: (id: string | number) => api.get(`/profiles/${id}`),
 };
 
 export const matchService = {

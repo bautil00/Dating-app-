@@ -2,6 +2,8 @@
 
 from unittest.mock import patch, MagicMock
 
+from src.main import build_profile_rpc_payload
+
 
 def _mock_httpx(get_returns=None, post_returns=None, patch_returns=None):
     """Setup mock httpx.Client context manager."""
@@ -25,6 +27,23 @@ def _make_resp(status=200, data=None):
     r.json.return_value = data if data is not None else {}
     r.text = str(data)
     return r
+
+
+class TestProfileEnumPayload:
+    def test_uses_live_supabase_enum_labels(self):
+        payload = build_profile_rpc_payload(
+            {
+                "display_name": "Casey",
+                "gender": "Non-Binary",
+                "pronouns": "They/Them",
+                "interests": ["Swimming", "Books/Reading"],
+            },
+            "user-1",
+        )
+
+        assert payload["p_gender"] == "non binary"
+        assert payload["p_pronouns"] == "they them"
+        assert payload["p_interests"] == ["swmiming", "books reading"]
 
 
 class TestGetMyProfile:
@@ -56,6 +75,41 @@ class TestGetMyProfile:
     def test_requires_auth(self, client):
         res = client.get("/api/v1/profiles/me")
         assert res.status_code == 401
+
+
+class TestGetProfileByUserId:
+    def test_returns_public_profile_for_user_id(self, client):
+        profile_resp = _make_resp(
+            200,
+            [
+                {
+                    "user_id": "bob",
+                    "name": "Bob",
+                    "age": 27,
+                    "is_complete": True,
+                }
+            ],
+        )
+
+        mock = _mock_httpx(get_returns=[profile_resp])
+        with patch("httpx.Client", return_value=mock):
+            res = client.get(
+                "/api/v1/profiles/bob", headers={"Authorization": "Bearer tok"}
+            )
+
+        assert res.status_code == 200
+        assert res.json()["Name"] == "Bob"
+
+    def test_profile_by_user_id_not_found(self, client):
+        profile_resp = _make_resp(200, [])
+
+        mock = _mock_httpx(get_returns=[profile_resp])
+        with patch("httpx.Client", return_value=mock):
+            res = client.get(
+                "/api/v1/profiles/missing", headers={"Authorization": "Bearer tok"}
+            )
+
+        assert res.status_code == 404
 
 
 class TestCreateProfile:
@@ -93,6 +147,29 @@ class TestCreateProfile:
         with patch("httpx.Client", return_value=mock):
             res = client.post(
                 "/api/v1/profiles/",
+                json={
+                    "display_name": "Updated",
+                    "age": 26,
+                    "gender": "Male",
+                    "interests": "Gaming",
+                },
+                headers={"Authorization": "Bearer tok"},
+            )
+        assert res.status_code == 200
+        assert res.json()["status"] == "updated"
+
+    def test_patch_me_updates_existing_profile(self, client, fake_profile):
+        user_resp = _make_resp(200, {"id": "aaaa-bbbb-cccc-dddd"})
+        existing_resp = _make_resp(200, [fake_profile])
+        patch_resp = _make_resp(200)
+
+        mock = _mock_httpx(
+            get_returns=[user_resp, existing_resp],
+            patch_returns=[patch_resp],
+        )
+        with patch("httpx.Client", return_value=mock):
+            res = client.patch(
+                "/api/v1/profiles/me",
                 json={
                     "display_name": "Updated",
                     "age": 26,

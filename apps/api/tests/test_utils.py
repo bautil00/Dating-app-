@@ -217,12 +217,12 @@ class TestSettings:
         settings = Settings(
             supabase_url=" https://example.supabase.co\n",
             supabase_key=" anon-key\n",
-            openrouter_api_key="\tsk-or-test ",
+            openrouter_api_key="\topenrouter-key-test ",
         )
 
         assert settings.supabase_url == "https://example.supabase.co"
         assert settings.supabase_key == "anon-key"
-        assert settings.openrouter_api_key == "sk-or-test"
+        assert settings.openrouter_api_key == "openrouter-key-test"
 
 
 class TestNormalizeInterests:

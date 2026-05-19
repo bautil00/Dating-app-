@@ -49,14 +49,24 @@ class TestGetMatches:
                 },
             ],
         )
+        profiles = _make_resp(
+            200,
+            [
+                {"user_id": "alice", "name": "Alice"},
+                {"user_id": "bob", "name": "Bob"},
+                {"user_id": "carol", "name": "Carol"},
+            ],
+        )
 
-        mock = _mock_httpx(get_returns=[user_resp, sent, received])
+        mock = _mock_httpx(get_returns=[user_resp, sent, received, profiles])
         with patch("httpx.Client", return_value=mock):
             res = client.get(
                 "/api/v1/matches/", headers={"Authorization": "Bearer tok"}
             )
         assert res.status_code == 200
         assert len(res.json()) == 2
+        assert res.json()[0]["other_profile"]["name"] == "Bob"
+        assert res.json()[1]["other_profile"]["name"] == "Carol"
 
     def test_empty_matches(self, client):
         user_resp = _make_resp(200, {"id": "new-user"})
@@ -170,6 +180,84 @@ class TestGetConversation:
         assert len(res.json()) == 2
         assert res.json()[0]["content"] == "Hi"
         assert res.json()[1]["content"] == "Hey!"
+
+
+class TestMarkMessageRead:
+    def test_marks_received_message_read(self, client):
+        user_resp = _make_resp(200, {"id": "alice"})
+        message_resp = _make_resp(
+            200,
+            [
+                {
+                    "id": 9,
+                    "sender_id": "bob",
+                    "receiver_id": "alice",
+                    "content": "Hey",
+                    "is_read": False,
+                }
+            ],
+        )
+        patch_resp = _make_resp(
+            200,
+            [
+                {
+                    "id": 9,
+                    "sender_id": "bob",
+                    "receiver_id": "alice",
+                    "content": "Hey",
+                    "is_read": True,
+                }
+            ],
+        )
+
+        mock = _mock_httpx(
+            get_returns=[user_resp, message_resp], patch_returns=[patch_resp]
+        )
+        with patch("httpx.Client", return_value=mock):
+            res = client.patch(
+                "/api/v1/messages/9/read",
+                headers={"Authorization": "Bearer tok"},
+            )
+
+        assert res.status_code == 200
+        assert res.json()["is_read"] is True
+
+    def test_cannot_mark_sent_message_read(self, client):
+        user_resp = _make_resp(200, {"id": "alice"})
+        message_resp = _make_resp(
+            200,
+            [
+                {
+                    "id": 9,
+                    "sender_id": "alice",
+                    "receiver_id": "bob",
+                    "content": "Hey",
+                    "is_read": False,
+                }
+            ],
+        )
+
+        mock = _mock_httpx(get_returns=[user_resp, message_resp])
+        with patch("httpx.Client", return_value=mock):
+            res = client.patch(
+                "/api/v1/messages/9/read",
+                headers={"Authorization": "Bearer tok"},
+            )
+
+        assert res.status_code == 403
+
+    def test_mark_read_missing_message(self, client):
+        user_resp = _make_resp(200, {"id": "alice"})
+        message_resp = _make_resp(200, [])
+
+        mock = _mock_httpx(get_returns=[user_resp, message_resp])
+        with patch("httpx.Client", return_value=mock):
+            res = client.patch(
+                "/api/v1/messages/404/read",
+                headers={"Authorization": "Bearer tok"},
+            )
+
+        assert res.status_code == 404
 
 
 class TestHealthAndRoot:

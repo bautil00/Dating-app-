@@ -7,6 +7,7 @@ export default function Chat() {
   const [messages, setMessages] = useState<
     { id: number; content: string; created_at: string; sender_id: string }[]
   >([]);
+  const [targetName, setTargetName] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [icebreaker, setIcebreaker] = useState('');
   const [emojiOpen, setEmojiOpen] = useState(false);
@@ -28,14 +29,20 @@ export default function Chat() {
   }, [userId, navigate]);
 
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    messagesEndRef.current?.scrollIntoView?.({ behavior: 'smooth' });
   }, [messages]);
 
   const loadMessages = async () => {
     if (!userId) return;
     try {
-      const res = await api.get(`/messages/conversations/${userId}`);
-      setMessages(res.data || []);
+      const [messagesRes, profileRes] = await Promise.all([
+        api.get(`/messages/conversations/${userId}`),
+        api.get(`/profiles/${userId}`).catch(() => ({ data: null })),
+      ]);
+      setMessages(messagesRes.data || []);
+      setTargetName(
+        profileRes.data?.Name || profileRes.data?.name || profileRes.data?.display_name || '',
+      );
     } catch (err) {
       console.error('Failed to load messages:', err);
     } finally {
@@ -94,8 +101,8 @@ export default function Chat() {
           ← Matches
         </Link>
         <div>
-          <h2>Chat</h2>
-          <p>User #{userId}</p>
+          <h2>{targetName || 'Chat'}</h2>
+          <p>{targetName ? 'Conversation' : `User ${userId?.slice(0, 8) || ''}`}</p>
         </div>
         <div></div>
       </nav>

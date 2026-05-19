@@ -70,12 +70,23 @@ def _coerce_int(value):
         return None
 
 
+_ENUM_VALUE_OVERRIDES = {
+    "books_reading": "books reading",
+    "he_him": "he him",
+    "non_binary": "non binary",
+    "she_her": "she her",
+    "swimming": "swmiming",
+    "they_them": "they them",
+}
+
+
 def _enum_value(value):
     if value in (None, ""):
         return None
-    return (
+    normalized = (
         str(value).strip().lower().replace("/", "_").replace("-", "_").replace(" ", "_")
     )
+    return _ENUM_VALUE_OVERRIDES.get(normalized, normalized)
 
 
 def _enum_array(value):
@@ -116,6 +127,65 @@ def normalize_profile_rows(rows):
     return [normalize_profile_row(row) for row in rows]
 
 
+def _profile_display_summary(row: dict | None) -> dict | None:
+    if not row:
+        return None
+    normalized = normalize_profile_row(row)
+    return _compact_dict(
+        {
+            "user_id": normalized.get("user_id"),
+            "name": normalized.get("name") or normalized.get("Name"),
+            "Name": normalized.get("Name") or normalized.get("name"),
+            "age": normalized.get("age") or normalized.get("Age"),
+            "gender": normalized.get("gender"),
+            "interests": normalized.get("interests"),
+            "profile_image_url": normalized.get("profile_image_url"),
+        }
+    )
+
+
+def _profile_lookup_for_user_ids(client, settings, token: str, user_ids: set[str]):
+    if not user_ids:
+        return {}
+    ids = ",".join(sorted(uid for uid in user_ids if uid))
+    if not ids:
+        return {}
+
+    resp = client.get(
+        f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
+        params={
+            "user_id": f"in.({ids})",
+            "select": "user_id,name,age,gender,interests",
+        },
+        headers=supabase_headers(settings, token),
+    )
+    if resp.status_code >= 400:
+        return {}
+    rows = resp.json()
+    return {
+        str(row.get("user_id")): _profile_display_summary(row)
+        for row in rows
+        if row.get("user_id")
+    }
+
+
+def _enrich_matches_with_profiles(
+    matches: list[dict], profiles_by_user_id: dict, me_id: str
+):
+    enriched = []
+    for match in matches:
+        row = dict(match)
+        sender_id = str(row.get("sender_id") or "")
+        receiver_id = str(row.get("receiver_id") or "")
+        other_id = receiver_id if sender_id == str(me_id) else sender_id
+        row["sender_profile"] = profiles_by_user_id.get(sender_id)
+        row["receiver_profile"] = profiles_by_user_id.get(receiver_id)
+        row["other_user_id"] = other_id
+        row["other_profile"] = profiles_by_user_id.get(other_id)
+        enriched.append(row)
+    return enriched
+
+
 def build_profile_rpc_payload(profile_data: dict, user_id: str) -> dict:
     interests = profile_data.get("interests")
     pronouns = profile_data.get("pronouns")
@@ -128,11 +198,7 @@ def build_profile_rpc_payload(profile_data: dict, user_id: str) -> dict:
         "p_gender": _enum_value(profile_data.get("gender")),
         "p_job": _enum_value(profile_data.get("job")),
         "p_sexual_pref": _enum_value(profile_data.get("sexual_pref")),
-        "p_pronouns": (
-            str(pronouns).strip().lower().replace("/", " ")
-            if pronouns not in (None, "")
-            else None
-        ),
+        "p_pronouns": _enum_value(pronouns),
         "p_zodiac": _enum_value(profile_data.get("zodiac")),
         "p_education": _enum_value(profile_data.get("education")),
         "p_relationship": _enum_value(
@@ -434,6 +500,25 @@ def get_candidates(limit: int = 10, authorization: str = Header(None)):
         return normalize_profile_rows(filtered[:limit])
 
 
+@profiles_router.get("/{profile_user_id}")
+def get_profile_by_user_id(profile_user_id: str, authorization: str = Header(None)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing authorization")
+    token = authorization.replace("Bearer ", "")
+    settings = get_settings()
+
+    with httpx.Client() as client:
+        resp = client.get(
+            f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
+            params={"user_id": f"eq.{profile_user_id}"},
+            headers=supabase_headers(settings, token),
+        )
+        rows = resp.json() if resp.status_code < 400 else []
+        if not rows:
+            raise HTTPException(status_code=404, detail="Profile not found")
+        return normalize_profile_row(rows[0])
+
+
 @profiles_router.post("/")
 def create_profile(profile_data: dict, authorization: str = Header(None)):
     if not authorization:
@@ -510,6 +595,11 @@ def create_profile(profile_data: dict, authorization: str = Header(None)):
             row["status"] = "updated" if existed else "created"
             return row
         return {"status": "updated" if existed else "created", "user_id": user_id}
+
+
+@profiles_router.patch("/me")
+def update_my_profile(profile_data: dict, authorization: str = Header(None)):
+    return create_profile(profile_data, authorization)
 
 
 app.include_router(profiles_router, prefix="/api/v1")
@@ -742,7 +832,15 @@ def get_my_matches(authorization: str = Header(None)):
             params={"receiver_id": f"eq.{user_id}", "order": "created_at.desc"},
             headers=rls_headers,
         ).json()
-        return sent + received
+        matches = sent + received
+        profile_ids = {
+            str(value)
+            for match in matches
+            for value in (match.get("sender_id"), match.get("receiver_id"))
+            if value
+        }
+        profiles = _profile_lookup_for_user_ids(client, settings, token, profile_ids)
+        return _enrich_matches_with_profiles(matches, profiles, user_id)
 
 
 @matches_router.patch("/{match_id}/accept")
@@ -840,6 +938,52 @@ def send_message(data: dict, authorization: str = Header(None)):
             if messages
             else {"sender_id": user_id, "receiver_id": receiver_id, "content": content}
         )
+
+
+@messages_router.patch("/{message_id}/read")
+def mark_message_read(message_id: int, authorization: str = Header(None)):
+    settings = get_settings()
+    user_id, token = _get_user_id_and_token(authorization, settings)
+    rls_headers = {"apikey": settings.supabase_key, "Authorization": f"Bearer {token}"}
+
+    with httpx.Client() as client:
+        message_resp = client.get(
+            f"{settings.supabase_url}/rest/v1/messages",
+            params={"id": f"eq.{message_id}", "limit": 1},
+            headers=rls_headers,
+        )
+        if message_resp.status_code >= 400:
+            raise HTTPException(
+                status_code=message_resp.status_code, detail=message_resp.text
+            )
+        messages = message_resp.json()
+        if not messages:
+            raise HTTPException(status_code=404, detail="Message not found")
+
+        message = messages[0]
+        if message.get("receiver_id") != user_id:
+            raise HTTPException(status_code=403, detail="Not authorized")
+
+        patch_resp = client.patch(
+            f"{settings.supabase_url}/rest/v1/messages",
+            params={"id": f"eq.{message_id}"},
+            json={"is_read": True},
+            headers={
+                **rls_headers,
+                "Content-Type": "application/json",
+                "Prefer": "return=representation",
+            },
+        )
+        if patch_resp.status_code >= 400:
+            raise HTTPException(
+                status_code=patch_resp.status_code, detail=patch_resp.text
+            )
+
+        updated = patch_resp.json()
+        if isinstance(updated, list) and updated:
+            return updated[0]
+        message["is_read"] = True
+        return message
 
 
 @messages_router.get("/conversations/{target_user_id}")

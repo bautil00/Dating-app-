@@ -1335,11 +1335,13 @@ body {
   display: flex;
   flex-direction: column;
   flex: 1;
+  min-width: 0;
 }
 
 .match-name {
   font-weight: 600;
   color: var(--dark);
+  overflow-wrap: anywhere;
 }
 
 .match-time,
@@ -1448,10 +1450,15 @@ body {
   padding: 1rem;
 }
 
+.spark-card-body > div {
+  min-width: 0;
+}
+
 .message-pill {
   background: linear-gradient(135deg, var(--primary), var(--primary-dark));
   border-radius: 999px;
   color: white;
+  flex-shrink: 0;
   font-size: 0.78rem;
   font-weight: 800;
   padding: 0.45rem 0.75rem;

@@ -240,7 +240,7 @@ uvicorn src.main:app --reload --port 4000
    - `SUPABASE_URL`
    - `SUPABASE_KEY`
    - `SUPABASE_SERVICE_KEY`
-   - `OPENAI_API_KEY`
+   - `OPENROUTER_API_KEY`
 5. Deploy
 
 ### Environment Variables
@@ -249,5 +249,5 @@ uvicorn src.main:app --reload --port 4000
 | `SUPABASE_URL` | Supabase project URL |
 | `SUPABASE_KEY` | Supabase anon key |
 | `SUPABASE_SERVICE_KEY` | Supabase service role key |
-| `OPENAI_API_KEY` | OpenAI API key for AI features |
+| `OPENROUTER_API_KEY` | OpenRouter API key for AI compatibility scoring |
 | `DEBUG` | Enable debug mode |

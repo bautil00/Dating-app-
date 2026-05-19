@@ -56,7 +56,7 @@ uvicorn src.main:app --reload --port 4000
 SUPABASE_URL=https://your-project.supabase.co
 SUPABASE_KEY=your-anon-key
 SUPABASE_SERVICE_KEY=your-service-key
-OPENAI_API_KEY=sk-your-openai-key
+OPENROUTER_API_KEY=your-openrouter-key
 ```
 
 ## Deployment (Vercel)
