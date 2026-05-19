@@ -30,9 +30,9 @@ describe('Profile Page', () => {
         <Profile />
       </MemoryRouter>,
     );
-    expect(screen.getByText('Basic Info')).toBeInTheDocument();
-    expect(screen.getByText('About You')).toBeInTheDocument();
-    expect(screen.getByText('Preferences')).toBeInTheDocument();
+    expect(screen.getAllByText('Basic Info').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('About You').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Preferences').length).toBeGreaterThan(0);
   });
 
   it('renders gender dropdown with correct enum values', () => {
@@ -43,11 +43,11 @@ describe('Profile Page', () => {
     );
     const select = container.querySelector('select[name="gender"]');
     expect(select).not.toBeNull();
-    expect(screen.getByText('Male')).toBeInTheDocument();
-    expect(screen.getByText('Female')).toBeInTheDocument();
-    expect(screen.getByText('Non-Binary')).toBeInTheDocument();
-    expect(screen.getByText('Mtf')).toBeInTheDocument();
-    expect(screen.getByText('Ftm')).toBeInTheDocument();
+    expect(screen.getAllByText('Male').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Female').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Non-Binary').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Mtf').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Ftm').length).toBeGreaterThan(0);
   });
 
   it('renders interests dropdown', () => {

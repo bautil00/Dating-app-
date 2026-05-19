@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Camera, Check, Flame, Pencil } from 'lucide-react';
 import api from '../services/api';
+import Navbar from '../components/Navbar';
 
 const ENUMS = {
   gender: ['Male', 'Female', 'Non-Binary', 'Mtf', 'Ftm'],
@@ -57,25 +59,45 @@ const ENUMS = {
   education: ['None', 'Diploma', 'Associates', 'Bachelors', 'Masters', 'PhD'],
   relationship_status: ['single', 'taken', 'married'],
   living_status: ['Homeless', 'Alone', 'Parents', 'Family'],
+  seeking_gender: ['everyone', 'Male', 'Female', 'Non-Binary'],
+};
+
+type FormData = {
+  display_name: string;
+  age: string;
+  gender: string;
+  interests: string;
+  job: string;
+  sexual_pref: string;
+  pronouns: string;
+  zodiac: string;
+  education: string;
+  relationship_status: string;
+  living_status: string;
+  location: string;
+  seeking_gender: string;
+  max_distance_km: string;
+};
+
+const initialForm: FormData = {
+  display_name: '',
+  age: '',
+  gender: '',
+  interests: '',
+  job: '',
+  sexual_pref: '',
+  pronouns: '',
+  zodiac: '',
+  education: '',
+  relationship_status: '',
+  living_status: '',
+  location: '',
+  seeking_gender: 'everyone',
+  max_distance_km: '50',
 };
 
 export default function Profile() {
-  const [formData, setFormData] = useState({
-    display_name: '',
-    age: '',
-    gender: '',
-    interests: '',
-    job: '',
-    sexual_pref: '',
-    pronouns: '',
-    zodiac: '',
-    education: '',
-    relationship_status: '',
-    living_status: '',
-    location: '',
-    seeking_gender: '',
-    max_distance_km: '50',
-  });
+  const [formData, setFormData] = useState<FormData>(initialForm);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
   const navigate = useNavigate();
@@ -94,43 +116,45 @@ export default function Profile() {
       const res = await api.get('/profiles/me');
       if (res.data && res.data.is_complete !== false) {
         setFormData({
-          display_name: res.data.Name || res.data.display_name || '',
-          age: res.data.Age || res.data.age || '',
-          gender: res.data.gender || '',
-          interests: res.data.interests || '',
-          job: res.data.Job || '',
-          sexual_pref: res.data['sexual pref'] || res.data.sexual_pref || '',
-          pronouns: res.data['pro-nouns'] || res.data.pronouns || '',
-          zodiac: res.data.Zodiac || '',
-          education: res.data.education || '',
-          relationship_status: res.data.relationship || res.data.relationship_status || '',
-          living_status: res.data.living || res.data.living_status || '',
-          location: res.data.Location || res.data.location || '',
-          seeking_gender: res.data.seeking_gender || '',
-          max_distance_km: res.data.max_distance_km || '50',
+          display_name: String(res.data.Name || res.data.display_name || ''),
+          age: String(res.data.Age || res.data.age || ''),
+          gender: String(res.data.gender || ''),
+          interests: Array.isArray(res.data.interests)
+            ? String(res.data.interests[0] || '')
+            : String(res.data.interests || ''),
+          job: String(res.data.Job || res.data.job || ''),
+          sexual_pref: String(res.data['sexual pref'] || res.data.sexual_pref || ''),
+          pronouns: String(res.data['pro-nouns'] || res.data.pronouns || ''),
+          zodiac: String(res.data.Zodiac || res.data.zodiac || ''),
+          education: String(res.data.education || ''),
+          relationship_status: String(res.data.relationship || res.data.relationship_status || ''),
+          living_status: String(res.data.living || res.data.living_status || ''),
+          location: String(res.data.Location || res.data.location || ''),
+          seeking_gender: String(res.data.seeking_gender || 'everyone'),
+          max_distance_km: String(res.data.max_distance_km || '50'),
         });
       }
-    } catch (err) {
-      console.log('No profile yet');
+    } catch {
+      setFormData(initialForm);
     }
   };
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setFormData((prev) => ({ ...prev, [e.target.name]: e.target.value }));
+  const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
+    setFormData((prev) => ({ ...prev, [event.target.name]: event.target.value }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
     setSaving(true);
     setMessage('');
     try {
       await api.post('/profiles/', {
         ...formData,
-        age: formData.age ? parseInt(formData.age) : null,
-        max_distance_km: formData.max_distance_km ? parseInt(formData.max_distance_km) : 50,
+        age: formData.age ? parseInt(formData.age, 10) : null,
+        max_distance_km: formData.max_distance_km ? parseInt(formData.max_distance_km, 10) : 50,
       });
-      setMessage('Profile saved!');
-      setTimeout(() => navigate('/discover'), 1500);
+      setMessage('Profile saved.');
+      window.setTimeout(() => navigate('/discover'), 1000);
     } catch (error: unknown) {
       const err = error as { response?: { data?: { detail?: string } } };
       setMessage(err.response?.data?.detail || 'Failed to save profile');
@@ -139,136 +163,228 @@ export default function Profile() {
     }
   };
 
-  const renderSelect = (name: string, label: string, options: string[], required = false) => (
-    <div className="form-group">
-      <label>{label}</label>
+  const renderSelect = (
+    name: keyof FormData,
+    label: string,
+    options: string[],
+    required = false,
+  ) => (
+    <div className="space-y-1.5">
+      <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</label>
       <select
         name={name}
-        value={(formData as Record<string, string | number>)[name]}
+        value={formData[name]}
         onChange={handleChange}
         required={required}
+        className="w-full rounded-xl border border-gray-200 bg-white px-3 py-2.5 text-sm text-gray-900 transition-all focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-50"
       >
         <option value="">Select {label.toLowerCase()}</option>
-        {options.map((o) => (
-          <option key={o} value={o}>
-            {o}
+        {options.map((option) => (
+          <option key={option} value={option}>
+            {option}
           </option>
         ))}
       </select>
     </div>
   );
 
-  return (
-    <div className="profile-page">
-      <nav className="navbar">
-        <button onClick={() => navigate('/discover')} className="back-btn">
-          ← Back
-        </button>
-        <h1>Your Profile</h1>
-        <div></div>
-      </nav>
+  const initial = formData.display_name.charAt(0).toUpperCase() || 'B';
 
-      <main className="profile-content">
-        <form onSubmit={handleSubmit} className="profile-form">
-          <div className="form-section">
-            <h2>Basic Info</h2>
-            <div className="form-group">
-              <label>Display Name</label>
-              <input
-                type="text"
-                name="display_name"
-                value={formData.display_name}
-                onChange={handleChange}
-                placeholder="What should we call you?"
-                required
-              />
+  return (
+    <div className="min-h-screen bg-[#F8F9FA]">
+      <Navbar profileName={formData.display_name || 'Your profile'} />
+
+      <main className="mx-auto flex max-w-5xl gap-5 px-6 py-8">
+        <aside className="hidden w-52 flex-shrink-0 md:block">
+          <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+            {['Basic Info', 'About You', 'Preferences'].map((section, index) => (
+              <button
+                type="button"
+                key={section}
+                className={`flex w-full items-center gap-3 px-4 py-3 text-sm font-medium ${
+                  index === 0 ? 'bg-orange-50 text-orange-600' : 'text-gray-600 hover:bg-gray-50'
+                }`}
+              >
+                <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-white text-xs shadow-sm">
+                  {index + 1}
+                </span>
+                {section}
+              </button>
+            ))}
+          </div>
+        </aside>
+
+        <section className="min-w-0 flex-1 rounded-2xl border border-gray-100 bg-white shadow-sm">
+          <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Your Profile</h1>
+              <p className="text-sm text-gray-400">These fields feed discovery and matching.</p>
             </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Age</label>
-                <input
-                  type="number"
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                className="rounded-xl border border-gray-200 p-2 text-gray-400 transition-all hover:bg-gray-50 hover:text-gray-700"
+                aria-label="Edit profile"
+              >
+                <Pencil className="h-4 w-4" />
+              </button>
+            </div>
+          </div>
+
+          <form onSubmit={handleSubmit} className="space-y-8 p-6">
+            <section className="space-y-5">
+              <div className="flex justify-center">
+                <div className="relative">
+                  <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-orange-600 text-3xl font-bold text-white shadow-lg">
+                    {initial}
+                  </div>
+                  <button
+                    type="button"
+                    className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-white text-orange-500 shadow-md"
+                    aria-label="Profile photo"
+                  >
+                    <Camera className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              <h2 className="text-lg font-bold text-gray-900">Basic Info</h2>
+              <div className="grid gap-4 md:grid-cols-2">
+                <FieldText
+                  label="Display Name"
+                  name="display_name"
+                  value={formData.display_name}
+                  onChange={handleChange}
+                  placeholder="What should we call you?"
+                  required
+                />
+                <FieldText
+                  label="Age"
                   name="age"
+                  type="number"
                   value={formData.age}
                   onChange={handleChange}
                   placeholder="Age"
+                  required
                   min="18"
                   max="100"
-                  required
                 />
-              </div>
-              {renderSelect('gender', 'Gender', ENUMS.gender, true)}
-            </div>
-            <div className="form-row">
-              {renderSelect('pronouns', 'Pronouns', ENUMS.pronouns)}
-              {renderSelect('zodiac', 'Zodiac', ENUMS.zodiac)}
-            </div>
-          </div>
-
-          <div className="form-section">
-            <h2>About You</h2>
-            <div className="form-row">
-              {renderSelect('interests', 'Interest', ENUMS.interests, true)}
-              {renderSelect('job', 'Job', ENUMS.job)}
-            </div>
-            <div className="form-row">
-              {renderSelect('education', 'Education', ENUMS.education)}
-              {renderSelect('relationship_status', 'Relationship', ENUMS.relationship_status)}
-            </div>
-            {renderSelect('living_status', 'Living Status', ENUMS.living_status)}
-          </div>
-
-          <div className="form-section">
-            <h2>Preferences</h2>
-            <div className="form-row">
-              {renderSelect('sexual_pref', 'Orientation', ENUMS.sexual_pref)}
-              <div className="form-group">
-                <label>Interested in</label>
-                <select
-                  name="seeking_gender"
-                  value={formData.seeking_gender}
-                  onChange={handleChange}
-                >
-                  <option value="everyone">Everyone</option>
-                  <option value="Male">Men</option>
-                  <option value="Female">Women</option>
-                </select>
-              </div>
-            </div>
-            <div className="form-row">
-              <div className="form-group">
-                <label>Location (latitude)</label>
-                <input
-                  type="number"
+                {renderSelect('gender', 'Gender', ENUMS.gender, true)}
+                {renderSelect('pronouns', 'Pronouns', ENUMS.pronouns)}
+                {renderSelect('zodiac', 'Zodiac', ENUMS.zodiac)}
+                <FieldText
+                  label="Location"
                   name="location"
                   value={formData.location}
                   onChange={handleChange}
-                  placeholder="e.g. 47.6"
-                  step="0.0001"
+                  placeholder="City or latitude"
                 />
               </div>
-              <div className="form-group">
-                <label>Max Distance (km)</label>
-                <input
-                  type="number"
+            </section>
+
+            <section className="space-y-5">
+              <h2 className="text-lg font-bold text-gray-900">About You</h2>
+              <div className="grid gap-4 md:grid-cols-2">
+                {renderSelect('interests', 'Interest', ENUMS.interests, true)}
+                {renderSelect('job', 'Job', ENUMS.job)}
+                {renderSelect('education', 'Education', ENUMS.education)}
+                {renderSelect('relationship_status', 'Relationship', ENUMS.relationship_status)}
+                {renderSelect('living_status', 'Living Status', ENUMS.living_status)}
+              </div>
+            </section>
+
+            <section className="space-y-5">
+              <h2 className="text-lg font-bold text-gray-900">Preferences</h2>
+              <div className="grid gap-4 md:grid-cols-2">
+                {renderSelect('sexual_pref', 'Orientation', ENUMS.sexual_pref)}
+                {renderSelect('seeking_gender', 'Interested in', ENUMS.seeking_gender)}
+                <FieldText
+                  label="Max Distance (km)"
                   name="max_distance_km"
+                  type="number"
                   value={formData.max_distance_km}
                   onChange={handleChange}
                   min="1"
                   max="500"
                 />
               </div>
-            </div>
-          </div>
+            </section>
 
-          {message && (
-            <p className={`form-message ${message.includes('Failed') ? 'error' : ''}`}>{message}</p>
-          )}
-          <button type="submit" className="save-btn" disabled={saving}>
-            {saving ? 'Saving...' : 'Save Profile'}
-          </button>
-        </form>
+            {message && (
+              <p
+                className={`rounded-xl px-3 py-2 text-sm font-medium ${
+                  message.includes('Failed')
+                    ? 'bg-red-50 text-red-600'
+                    : 'bg-orange-50 text-orange-700'
+                }`}
+              >
+                {message}
+              </p>
+            )}
+
+            <button
+              type="submit"
+              disabled={saving}
+              className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold text-white disabled:opacity-60 btn-ignite"
+            >
+              <Check className="h-4 w-4" />
+              {saving ? 'Saving...' : 'Save Profile'}
+            </button>
+          </form>
+        </section>
+
+        <aside className="hidden w-60 flex-shrink-0 lg:block">
+          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-sm">
+            <div className="mb-3 flex items-center gap-2">
+              <Flame className="h-4 w-4 text-orange-500" fill="currentColor" />
+              <h3 className="text-sm font-bold text-gray-900">Matching Data</h3>
+            </div>
+            <p className="text-sm leading-relaxed text-gray-500">
+              Profile values are saved to Supabase through the API and used by candidate scoring,
+              compatibility, and matching.
+            </p>
+          </div>
+        </aside>
       </main>
+    </div>
+  );
+}
+
+function FieldText({
+  label,
+  name,
+  value,
+  onChange,
+  type = 'text',
+  placeholder = '',
+  required = false,
+  min,
+  max,
+}: {
+  label: string;
+  name: keyof FormData;
+  value: string;
+  onChange: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  type?: string;
+  placeholder?: string;
+  required?: boolean;
+  min?: string;
+  max?: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</label>
+      <input
+        type={type}
+        name={name}
+        value={value}
+        onChange={onChange}
+        placeholder={placeholder}
+        required={required}
+        min={min}
+        max={max}
+        className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm text-gray-900 transition-all placeholder:text-gray-400 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-50"
+      />
     </div>
   );
 }

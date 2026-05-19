@@ -46,7 +46,7 @@ export const profileService = {
 export const matchService = {
   like: (candidateId: string) => api.post('/matches/', { receiver_id: candidateId }),
 
-  create: (receiverId: number) => api.post('/matches/', { receiver_id: receiverId }),
+  create: (receiverId: string | number) => api.post('/matches/', { receiver_id: receiverId }),
 
   getAll: () => api.get('/matches/'),
 
@@ -67,9 +67,9 @@ export const messageService = {
 };
 
 export const aiService = {
-  getIcebreaker: (matchId: number) => api.get(`/ai/icebreaker/${matchId}`),
+  getIcebreaker: (matchId: string | number) => api.get(`/ai/icebreaker/${matchId}`),
 
-  getCompatibility: (profileId: number) => api.get(`/ai/compatibility/${profileId}`),
+  getCompatibility: (profileId: string | number) => api.get(`/ai/compatibility/${profileId}`),
 };
 
 export default api;

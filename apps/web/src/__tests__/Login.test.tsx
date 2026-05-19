@@ -10,6 +10,7 @@ vi.mock('../services/api', () => ({
     login: vi.fn(),
     register: vi.fn(),
     getMe: vi.fn(),
+    getGoogleUrl: vi.fn(),
   },
 }));
 
@@ -28,7 +29,7 @@ describe('Login Page', () => {
         <Login />
       </MemoryRouter>,
     );
-    expect(screen.getByPlaceholderText('Email address')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText('you@example.com')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('Password')).toBeInTheDocument();
   });
 
@@ -47,17 +48,20 @@ describe('Login Page', () => {
         <Login />
       </MemoryRouter>,
     );
-    expect(screen.getByText('Sign up')).toBeInTheDocument();
+    expect(screen.getByText('Create one')).toBeInTheDocument();
   });
 
-  it('renders BLOWTORCH branding', () => {
+  it('renders deployed-style Blowtorch branding', () => {
     render(
       <MemoryRouter>
         <Login />
       </MemoryRouter>,
     );
-    expect(screen.getByText('BLOWTORCH')).toBeInTheDocument();
-    expect(screen.getByText('Find your perfect match')).toBeInTheDocument();
+    expect(screen.getAllByText('Blowtorch').length).toBeGreaterThan(0);
+    expect(screen.getByText('Welcome back')).toBeInTheDocument();
+    expect(
+      screen.getByText('Your matches are waiting. Sign in to keep the spark alive.'),
+    ).toBeInTheDocument();
   });
 
   it('email input accepts text', () => {
@@ -66,7 +70,7 @@ describe('Login Page', () => {
         <Login />
       </MemoryRouter>,
     );
-    const input = screen.getByPlaceholderText('Email address') as HTMLInputElement;
+    const input = screen.getByPlaceholderText('you@example.com') as HTMLInputElement;
     fireEvent.change(input, { target: { value: 'test@example.com' } });
     expect(input.value).toBe('test@example.com');
   });

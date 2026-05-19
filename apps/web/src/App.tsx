@@ -18,10 +18,12 @@ function App() {
       <Routes>
         <Route path="/login" element={user ? <Navigate to="/discover" /> : <Login />} />
         <Route path="/register" element={user ? <Navigate to="/discover" /> : <Register />} />
+        <Route path="/" element={<Navigate to={user ? '/discover' : '/register'} />} />
         <Route path="/discover" element={user ? <Dashboard /> : <Navigate to="/login" />} />
         <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
         <Route path="/profile" element={user ? <Profile /> : <Navigate to="/login" />} />
         <Route path="/matches" element={user ? <Matches /> : <Navigate to="/login" />} />
+        <Route path="/sparks" element={user ? <Matches /> : <Navigate to="/login" />} />
         <Route path="/messages" element={user ? <Messages /> : <Navigate to="/login" />} />
         <Route path="/chat/:userId" element={user ? <Chat /> : <Navigate to="/login" />} />
         <Route path="*" element={<Navigate to={user ? '/discover' : '/login'} />} />

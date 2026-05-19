@@ -48,7 +48,7 @@ describe('Matches and Chat profile names', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByText('Maya Brooks')).toBeInTheDocument();
+    expect((await screen.findAllByText('Maya Brooks')).length).toBeGreaterThan(0);
     expect(screen.queryByText(/maya-user-id/)).not.toBeInTheDocument();
   });
 
@@ -89,6 +89,21 @@ describe('Matches and Chat profile names', () => {
           ],
         });
       }
+      if (path === '/messages/conversations/maya-user-id') {
+        return Promise.resolve({
+          data: [
+            {
+              id: 1,
+              content: 'See you Friday',
+              created_at: '2026-05-19T00:00:00Z',
+              sender_id: 'maya-user-id',
+            },
+          ],
+        });
+      }
+      if (path === '/auth/me') {
+        return Promise.resolve({ data: { id: 'alice-user-id' } });
+      }
       if (path === '/profiles/maya-user-id') {
         return Promise.resolve({
           data: { user_id: 'maya-user-id', name: 'Maya Brooks', interests: ['music'] },
@@ -104,7 +119,7 @@ describe('Matches and Chat profile names', () => {
     );
 
     expect(await screen.findByRole('link', { name: /messages/i })).toBeInTheDocument();
-    expect(await screen.findByText('Maya Brooks')).toBeInTheDocument();
-    expect(screen.getByText('See you Friday')).toBeInTheDocument();
+    expect((await screen.findAllByText('Maya Brooks')).length).toBeGreaterThan(0);
+    expect(screen.getAllByText('See you Friday').length).toBeGreaterThan(0);
   });
 });
