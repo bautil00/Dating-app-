@@ -1,4 +1,5 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import field_validator
 from functools import lru_cache
 
 
@@ -12,6 +13,11 @@ class Settings(BaseSettings):
         "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"
     )
     model_config = SettingsConfigDict(extra="ignore")
+
+    @field_validator("supabase_url", "supabase_key", "openrouter_api_key")
+    @classmethod
+    def strip_secret_whitespace(cls, value: str) -> str:
+        return value.strip() if isinstance(value, str) else value
 
 
 @lru_cache()

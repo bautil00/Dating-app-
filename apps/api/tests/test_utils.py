@@ -2,6 +2,7 @@
 
 from unittest.mock import MagicMock, patch
 
+from src.config import Settings
 from src.main import (
     build_profile_rpc_payload,
     get_match_compatibility_score,
@@ -209,6 +210,19 @@ class TestBuildProfileRpcPayload:
     def test_pronouns_match_database_enum_format(self):
         result = build_profile_rpc_payload({"pronouns": "She/Her"}, "u1")
         assert result["p_pronouns"] == "she her"
+
+
+class TestSettings:
+    def test_secret_values_strip_copy_paste_whitespace(self):
+        settings = Settings(
+            supabase_url=" https://example.supabase.co\n",
+            supabase_key=" anon-key\n",
+            openrouter_api_key="\tsk-or-test ",
+        )
+
+        assert settings.supabase_url == "https://example.supabase.co"
+        assert settings.supabase_key == "anon-key"
+        assert settings.openrouter_api_key == "sk-or-test"
 
 
 class TestNormalizeInterests:
