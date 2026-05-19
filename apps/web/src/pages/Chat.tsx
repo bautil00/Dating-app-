@@ -97,8 +97,8 @@ export default function Chat() {
   return (
     <div className="chat-page">
       <nav className="chat-navbar">
-        <Link to="/matches" className="back-btn">
-          ← Matches
+        <Link to="/messages" className="back-btn">
+          ← Messages
         </Link>
         <div>
           <h2>{targetName || 'Chat'}</h2>

@@ -56,12 +56,12 @@ export const matchService = {
 };
 
 export const messageService = {
-  send: (receiverId: number, content: string) =>
+  send: (receiverId: string | number, content: string) =>
     api.post('/messages/', { receiver_id: receiverId, content }),
 
   getConversations: () => api.get('/messages/conversations'),
 
-  getConversation: (userId: number) => api.get(`/messages/conversations/${userId}`),
+  getConversation: (userId: string | number) => api.get(`/messages/conversations/${userId}`),
 
   markRead: (messageId: number) => api.patch(`/messages/${messageId}/read`),
 };

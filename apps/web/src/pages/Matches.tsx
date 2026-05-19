@@ -118,7 +118,7 @@ export default function Matches() {
   return (
     <div className="matches-page">
       <nav className="navbar">
-        <Link to="/dashboard" className="back-btn">
+        <Link to="/discover" className="back-btn">
           ← Back
         </Link>
         <h1>Your Sparks</h1>
@@ -143,7 +143,7 @@ export default function Matches() {
             <div className="empty-icon">🔥</div>
             <h2>No matches yet</h2>
             <p>Start liking profiles to get matches!</p>
-            <Link to="/dashboard" className="btn-primary">
+            <Link to="/discover" className="btn-primary">
               Discover People
             </Link>
           </div>

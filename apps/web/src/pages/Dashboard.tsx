@@ -199,10 +199,11 @@ export default function Dashboard() {
           <span className="brand-name">BLOWTORCH</span>
         </div>
         <div className="nav-links">
-          <Link to="/dashboard" className="active">
+          <Link to="/discover" className="active">
             Discover
           </Link>
           <Link to="/matches">Sparks ({uniqueMatchCount})</Link>
+          <Link to="/messages">Messages</Link>
           <Link to="/profile">Profile</Link>
           <button onClick={handleLogout} className="logout-btn">
             Logout
