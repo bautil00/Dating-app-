@@ -1,4 +1,5 @@
 """Tests for profile endpoints."""
+
 from unittest.mock import patch, MagicMock
 
 
@@ -33,9 +34,9 @@ class TestGetMyProfile:
 
         mock = _mock_httpx(get_returns=[user_resp, profile_resp])
         with patch("httpx.Client", return_value=mock):
-            res = client.get("/api/v1/profiles/me", headers={
-                "Authorization": "Bearer tok"
-            })
+            res = client.get(
+                "/api/v1/profiles/me", headers={"Authorization": "Bearer tok"}
+            )
         assert res.status_code == 200
         assert res.json()["Name"] == "TestUser"
         assert res.json()["is_complete"] is True
@@ -46,9 +47,9 @@ class TestGetMyProfile:
 
         mock = _mock_httpx(get_returns=[user_resp, profile_resp])
         with patch("httpx.Client", return_value=mock):
-            res = client.get("/api/v1/profiles/me", headers={
-                "Authorization": "Bearer tok"
-            })
+            res = client.get(
+                "/api/v1/profiles/me", headers={"Authorization": "Bearer tok"}
+            )
         assert res.status_code == 200
         assert res.json()["is_complete"] is False
 
@@ -68,12 +69,16 @@ class TestCreateProfile:
             post_returns=[create_resp],
         )
         with patch("httpx.Client", return_value=mock):
-            res = client.post("/api/v1/profiles/", json={
-                "display_name": "Alice",
-                "age": 24,
-                "gender": "Female",
-                "interests": "Music",
-            }, headers={"Authorization": "Bearer tok"})
+            res = client.post(
+                "/api/v1/profiles/",
+                json={
+                    "display_name": "Alice",
+                    "age": 24,
+                    "gender": "Female",
+                    "interests": "Music",
+                },
+                headers={"Authorization": "Bearer tok"},
+            )
         assert res.status_code == 200
 
     def test_update_existing_profile(self, client, fake_profile):
@@ -86,12 +91,16 @@ class TestCreateProfile:
             patch_returns=[patch_resp],
         )
         with patch("httpx.Client", return_value=mock):
-            res = client.post("/api/v1/profiles/", json={
-                "display_name": "Updated",
-                "age": 26,
-                "gender": "Male",
-                "interests": "Gaming",
-            }, headers={"Authorization": "Bearer tok"})
+            res = client.post(
+                "/api/v1/profiles/",
+                json={
+                    "display_name": "Updated",
+                    "age": 26,
+                    "gender": "Male",
+                    "interests": "Gaming",
+                },
+                headers={"Authorization": "Bearer tok"},
+            )
         assert res.status_code == 200
         assert res.json()["status"] == "updated"
 
@@ -109,12 +118,16 @@ class TestCreateProfile:
             post_returns=[create_resp],
         )
         with patch("httpx.Client", return_value=mock):
-            res = client.post("/api/v1/profiles/", json={
-                "display_name": "Loc",
-                "location": "47.6",
-                "gender": "Male",
-                "interests": "Music",
-            }, headers={"Authorization": "Bearer tok"})
+            res = client.post(
+                "/api/v1/profiles/",
+                json={
+                    "display_name": "Loc",
+                    "location": "47.6",
+                    "gender": "Male",
+                    "interests": "Music",
+                },
+                headers={"Authorization": "Bearer tok"},
+            )
         assert res.status_code == 200
         # Verify the POST call used a float for Location
         post_call = mock.post.call_args
@@ -133,29 +146,46 @@ class TestCreateProfile:
             post_returns=[create_resp],
         )
         with patch("httpx.Client", return_value=mock):
-            res = client.post("/api/v1/profiles/", json={
-                "display_name": "Bad Loc",
-                "location": "Seattle",
-                "gender": "Male",
-                "interests": "Music",
-            }, headers={"Authorization": "Bearer tok"})
+            res = client.post(
+                "/api/v1/profiles/",
+                json={
+                    "display_name": "Bad Loc",
+                    "location": "Seattle",
+                    "gender": "Male",
+                    "interests": "Music",
+                },
+                headers={"Authorization": "Bearer tok"},
+            )
         assert res.status_code == 200
 
 
 class TestGetCandidates:
     def test_returns_candidates(self, client, fake_profile):
         user_resp = _make_resp(200, {"id": "me-id"})
-        my_profile_resp = _make_resp(200, [{"user_id": "me-id", "interests": "Music", "seeking_gender": "everyone"}])
-        all_profiles_resp = _make_resp(200, [
-            fake_profile,
-            {"user_id": "other", "Name": "Other", "interests": "Music", "gender": "Female", "is_complete": True},
-        ])
+        my_profile_resp = _make_resp(
+            200,
+            [{"user_id": "me-id", "interests": "Music", "seeking_gender": "everyone"}],
+        )
+        all_profiles_resp = _make_resp(
+            200,
+            [
+                fake_profile,
+                {
+                    "user_id": "other",
+                    "Name": "Other",
+                    "interests": "Music",
+                    "gender": "Female",
+                    "is_complete": True,
+                },
+            ],
+        )
 
         mock = _mock_httpx(get_returns=[user_resp, my_profile_resp, all_profiles_resp])
         with patch("httpx.Client", return_value=mock):
-            res = client.get("/api/v1/profiles/candidates?limit=5", headers={
-                "Authorization": "Bearer tok"
-            })
+            res = client.get(
+                "/api/v1/profiles/candidates?limit=5",
+                headers={"Authorization": "Bearer tok"},
+            )
         assert res.status_code == 200
         data = res.json()
         assert isinstance(data, list)
@@ -167,7 +197,7 @@ class TestGetCandidates:
 
         mock = _mock_httpx(get_returns=[user_resp, empty_resp])
         with patch("httpx.Client", return_value=mock):
-            res = client.get("/api/v1/profiles/candidates", headers={
-                "Authorization": "Bearer tok"
-            })
+            res = client.get(
+                "/api/v1/profiles/candidates", headers={"Authorization": "Bearer tok"}
+            )
         assert res.status_code == 404

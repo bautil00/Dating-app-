@@ -72,6 +72,20 @@ OPENAI_API_KEY=sk-your-openai-key
 3. Set environment variables in Vercel dashboard
 4. Deploy
 
+## CI/CD Pipeline Guide
+
+The hand-built production pipeline is documented in [`docs/ci_cd_pipeline.md`](docs/ci_cd_pipeline.md).
+
+Submission links:
+- GitHub repository for PR and code standards review: https://github.com/bautil00/Dating-app-
+- CI/CD pipeline guide: [`docs/ci_cd_pipeline.md`](docs/ci_cd_pipeline.md)
+
+One-touch command from the repository root:
+
+```bash
+./scripts/deploy_prod.sh
+```
+
 ## Data Sources & APIs
 
 ### External AI API (OpenAI)
@@ -109,4 +123,3 @@ React (Vercel) → FastAPI (Vercel) → Supabase PostgreSQL
 - [ ] Profile image upload
 - [ ] Real-time notifications
 - [ ] User blocking/reporting
-

@@ -1,4 +1,5 @@
 """Tests for match/like endpoint."""
+
 from unittest.mock import patch, MagicMock
 
 
@@ -33,7 +34,13 @@ class TestLikeCandidate:
         no_existing = _make_resp(200, [])
 
         mock = _mock_httpx(
-            get_returns=[user_resp, alice_profile, bob_profile, no_existing, no_existing],
+            get_returns=[
+                user_resp,
+                alice_profile,
+                bob_profile,
+                no_existing,
+                no_existing,
+            ],
             post_returns=[save_resp],
         )
         with patch("httpx.Client", return_value=mock):
@@ -41,9 +48,11 @@ class TestLikeCandidate:
                 mock_settings.return_value.supabase_url = "https://fake.supabase.co"
                 mock_settings.return_value.supabase_key = "fake-key"
                 mock_settings.return_value.openrouter_api_key = None
-                res = client.post("/api/v1/match/", json={
-                    "candidate_id": "bob"
-                }, headers={"Authorization": "Bearer tok"})
+                res = client.post(
+                    "/api/v1/match/",
+                    json={"candidate_id": "bob"},
+                    headers={"Authorization": "Bearer tok"},
+                )
 
         assert res.status_code == 200
         assert res.json()["matched"] is False
@@ -56,11 +65,19 @@ class TestLikeCandidate:
         alice_profile = _make_resp(200, [{"user_id": "alice", "interests": "Music"}])
         save_resp = _make_resp(201)
         no_existing = _make_resp(200, [])
-        existing_like = _make_resp(200, [{"sender_id": "alice", "receiver_id": "bob", "status": "pending"}])
+        existing_like = _make_resp(
+            200, [{"sender_id": "alice", "receiver_id": "bob", "status": "pending"}]
+        )
         patch_resp = _make_resp(200)
 
         mock = _mock_httpx(
-            get_returns=[user_resp, bob_profile, alice_profile, no_existing, existing_like],
+            get_returns=[
+                user_resp,
+                bob_profile,
+                alice_profile,
+                no_existing,
+                existing_like,
+            ],
             post_returns=[save_resp],
             patch_returns=[patch_resp, patch_resp],
         )
@@ -69,9 +86,11 @@ class TestLikeCandidate:
                 mock_settings.return_value.supabase_url = "https://fake.supabase.co"
                 mock_settings.return_value.supabase_key = "fake-key"
                 mock_settings.return_value.openrouter_api_key = None
-                res = client.post("/api/v1/match/", json={
-                    "candidate_id": "alice"
-                }, headers={"Authorization": "Bearer tok"})
+                res = client.post(
+                    "/api/v1/match/",
+                    json={"candidate_id": "alice"},
+                    headers={"Authorization": "Bearer tok"},
+                )
 
         assert res.status_code == 200
         assert res.json()["matched"] is True
@@ -85,8 +104,9 @@ class TestLikeCandidate:
         user_resp = _make_resp(200, {"id": "alice"})
         mock = _mock_httpx(get_returns=[user_resp])
         with patch("httpx.Client", return_value=mock):
-            res = client.post("/api/v1/match/", json={},
-                              headers={"Authorization": "Bearer tok"})
+            res = client.post(
+                "/api/v1/match/", json={}, headers={"Authorization": "Bearer tok"}
+            )
         assert res.status_code == 400
 
     def test_like_candidate_not_found(self, client):
@@ -96,9 +116,11 @@ class TestLikeCandidate:
 
         mock = _mock_httpx(get_returns=[user_resp, alice_profile, no_candidate])
         with patch("httpx.Client", return_value=mock):
-            res = client.post("/api/v1/match/", json={
-                "candidate_id": "nonexistent"
-            }, headers={"Authorization": "Bearer tok"})
+            res = client.post(
+                "/api/v1/match/",
+                json={"candidate_id": "nonexistent"},
+                headers={"Authorization": "Bearer tok"},
+            )
         assert res.status_code == 404
 
     def test_compatibility_score_returned(self, client):
@@ -110,7 +132,13 @@ class TestLikeCandidate:
         no_existing = _make_resp(200, [])
 
         mock = _mock_httpx(
-            get_returns=[user_resp, alice_profile, bob_profile, no_existing, no_existing],
+            get_returns=[
+                user_resp,
+                alice_profile,
+                bob_profile,
+                no_existing,
+                no_existing,
+            ],
             post_returns=[save_resp],
         )
         with patch("httpx.Client", return_value=mock):
@@ -118,9 +146,11 @@ class TestLikeCandidate:
                 mock_settings.return_value.supabase_url = "https://fake.supabase.co"
                 mock_settings.return_value.supabase_key = "fake-key"
                 mock_settings.return_value.openrouter_api_key = ""
-                res = client.post("/api/v1/match/", json={
-                    "candidate_id": "bob"
-                }, headers={"Authorization": "Bearer tok"})
+                res = client.post(
+                    "/api/v1/match/",
+                    json={"candidate_id": "bob"},
+                    headers={"Authorization": "Bearer tok"},
+                )
 
         assert res.status_code == 200
         assert "compatibility_score" in res.json()

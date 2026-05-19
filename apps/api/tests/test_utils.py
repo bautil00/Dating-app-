@@ -1,5 +1,5 @@
 """Tests for utility functions (haversine, database matching score, gender filtering)."""
-import math
+
 from src.main import (
     build_profile_rpc_payload,
     get_match_compatibility_score,
@@ -123,33 +123,40 @@ class TestBuildProfileRpcPayload:
         result = build_profile_rpc_payload({"pronouns": "She/Her"}, "u1")
         assert result["p_pronouns"] == "she her"
 
+
 class TestNormalizeInterests:
     def test_normalize_comma_separated(self):
         from src.main import _normalize_interests
+
         result = _normalize_interests("Music, Gaming, Coding")
         assert result == ["Music", "Gaming", "Coding"]
 
     def test_normalize_single_value(self):
         from src.main import _normalize_interests
+
         result = _normalize_interests("Music")
         assert result == ["Music"]
 
     def test_normalize_list(self):
         from src.main import _normalize_interests
+
         result = _normalize_interests(["Music", "Gaming"])
         assert result == ["Music", "Gaming"]
 
     def test_normalize_empty_string(self):
         from src.main import _normalize_interests
+
         result = _normalize_interests("")
         assert result == []
 
     def test_normalize_strips_whitespace(self):
         from src.main import _normalize_interests
+
         result = _normalize_interests("  Music  ,  Gaming  ")
         assert result == ["Music", "Gaming"]
 
     def test_normalize_filters_empty(self):
         from src.main import _normalize_interests
+
         result = _normalize_interests("Music,,Gaming,,,")
         assert result == ["Music", "Gaming"]

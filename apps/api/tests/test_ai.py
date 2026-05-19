@@ -1,4 +1,5 @@
 """Tests for AI routes (icebreaker, compatibility)."""
+
 from unittest.mock import patch, MagicMock
 
 
@@ -26,14 +27,18 @@ class TestIcebreaker:
         user_resp = _make_resp(200, {"id": "alice"})
         my_profile = _make_resp(200, [{"user_id": "alice", "interests": "Music"}])
         target_profile = _make_resp(200, [{"user_id": "bob", "interests": "Music"}])
-        sent_match = _make_resp(200, [{"sender_id": "alice", "receiver_id": "bob", "status": "pending"}])
+        sent_match = _make_resp(
+            200, [{"sender_id": "alice", "receiver_id": "bob", "status": "pending"}]
+        )
 
-        mock = _mock_httpx(get_returns=[user_resp, my_profile, target_profile, sent_match, sent_match])
+        mock = _mock_httpx(
+            get_returns=[user_resp, my_profile, target_profile, sent_match, sent_match]
+        )
         with patch("httpx.Client", return_value=mock):
             with patch("src.main._generate_ai_icebreaker", return_value=None):
-                res = client.get("/api/v1/ai/icebreaker/bob", headers={
-                    "Authorization": "Bearer tok"
-                })
+                res = client.get(
+                    "/api/v1/ai/icebreaker/bob", headers={"Authorization": "Bearer tok"}
+                )
         assert res.status_code == 200
         assert "icebreaker" in res.json()
         assert len(res.json()["icebreaker"]) > 0
@@ -42,14 +47,20 @@ class TestIcebreaker:
         user_resp = _make_resp(200, {"id": "alice"})
         my_profile = _make_resp(200, [{"user_id": "alice", "interests": "Gaming"}])
         target_profile = _make_resp(200, [{"user_id": "bob", "interests": "Gaming"}])
-        sent_match = _make_resp(200, [{"sender_id": "alice", "receiver_id": "bob", "status": "pending"}])
+        sent_match = _make_resp(
+            200, [{"sender_id": "alice", "receiver_id": "bob", "status": "pending"}]
+        )
 
-        mock = _mock_httpx(get_returns=[user_resp, my_profile, target_profile, sent_match, sent_match])
+        mock = _mock_httpx(
+            get_returns=[user_resp, my_profile, target_profile, sent_match, sent_match]
+        )
         with patch("httpx.Client", return_value=mock):
-            with patch("src.main._generate_ai_icebreaker", return_value="Hey, love gaming!"):
-                res = client.get("/api/v1/ai/icebreaker/bob", headers={
-                    "Authorization": "Bearer tok"
-                })
+            with patch(
+                "src.main._generate_ai_icebreaker", return_value="Hey, love gaming!"
+            ):
+                res = client.get(
+                    "/api/v1/ai/icebreaker/bob", headers={"Authorization": "Bearer tok"}
+                )
         assert res.status_code == 200
         assert res.json()["icebreaker"] == "Hey, love gaming!"
 
@@ -59,11 +70,13 @@ class TestIcebreaker:
         target_profile = _make_resp(200, [{"user_id": "bob", "interests": "Music"}])
         no_match = _make_resp(200, [])
 
-        mock = _mock_httpx(get_returns=[user_resp, my_profile, target_profile, no_match, no_match])
+        mock = _mock_httpx(
+            get_returns=[user_resp, my_profile, target_profile, no_match, no_match]
+        )
         with patch("httpx.Client", return_value=mock):
-            res = client.get("/api/v1/ai/icebreaker/bob", headers={
-                "Authorization": "Bearer tok"
-            })
+            res = client.get(
+                "/api/v1/ai/icebreaker/bob", headers={"Authorization": "Bearer tok"}
+            )
         assert res.status_code == 403
 
     def test_icebreaker_requires_profile_first(self, client):
@@ -72,9 +85,9 @@ class TestIcebreaker:
 
         mock = _mock_httpx(get_returns=[user_resp, no_profile])
         with patch("httpx.Client", return_value=mock):
-            res = client.get("/api/v1/ai/icebreaker/bob", headers={
-                "Authorization": "Bearer tok"
-            })
+            res = client.get(
+                "/api/v1/ai/icebreaker/bob", headers={"Authorization": "Bearer tok"}
+            )
         assert res.status_code == 400
 
     def test_icebreaker_target_not_found(self, client):
@@ -84,9 +97,10 @@ class TestIcebreaker:
 
         mock = _mock_httpx(get_returns=[user_resp, my_profile, no_target])
         with patch("httpx.Client", return_value=mock):
-            res = client.get("/api/v1/ai/icebreaker/nonexistent", headers={
-                "Authorization": "Bearer tok"
-            })
+            res = client.get(
+                "/api/v1/ai/icebreaker/nonexistent",
+                headers={"Authorization": "Bearer tok"},
+            )
         assert res.status_code == 404
 
     def test_icebreaker_requires_auth(self, client):
@@ -102,9 +116,9 @@ class TestCompatibility:
 
         mock = _mock_httpx(get_returns=[user_resp, my_profile, target_profile])
         with patch("httpx.Client", return_value=mock):
-            res = client.get("/api/v1/ai/compatibility/bob", headers={
-                "Authorization": "Bearer tok"
-            })
+            res = client.get(
+                "/api/v1/ai/compatibility/bob", headers={"Authorization": "Bearer tok"}
+            )
         assert res.status_code == 200
         assert "compatibility_score" in res.json()
         assert res.json()["compatibility_score"] == 0.0
@@ -116,9 +130,9 @@ class TestCompatibility:
 
         mock = _mock_httpx(get_returns=[user_resp, my_profile, target_profile])
         with patch("httpx.Client", return_value=mock):
-            res = client.get("/api/v1/ai/compatibility/bob", headers={
-                "Authorization": "Bearer tok"
-            })
+            res = client.get(
+                "/api/v1/ai/compatibility/bob", headers={"Authorization": "Bearer tok"}
+            )
         assert res.status_code == 200
         assert res.json()["compatibility_score"] == 0.0
 
@@ -128,9 +142,9 @@ class TestCompatibility:
 
         mock = _mock_httpx(get_returns=[user_resp, no_profile])
         with patch("httpx.Client", return_value=mock):
-            res = client.get("/api/v1/ai/compatibility/bob", headers={
-                "Authorization": "Bearer tok"
-            })
+            res = client.get(
+                "/api/v1/ai/compatibility/bob", headers={"Authorization": "Bearer tok"}
+            )
         assert res.status_code == 400
 
     def test_compatibility_target_not_found(self, client):
@@ -140,9 +154,10 @@ class TestCompatibility:
 
         mock = _mock_httpx(get_returns=[user_resp, my_profile, no_target])
         with patch("httpx.Client", return_value=mock):
-            res = client.get("/api/v1/ai/compatibility/nonexistent", headers={
-                "Authorization": "Bearer tok"
-            })
+            res = client.get(
+                "/api/v1/ai/compatibility/nonexistent",
+                headers={"Authorization": "Bearer tok"},
+            )
         assert res.status_code == 404
 
     def test_compatibility_requires_auth(self, client):
@@ -153,17 +168,20 @@ class TestCompatibility:
 class TestFallbackIcebreaker:
     def test_shared_interest(self):
         from src.main import _fallback_icebreaker
+
         result = _fallback_icebreaker("Music,Coding", "Music,Gaming")
         assert "Music" in result
         assert len(result) < 100
 
     def test_no_shared_interest(self):
         from src.main import _fallback_icebreaker
+
         result = _fallback_icebreaker("Cooking", "Gaming")
         assert len(result) > 0
         assert "weekend" in result.lower() or "matched" in result.lower()
 
     def test_empty_interests(self):
         from src.main import _fallback_icebreaker
+
         result = _fallback_icebreaker("", "")
         assert len(result) > 0
