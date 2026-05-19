@@ -269,7 +269,21 @@ latest_vercel_deployment_id() {
   local body deployment_id
   body="$(curl -fsS -H "Authorization: Bearer ${VERCEL_TOKEN}" \
     "https://api.vercel.com/v6/deployments?${query}")"
-  deployment_id="$("${VENV_DIR}/bin/python" -c 'import json,sys; data=json.load(sys.stdin); deployments=data.get("deployments") or []; ready=next((d for d in deployments if d.get("state") == "READY" or d.get("readyState") == "READY"), {}); print(ready.get("uid") or ready.get("id") or "")' <<< "$body")"
+  deployment_id="$(
+    "${VENV_DIR}/bin/python" -c 'import json,sys; data=json.load(sys.stdin); deployments=data.get("deployments") or []; ready=[d for d in deployments if d.get("state") == "READY" or d.get("readyState") == "READY"]; [print("\t".join(str(v or "") for v in (d.get("uid") or d.get("id"), (d.get("meta") or {}).get("gitCommitSha")))) for d in ready]' <<< "$body" |
+      while IFS=$'\t' read -r candidate_id candidate_sha; do
+        [[ -n "$candidate_id" ]] || continue
+        if [[ -n "$candidate_sha" ]] && git merge-base --is-ancestor "$candidate_sha" HEAD 2>/dev/null; then
+          printf '%s\t%s\n' "$(git rev-list --count "${candidate_sha}..HEAD")" "$candidate_id"
+        fi
+      done |
+      sort -n |
+      awk 'NR == 1 { print $2 }'
+  )"
+
+  if [[ -z "$deployment_id" ]]; then
+    deployment_id="$("${VENV_DIR}/bin/python" -c 'import json,sys; data=json.load(sys.stdin); deployments=data.get("deployments") or []; ready=next((d for d in deployments if d.get("state") == "READY" or d.get("readyState") == "READY"), {}); print(ready.get("uid") or ready.get("id") or "")' <<< "$body")"
+  fi
 
   [[ -n "$deployment_id" ]] || fail "Could not find a previous READY production deployment for ${project_id}"
   printf '%s' "$deployment_id"
