@@ -250,13 +250,32 @@ promote_vercel_deployment() {
   local project_id="$1"
   local deployment_id="$2"
   local label="$3"
+  local response_file status target_id response
 
-  curl -fsS -X POST \
+  response_file="$(mktemp)"
+  status="$(curl -sS -o "$response_file" -w "%{http_code}" -X POST \
     -H "Authorization: Bearer ${VERCEL_TOKEN}" \
-    "https://api.vercel.com/v10/projects/${project_id}/promote/${deployment_id}$(vercel_team_query)" \
-    >/dev/null
+    "https://api.vercel.com/v10/projects/${project_id}/promote/${deployment_id}$(vercel_team_query)" || true)"
 
-  log "Promoted ${label} deployment: ${deployment_id}"
+  if [[ "$status" =~ ^2[0-9][0-9]$ ]]; then
+    rm -f "$response_file"
+    log "Promoted ${label} deployment: ${deployment_id}"
+    return
+  fi
+
+  target_id="$(curl -fsS -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+    "https://api.vercel.com/v9/projects/${project_id}$(vercel_team_query)" |
+    "${VENV_DIR}/bin/python" -c 'import json,sys; print((json.load(sys.stdin).get("targets") or {}).get("production", {}).get("id", ""))')"
+
+  if [[ "$target_id" == "$deployment_id" ]]; then
+    rm -f "$response_file"
+    log "Vercel already has ${label} deployment promoted: ${deployment_id}"
+    return
+  fi
+
+  response="$(tr '\n' ' ' < "$response_file" | cut -c 1-300)"
+  rm -f "$response_file"
+  fail "Failed to promote ${label} deployment ${deployment_id}; Vercel returned HTTP ${status}: ${response}"
 }
 
 latest_vercel_deployment_id() {
