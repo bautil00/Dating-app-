@@ -211,6 +211,7 @@ class TestLLMCompatibility:
             result = get_llm_compatibility_score("key", {}, {})
 
         assert result == 100.0
+        assert mock.post.call_args.kwargs["timeout"] == 4.0
 
     def test_llm_score_tries_next_free_model_after_failure(self):
         from src.compatibility import get_llm_compatibility_score

@@ -295,9 +295,13 @@ class TestGetCandidates:
         )
 
         mock = _mock_httpx(get_returns=[user_resp, my_profile_resp, all_profiles_resp])
+
+        def fake_llm_score(_key, _profile_a, profile_b):
+            return 93.0 if profile_b["user_id"] == "higher-score" else 15.0
+
         with patch("httpx.Client", return_value=mock):
             with patch(
-                "src.main.get_llm_compatibility_score", side_effect=[15.0, 93.0]
+                "src.main.get_llm_compatibility_score", side_effect=fake_llm_score
             ):
                 res = client.get(
                     "/api/v1/profiles/candidates?limit=5",

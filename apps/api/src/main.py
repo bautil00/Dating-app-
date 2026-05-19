@@ -1,5 +1,6 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
+from concurrent.futures import ThreadPoolExecutor
 import httpx
 from typing import Optional, Any, cast, Dict
 import math
@@ -584,10 +585,23 @@ def get_candidates(limit: int = 10, authorization: str = Header(None)):
         seeking = my_profile.get("seeking_gender", "everyone")
         filtered = filter_by_gender(candidates, seeking)
 
-        for c in filtered:
-            c["compatibility_score"] = get_match_compatibility_score(
-                settings, token, user_id, c.get("user_id"), my_profile, c
+        candidate_pool = filtered[: min(len(filtered), max(limit, 1) * 2, 25)]
+
+        def score_candidate(candidate):
+            candidate["compatibility_score"] = get_match_compatibility_score(
+                settings,
+                token,
+                user_id,
+                candidate.get("user_id"),
+                my_profile,
+                candidate,
             )
+            return candidate
+
+        if candidate_pool:
+            max_workers = min(10, len(candidate_pool))
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                filtered = list(executor.map(score_candidate, candidate_pool))
 
         filtered.sort(key=lambda x: x.get("compatibility_score", 0), reverse=True)
         return normalize_profile_rows(filtered[:limit])

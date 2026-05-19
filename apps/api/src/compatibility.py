@@ -8,6 +8,7 @@ import httpx
 DEFAULT_COMPATIBILITY_MODELS = [
     "liquid/lfm-2.5-1.2b-instruct:free",
 ]
+OPENROUTER_SCORING_TIMEOUT_SECONDS = 4.0
 
 
 def _profile_value(profile: dict, *keys: str) -> Any:
@@ -84,7 +85,7 @@ def _post_openrouter_chat(client, api_key: str, payload: dict):
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json",
             },
-            timeout=60,
+            timeout=OPENROUTER_SCORING_TIMEOUT_SECONDS,
         )
     except Exception:
         return None
