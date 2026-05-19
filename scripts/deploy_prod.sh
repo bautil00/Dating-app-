@@ -195,7 +195,7 @@ vercel_team_query() {
 
 latest_vercel_deployment_id() {
   local project_id="$1"
-  local query="projectId=${project_id}&target=production&limit=1"
+  local query="projectId=${project_id}&target=production&limit=20"
   if [[ -n "${VERCEL_TEAM_ID:-}" ]]; then
     query="${query}&teamId=${VERCEL_TEAM_ID}"
   fi
@@ -203,9 +203,9 @@ latest_vercel_deployment_id() {
   local body deployment_id
   body="$(curl -fsS -H "Authorization: Bearer ${VERCEL_TOKEN}" \
     "https://api.vercel.com/v6/deployments?${query}")"
-  deployment_id="$("${VENV_DIR}/bin/python" -c 'import json,sys; data=json.load(sys.stdin); d=(data.get("deployments") or [{}])[0]; print(d.get("uid") or d.get("id") or "")' <<< "$body")"
+  deployment_id="$("${VENV_DIR}/bin/python" -c 'import json,sys; data=json.load(sys.stdin); deployments=data.get("deployments") or []; ready=next((d for d in deployments if d.get("state") == "READY" or d.get("readyState") == "READY"), {}); print(ready.get("uid") or ready.get("id") or "")' <<< "$body")"
 
-  [[ -n "$deployment_id" ]] || fail "Could not find a previous production deployment for ${project_id}"
+  [[ -n "$deployment_id" ]] || fail "Could not find a previous READY production deployment for ${project_id}"
   printf '%s' "$deployment_id"
 }
 
@@ -215,7 +215,7 @@ create_vercel_redeployment() {
   local previous_id body response deployment_id deployment_url
 
   previous_id="$(latest_vercel_deployment_id "$project_id")"
-  body="{\"deploymentId\":\"${previous_id}\",\"project\":\"${project_id}\",\"target\":\"production\",\"withLatestCommit\":true}"
+  body="{\"name\":\"${label}\",\"deploymentId\":\"${previous_id}\",\"project\":\"${project_id}\",\"target\":\"production\",\"withLatestCommit\":true}"
 
   log "Triggering ${label} production deployment via Vercel REST API"
   response="$(curl -fsS -X POST \
