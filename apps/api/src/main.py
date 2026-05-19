@@ -1165,6 +1165,13 @@ app.include_router(messages_router, prefix="/api/v1")
 # ---- AI Routes (OpenRouter + fallback) ----
 ai_router = APIRouter(prefix="/ai", tags=["AI"])
 
+DEFAULT_ICEBREAKER_MODELS = [
+    "liquid/lfm-2.5-1.2b-instruct:free",
+    "nvidia/nemotron-nano-9b-v2:free",
+    "openai/gpt-oss-20b:free",
+    "google/gemma-4-26b-a4b-it:free",
+]
+
 
 def _normalize_interests(raw_value):
     if not raw_value:
@@ -1197,39 +1204,43 @@ def _generate_ai_icebreaker(settings, my_interests, target_interests):
         f"Person B interests: {target_interests or 'general topics'}."
     )
 
-    try:
-        with httpx.Client() as client:
-            resp = client.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                json={
-                    "model": "tencent/hy3-preview:free",
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": "You are a concise assistant that writes one-line icebreakers.",
-                        },
-                        {"role": "user", "content": prompt},
-                    ],
-                    "max_tokens": 80,
-                },
-                headers={
-                    "Authorization": f"Bearer {settings.openrouter_api_key}",
-                    "Content-Type": "application/json",
-                },
-                timeout=20,
-            )
-            if resp.status_code >= 400:
-                return None
-            content = (
-                resp.json()
-                .get("choices", [{}])[0]
-                .get("message", {})
-                .get("content", "")
-                .strip()
-            )
-            return content or None
-    except Exception:
-        return None
+    with httpx.Client() as client:
+        for model_id in DEFAULT_ICEBREAKER_MODELS:
+            try:
+                resp = client.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    json={
+                        "model": model_id,
+                        "messages": [
+                            {
+                                "role": "system",
+                                "content": "You are a concise assistant that writes one-line icebreakers.",
+                            },
+                            {"role": "user", "content": prompt},
+                        ],
+                        "max_tokens": 80,
+                        "temperature": 0.7,
+                    },
+                    headers={
+                        "Authorization": f"Bearer {settings.openrouter_api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    timeout=20,
+                )
+                if resp.status_code >= 400:
+                    continue
+                content = (
+                    resp.json()
+                    .get("choices", [{}])[0]
+                    .get("message", {})
+                    .get("content", "")
+                    .strip()
+                )
+                if content:
+                    return content
+            except Exception:
+                continue
+    return None
 
 
 @ai_router.get("/icebreaker/{target_user_id}")

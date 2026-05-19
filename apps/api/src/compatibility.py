@@ -5,6 +5,13 @@ import httpx
 
 # LLM-based compatibility scoring using OpenRouter
 
+DEFAULT_COMPATIBILITY_MODELS = [
+    "liquid/lfm-2.5-1.2b-instruct:free",
+    "nvidia/nemotron-nano-9b-v2:free",
+    "openai/gpt-oss-20b:free",
+    "google/gemma-4-26b-a4b-it:free",
+]
+
 
 def _profile_value(profile: dict, *keys: str) -> Any:
     for key in keys:
@@ -72,47 +79,54 @@ def build_compatibility_prompt(profile_a: dict, profile_b: dict) -> str:
 
 
 def get_llm_compatibility_score(
-    api_key: str, profile_a: dict, profile_b: dict
+    api_key: str,
+    profile_a: dict,
+    profile_b: dict,
+    models: list[str] | None = None,
 ) -> float | None:
     if not api_key:
         return None
 
     prompt = build_compatibility_prompt(profile_a, profile_b)
+    model_ids = models or DEFAULT_COMPATIBILITY_MODELS
 
-    try:
-        with httpx.Client() as client:
-            resp = client.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                json={
-                    "model": "openrouter/free",
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": "You are a compatibility scoring assistant. Reply with a single number only.",
-                        },
-                        {"role": "user", "content": prompt},
-                    ],
-                    "max_tokens": 10,
-                },
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "Content-Type": "application/json",
-                },
-                timeout=60,
-            )
-            if resp.status_code >= 400:
-                return None
-            content = (
-                resp.json()
-                .get("choices", [{}])[0]
-                .get("message", {})
-                .get("content", "0")
-                .strip()
-            )
-            match = re.search(r"-?\d+(?:\.\d+)?", content)
-            if not match:
-                return None
-            score = float(match.group(0))
-            return max(0.0, min(100.0, score))
-    except Exception:
-        return None
+    with httpx.Client() as client:
+        for model_id in model_ids:
+            try:
+                resp = client.post(
+                    "https://openrouter.ai/api/v1/chat/completions",
+                    json={
+                        "model": model_id,
+                        "messages": [
+                            {
+                                "role": "system",
+                                "content": "You are a compatibility scoring assistant. Reply with a single number only.",
+                            },
+                            {"role": "user", "content": prompt},
+                        ],
+                        "max_tokens": 10,
+                        "temperature": 0,
+                    },
+                    headers={
+                        "Authorization": f"Bearer {api_key}",
+                        "Content-Type": "application/json",
+                    },
+                    timeout=60,
+                )
+                if resp.status_code >= 400:
+                    continue
+                content = (
+                    resp.json()
+                    .get("choices", [{}])[0]
+                    .get("message", {})
+                    .get("content", "0")
+                    .strip()
+                )
+                match = re.search(r"-?\d+(?:\.\d+)?", content)
+                if not match:
+                    continue
+                score = float(match.group(0))
+                return max(0.0, min(100.0, score))
+            except Exception:
+                continue
+    return None

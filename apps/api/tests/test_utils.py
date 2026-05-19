@@ -212,6 +212,30 @@ class TestLLMCompatibility:
 
         assert result == 100.0
 
+    def test_llm_score_tries_next_free_model_after_failure(self):
+        from src.compatibility import get_llm_compatibility_score
+
+        failed_response = MagicMock()
+        failed_response.status_code = 429
+        success_response = MagicMock()
+        success_response.status_code = 200
+        success_response.json.return_value = {
+            "choices": [{"message": {"content": "73"}}],
+        }
+        mock = MagicMock()
+        mock.__enter__ = lambda s: s
+        mock.__exit__ = MagicMock(return_value=False)
+        mock.post.side_effect = [failed_response, success_response]
+
+        with patch("httpx.Client", return_value=mock):
+            result = get_llm_compatibility_score(
+                "key", {}, {}, models=["first-free-model", "second-free-model"]
+            )
+
+        assert result == 73.0
+        assert mock.post.call_count == 2
+        assert mock.post.call_args.kwargs["json"]["model"] == "second-free-model"
+
 
 class TestBuildProfileRpcPayload:
     def test_pronouns_match_database_enum_format(self):

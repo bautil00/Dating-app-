@@ -185,3 +185,24 @@ class TestFallbackIcebreaker:
 
         result = _fallback_icebreaker("", "")
         assert len(result) > 0
+
+
+class TestOpenRouterModels:
+    def test_ai_icebreaker_tries_next_free_model_after_failure(self):
+        from src.config import Settings
+        from src.main import _generate_ai_icebreaker
+
+        failed_response = _make_resp(429, {"error": "rate limited"})
+        success_response = _make_resp(
+            200,
+            {"choices": [{"message": {"content": "Music is a great spark."}}]},
+        )
+        mock = _mock_httpx(post_returns=[failed_response, success_response])
+
+        with patch("httpx.Client", return_value=mock):
+            result = _generate_ai_icebreaker(
+                Settings(openrouter_api_key="openrouter-key"), "Music", "Music"
+            )
+
+        assert result == "Music is a great spark."
+        assert mock.post.call_count == 2
