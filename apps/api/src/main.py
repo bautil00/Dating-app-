@@ -1193,6 +1193,48 @@ def _fallback_icebreaker(my_interests, target_interests):
     return "Hey, glad we matched. What does your ideal weekend look like?"
 
 
+def _post_icebreaker_request(settings, client, model_id: str, prompt: str):
+    try:
+        return client.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            json={
+                "model": model_id,
+                "messages": [
+                    {
+                        "role": "system",
+                        "content": "You are a concise assistant that writes one-line icebreakers.",
+                    },
+                    {"role": "user", "content": prompt},
+                ],
+                "max_tokens": 80,
+                "temperature": 0.7,
+            },
+            headers={
+                "Authorization": f"Bearer {settings.openrouter_api_key}",
+                "Content-Type": "application/json",
+            },
+            timeout=20,
+        )
+    except Exception:
+        return None
+
+
+def _icebreaker_from_response(resp):
+    if resp is None or resp.status_code >= 400:
+        return None
+    try:
+        content = (
+            resp.json()
+            .get("choices", [{}])[0]
+            .get("message", {})
+            .get("content", "")
+            .strip()
+        )
+        return content or None
+    except Exception:
+        return None
+
+
 def _generate_ai_icebreaker(settings, my_interests, target_interests):
     if not settings.openrouter_api_key:
         return None
@@ -1206,40 +1248,10 @@ def _generate_ai_icebreaker(settings, my_interests, target_interests):
 
     with httpx.Client() as client:
         for model_id in DEFAULT_ICEBREAKER_MODELS:
-            try:
-                resp = client.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    json={
-                        "model": model_id,
-                        "messages": [
-                            {
-                                "role": "system",
-                                "content": "You are a concise assistant that writes one-line icebreakers.",
-                            },
-                            {"role": "user", "content": prompt},
-                        ],
-                        "max_tokens": 80,
-                        "temperature": 0.7,
-                    },
-                    headers={
-                        "Authorization": f"Bearer {settings.openrouter_api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    timeout=20,
-                )
-                if resp.status_code >= 400:
-                    continue
-                content = (
-                    resp.json()
-                    .get("choices", [{}])[0]
-                    .get("message", {})
-                    .get("content", "")
-                    .strip()
-                )
-                if content:
-                    return content
-            except Exception:
-                continue
+            resp = _post_icebreaker_request(settings, client, model_id, prompt)
+            content = _icebreaker_from_response(resp)
+            if content:
+                return content
     return None
 
 

@@ -78,6 +78,41 @@ def build_compatibility_prompt(profile_a: dict, profile_b: dict) -> str:
     )
 
 
+def _post_openrouter_chat(client, api_key: str, payload: dict):
+    try:
+        return client.post(
+            "https://openrouter.ai/api/v1/chat/completions",
+            json=payload,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            timeout=60,
+        )
+    except Exception:
+        return None
+
+
+def _score_from_openrouter_response(resp) -> float | None:
+    if resp is None or resp.status_code >= 400:
+        return None
+    try:
+        content = (
+            resp.json()
+            .get("choices", [{}])[0]
+            .get("message", {})
+            .get("content", "0")
+            .strip()
+        )
+        match = re.search(r"-?\d+(?:\.\d+)?", content)
+        if not match:
+            return None
+        score = float(match.group(0))
+        return max(0.0, min(100.0, score))
+    except Exception:
+        return None
+
+
 def get_llm_compatibility_score(
     api_key: str,
     profile_a: dict,
@@ -92,41 +127,23 @@ def get_llm_compatibility_score(
 
     with httpx.Client() as client:
         for model_id in model_ids:
-            try:
-                resp = client.post(
-                    "https://openrouter.ai/api/v1/chat/completions",
-                    json={
-                        "model": model_id,
-                        "messages": [
-                            {
-                                "role": "system",
-                                "content": "You are a compatibility scoring assistant. Reply with a single number only.",
-                            },
-                            {"role": "user", "content": prompt},
-                        ],
-                        "max_tokens": 10,
-                        "temperature": 0,
-                    },
-                    headers={
-                        "Authorization": f"Bearer {api_key}",
-                        "Content-Type": "application/json",
-                    },
-                    timeout=60,
-                )
-                if resp.status_code >= 400:
-                    continue
-                content = (
-                    resp.json()
-                    .get("choices", [{}])[0]
-                    .get("message", {})
-                    .get("content", "0")
-                    .strip()
-                )
-                match = re.search(r"-?\d+(?:\.\d+)?", content)
-                if not match:
-                    continue
-                score = float(match.group(0))
-                return max(0.0, min(100.0, score))
-            except Exception:
-                continue
+            resp = _post_openrouter_chat(
+                client,
+                api_key,
+                {
+                    "model": model_id,
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": "You are a compatibility scoring assistant. Reply with a single number only.",
+                        },
+                        {"role": "user", "content": prompt},
+                    ],
+                    "max_tokens": 10,
+                    "temperature": 0,
+                },
+            )
+            score = _score_from_openrouter_response(resp)
+            if score is not None:
+                return score
     return None
