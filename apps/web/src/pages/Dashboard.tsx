@@ -15,56 +15,24 @@ interface User {
   };
 }
 
-type CandidateProfile = {
-  id?: string;
-  user_id?: string;
-  Name?: string;
-  display_name?: string;
-  Age?: number;
-  age?: number;
-  Location?: string;
-  location?: string;
-  bio?: string;
-  compatibility_score?: number;
-  interests?: string | string[];
-  profile_image_url?: string;
-  photo_url?: string;
-  image_url?: string;
-  Picture?: string;
-};
-
-const getCandidateId = (candidate: CandidateProfile) =>
-  String(candidate.user_id ?? candidate.id ?? '');
-
-const getCandidateName = (candidate: CandidateProfile) =>
-  candidate.Name || candidate.display_name || 'New User';
-
-const getCandidateAge = (candidate: CandidateProfile) => candidate.Age || candidate.age;
-
-const getCandidateLocation = (candidate: CandidateProfile) =>
-  candidate.Location || candidate.location;
-
-const getCandidateInterests = (candidate: CandidateProfile) => {
-  if (typeof candidate.interests === 'string') {
-    return candidate.interests
-      .split(',')
-      .map((s) => s.trim())
-      .filter(Boolean);
-  }
-  return Array.isArray(candidate.interests) ? candidate.interests : [];
-};
-
-const getCandidateImage = (candidate: CandidateProfile) =>
-  candidate.profile_image_url ||
-  candidate.photo_url ||
-  candidate.image_url ||
-  candidate.Picture ||
-  '';
-
 export default function Dashboard() {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<Record<string, unknown> | null>(null);
-  const [candidates, setCandidates] = useState<CandidateProfile[]>([]);
+  const [candidates, setCandidates] = useState<
+    {
+      id?: string;
+      user_id?: string;
+      Name?: string;
+      display_name?: string;
+      Age?: number;
+      age?: number;
+      Location?: string;
+      location?: string;
+      bio?: string;
+      compatibility_score?: number;
+      interests?: string | string[];
+    }[]
+  >([]);
   const [matches, setMatches] = useState<
     { id?: number; sender_id?: string; receiver_id?: string; status?: string }[]
   >([]);
@@ -110,8 +78,6 @@ export default function Dashboard() {
   };
 
   const handleLike = async (candidateId: string) => {
-    if (!candidateId) return;
-
     try {
       const result = await api.post('/matches/', {
         receiver_id: candidateId,
@@ -146,12 +112,6 @@ export default function Dashboard() {
     }
   };
 
-  const handlePass = (candidateId: string) => {
-    if (!candidateId) return;
-
-    setCandidates((prev) => prev.filter((c) => getCandidateId(c) !== String(candidateId)));
-  };
-
   const handleLogout = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
@@ -182,27 +142,18 @@ export default function Dashboard() {
       ).size
     : matches.length;
 
-  const currentCandidate = candidates[0];
-  const currentCandidateId = currentCandidate ? getCandidateId(currentCandidate) : '';
-  const currentName = currentCandidate ? getCandidateName(currentCandidate) : '';
-  const currentAge = currentCandidate ? getCandidateAge(currentCandidate) : undefined;
-  const currentLocation = currentCandidate ? getCandidateLocation(currentCandidate) : '';
-  const currentInterests = currentCandidate ? getCandidateInterests(currentCandidate) : [];
-  const currentImage = currentCandidate ? getCandidateImage(currentCandidate) : '';
-  const currentScore = currentCandidate?.compatibility_score;
-
   return (
     <div className="dashboard">
       <nav className="navbar">
         <div className="nav-brand">
-          <span className="logo-text">🔥</span>
+          <span className="logo-text">♡</span>
           <span className="brand-name">BLOWTORCH</span>
         </div>
         <div className="nav-links">
           <Link to="/discover" className="active">
             Discover
           </Link>
-          <Link to="/matches">Sparks ({uniqueMatchCount})</Link>
+          <Link to="/matches">Matches ({uniqueMatchCount})</Link>
           <Link to="/messages">Messages</Link>
           <Link to="/profile">Profile</Link>
           <button onClick={handleLogout} className="logout-btn">
@@ -212,19 +163,9 @@ export default function Dashboard() {
       </nav>
 
       <main className="dashboard-content">
-        <section className="welcome-section discover-hero">
-          <div>
-            <p className="eyebrow">AI-powered discovery</p>
-            <h2>Hey, {displayName}.</h2>
-            <p>
-              Review your best match recommendation and ignite the connection when it feels right.
-            </p>
-          </div>
-          {Boolean(profile?.is_complete) && (
-            <span className="queue-pill">
-              {candidates.length} {candidates.length === 1 ? 'person' : 'people'} left
-            </span>
-          )}
+        <section className="welcome-section">
+          <h2>Hey, {displayName}! 👋</h2>
+          <p>Here are people you might match with</p>
         </section>
 
         {!profile || !profile.is_complete ? (
@@ -238,83 +179,80 @@ export default function Dashboard() {
             </div>
           </div>
         ) : (
-          <section className="candidates-section discover-section">
-            {!currentCandidate ? (
+          <section className="candidates-section">
+            {candidates.length === 0 ? (
               <div className="empty-state">
-                <div className="empty-icon">🔥</div>
-                <h2>You're all caught up!</h2>
+                <p>No more profiles to show</p>
                 <p className="sub">Check back later for new matches!</p>
               </div>
             ) : (
-              <div className="discover-layout">
-                <article className="spotlight-card">
-                  <div className="spotlight-image">
-                    {currentImage ? (
-                      <img src={currentImage} alt={currentName} />
-                    ) : (
-                      <div className="card-image-placeholder">
-                        <span className="avatar-initial">
-                          {currentName.charAt(0).toUpperCase()}
-                        </span>
-                      </div>
-                    )}
-                    <div className="spotlight-overlay">
-                      <div>
-                        <h3>
-                          {currentName}
-                          {currentAge ? `, ${currentAge}` : ''}
-                        </h3>
-                        {currentLocation && <p>{currentLocation}</p>}
-                      </div>
-                      {currentScore != null && (
-                        <div className="spark-badge">
-                          <span>{Math.round(currentScore)}%</span>
-                          <small>Spark</small>
+              <div className="card-grid">
+                {candidates.map(
+                  (candidate: {
+                    id?: string;
+                    user_id?: string;
+                    Name?: string;
+                    display_name?: string;
+                    Age?: number;
+                    age?: number;
+                    Location?: string;
+                    location?: string;
+                    bio?: string;
+                    compatibility_score?: number;
+                    interests?: string | string[];
+                  }) => {
+                    const name = candidate.Name || candidate.display_name || 'New User';
+                    const age = candidate.Age || candidate.age;
+                    const location = candidate.Location || candidate.location;
+                    const interests =
+                      typeof candidate.interests === 'string'
+                        ? candidate.interests
+                            .split(',')
+                            .map((s: string) => s.trim())
+                            .filter(Boolean)
+                        : Array.isArray(candidate.interests)
+                          ? candidate.interests
+                          : [];
+                    const score = candidate.compatibility_score;
+                    return (
+                      <div key={candidate.id || candidate.user_id} className="profile-card">
+                        <div className="card-image">
+                          <div className="card-image-placeholder">
+                            <span className="avatar-initial">{name.charAt(0).toUpperCase()}</span>
+                          </div>
+                          {score != null && (
+                            <div className="compatibility-badge">{Math.round(score)}%</div>
+                          )}
                         </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="spotlight-content">
-                    {currentCandidate.bio && <p className="bio">{currentCandidate.bio}</p>}
-                    {currentInterests.length > 0 && (
-                      <div className="interests">
-                        {currentInterests.slice(0, 5).map((interest, index) => (
-                          <span key={`${interest}-${index}`} className="interest-tag">
-                            {interest}
-                          </span>
-                        ))}
+                        <div className="card-content">
+                          <div className="card-header">
+                            <h3>{name}</h3>
+                            {age && <span className="age">{age}</span>}
+                          </div>
+                          {location && <p className="location">{location}</p>}
+                          {candidate.bio && <p className="bio">{candidate.bio}</p>}
+                          {interests.length > 0 && (
+                            <div className="interests">
+                              {interests.slice(0, 3).map((interest: string, i: number) => (
+                                <span key={i} className="interest-tag">
+                                  {interest}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                          <button
+                            onClick={() =>
+                              handleLike((candidate.user_id || candidate.id) as string)
+                            }
+                            className="like-btn"
+                          >
+                            ♡ Like
+                          </button>
+                        </div>
                       </div>
-                    )}
-                    <div className="swipe-actions">
-                      <button onClick={() => handlePass(currentCandidateId)} className="pass-btn">
-                        Pass
-                      </button>
-                      <button onClick={() => handleLike(currentCandidateId)} className="ignite-btn">
-                        Ignite 🔥
-                      </button>
-                    </div>
-                  </div>
-                </article>
-
-                <aside className="match-insight-card">
-                  <span className="insight-icon">🔥</span>
-                  <p className="eyebrow">AI match insight</p>
-                  <h3>{currentName} could be a strong spark.</h3>
-                  <p>
-                    {currentScore != null
-                      ? `The compatibility model ranks this match at ${Math.round(currentScore)}%.`
-                      : 'This profile is surfaced from your current matching preferences.'}
-                    {currentInterests.length > 0
-                      ? ` You share signals around ${currentInterests.slice(0, 3).join(', ')}.`
-                      : ''}
-                  </p>
-                  <div className="insight-list">
-                    <span>{currentInterests.length || 'No'} shared interest signals</span>
-                    <span>Real backend match scoring</span>
-                    <span>Ignite saves through your matches API</span>
-                  </div>
-                </aside>
+                    );
+                  },
+                )}
               </div>
             )}
           </section>

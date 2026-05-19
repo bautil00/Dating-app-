@@ -10,12 +10,10 @@ export default function Chat() {
   const [targetName, setTargetName] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [icebreaker, setIcebreaker] = useState('');
-  const [emojiOpen, setEmojiOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
-  const quickEmojis = ['🔥', '❤️', '😂', '😊', '✨', '👋', '💯', '🎉'];
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -100,10 +98,7 @@ export default function Chat() {
         <Link to="/messages" className="back-btn">
           ← Messages
         </Link>
-        <div>
-          <h2>{targetName || 'Chat'}</h2>
-          <p>{targetName ? 'Conversation' : `User ${userId?.slice(0, 8) || ''}`}</p>
-        </div>
+        <h2>{targetName || 'Chat'}</h2>
         <div></div>
       </nav>
 
@@ -148,31 +143,6 @@ export default function Chat() {
       </div>
 
       <form onSubmit={handleSend} className="message-form">
-        <div className="emoji-popover-wrap">
-          <button
-            type="button"
-            className="emoji-toggle"
-            onClick={() => setEmojiOpen((prev) => !prev)}
-          >
-            😊
-          </button>
-          {emojiOpen && (
-            <div className="emoji-popover">
-              {quickEmojis.map((emoji) => (
-                <button
-                  key={emoji}
-                  type="button"
-                  onClick={() => {
-                    setNewMessage((prev) => prev + emoji);
-                    setEmojiOpen(false);
-                  }}
-                >
-                  {emoji}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
         <input
           type="text"
           value={newMessage}

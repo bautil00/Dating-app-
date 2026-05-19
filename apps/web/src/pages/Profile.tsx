@@ -2,99 +2,61 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import api from '../services/api';
 
-type SelectOption = {
-  label: string;
-  value: string;
-};
-
-const option = (label: string, value: string): SelectOption => ({ label, value });
-
 const ENUMS = {
-  gender: [
-    option('Male', 'male'),
-    option('Female', 'female'),
-    option('Non-Binary', 'non binary'),
-    option('Mtf', 'mtf'),
-    option('Ftm', 'ftm'),
-  ],
+  gender: ['Male', 'Female', 'Non-Binary', 'Mtf', 'Ftm'],
   interests: [
-    option('Cars', 'cars'),
-    option('Music', 'music'),
-    option('Art', 'art'),
-    option('Movie', 'movie'),
-    option('Nature', 'nature'),
-    option('Gaming', 'gaming'),
-    option('Drinking', 'drinking'),
-    option('Smoking', 'smoking'),
-    option('Gym', 'gym'),
-    option('Partying', 'partying'),
-    option('Swimming', 'swmiming'),
-    option('Sports', 'sports'),
-    option('Education', 'education'),
-    option('Singing', 'singing'),
-    option('Photography', 'photography'),
-    option('Writing', 'writing'),
-    option('Programming', 'programming'),
-    option('Instruments', 'instruments'),
-    option('Books/Reading', 'books reading'),
+    'Cars',
+    'Music',
+    'Art',
+    'Movie',
+    'Nature',
+    'Gaming',
+    'Drinking',
+    'Smoking',
+    'Gym',
+    'Partying',
+    'Swimming',
+    'Sports',
+    'Education',
+    'Singing',
+    'Photography',
+    'Writing',
+    'Programming',
+    'Instruments',
+    'Books/Reading',
   ],
   job: [
-    option('Programmer', 'programmer'),
-    option('Security', 'security'),
-    option('Actor', 'actor'),
-    option('Retail', 'retail'),
-    option('Business', 'business'),
-    option('Entertainer', 'entertainer'),
-    option('Athlete', 'athlete'),
-    option('Gamer', 'gamer'),
-    option('Police', 'police'),
-    option('Medical', 'medical'),
-    option('Military', 'military'),
+    'Programmer',
+    'Security',
+    'Actor',
+    'Retail',
+    'Business',
+    'Entertainer',
+    'Athlete',
+    'Gamer',
+    'Police',
+    'Medical',
+    'Military',
   ],
-  sexual_pref: [
-    option('Straight', 'straight'),
-    option('Gay', 'gay'),
-    option('Bisexual', 'bisexual'),
-    option('Pansexual', 'pansexual'),
-  ],
-  pronouns: [
-    option('He/Him', 'he him'),
-    option('She/Her', 'she her'),
-    option('They/Them', 'they them'),
-  ],
+  sexual_pref: ['Straight', 'Gay', 'Bisexual', 'Pansexual'],
+  pronouns: ['He/Him', 'She/Her', 'They/Them'],
   zodiac: [
-    option('Capricorn', 'capricorn'),
-    option('Aquarius', 'aquarius'),
-    option('Pisces', 'pisces'),
-    option('Aries', 'aries'),
-    option('Taurus', 'taurus'),
-    option('Gemini', 'gemini'),
-    option('Cancer', 'cancer'),
-    option('Leo', 'leo'),
-    option('Virgo', 'virgo'),
-    option('Libra', 'libra'),
-    option('Scorpio', 'scorpio'),
-    option('Sagittarius', 'sagittarius'),
+    'Capricorn',
+    'Aquarius',
+    'Pisces',
+    'Aries',
+    'Taurus',
+    'Gemini',
+    'Cancer',
+    'Leo',
+    'Virgo',
+    'Libra',
+    'Scorpio',
+    'Sagittarius',
   ],
-  education: [
-    option('None', 'none'),
-    option('Diploma', 'diploma'),
-    option('Associates', 'associates'),
-    option('Bachelors', 'bachelors'),
-    option('Masters', 'masters'),
-    option('PhD', 'phd'),
-  ],
-  relationship_status: [
-    option('Single', 'single'),
-    option('Taken', 'taken'),
-    option('Married', 'married'),
-  ],
-  living_status: [
-    option('Homeless', 'homeless'),
-    option('Alone', 'alone'),
-    option('Parents', 'parents'),
-    option('Family', 'family'),
-  ],
+  education: ['None', 'Diploma', 'Associates', 'Bachelors', 'Masters', 'PhD'],
+  relationship_status: ['single', 'taken', 'married'],
+  living_status: ['Homeless', 'Alone', 'Parents', 'Family'],
 };
 
 export default function Profile() {
@@ -168,7 +130,7 @@ export default function Profile() {
         max_distance_km: formData.max_distance_km ? parseInt(formData.max_distance_km) : 50,
       });
       setMessage('Profile saved!');
-      setTimeout(() => navigate('/dashboard'), 1500);
+      setTimeout(() => navigate('/discover'), 1500);
     } catch (error: unknown) {
       const err = error as { response?: { data?: { detail?: string } } };
       setMessage(err.response?.data?.detail || 'Failed to save profile');
@@ -177,7 +139,7 @@ export default function Profile() {
     }
   };
 
-  const renderSelect = (name: string, label: string, options: SelectOption[], required = false) => (
+  const renderSelect = (name: string, label: string, options: string[], required = false) => (
     <div className="form-group">
       <label>{label}</label>
       <select
@@ -188,8 +150,8 @@ export default function Profile() {
       >
         <option value="">Select {label.toLowerCase()}</option>
         {options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
+          <option key={o} value={o}>
+            {o}
           </option>
         ))}
       </select>
@@ -199,7 +161,7 @@ export default function Profile() {
   return (
     <div className="profile-page">
       <nav className="navbar">
-        <button onClick={() => navigate('/dashboard')} className="back-btn">
+        <button onClick={() => navigate('/discover')} className="back-btn">
           ← Back
         </button>
         <h1>Your Profile</h1>
@@ -207,17 +169,6 @@ export default function Profile() {
       </nav>
 
       <main className="profile-content">
-        <section className="profile-hero">
-          <div className="profile-avatar">
-            <span>{(formData.display_name || 'B').charAt(0).toUpperCase()}</span>
-          </div>
-          <div>
-            <p className="eyebrow">Profile setup</p>
-            <h2>{formData.display_name || 'Your Blowtorch profile'}</h2>
-            <p>Keep your profile complete so the matching engine can rank better candidates.</p>
-          </div>
-        </section>
-
         <form onSubmit={handleSubmit} className="profile-form">
           <div className="form-section">
             <h2>Basic Info</h2>
