@@ -191,6 +191,45 @@ class TestGetCandidates:
         assert isinstance(data, list)
         assert all(c["user_id"] != "me-id" for c in data)
 
+    def test_candidates_are_ranked_by_llm_score(self, client):
+        user_resp = _make_resp(200, {"id": "me-id"})
+        my_profile_resp = _make_resp(
+            200,
+            [{"user_id": "me-id", "interests": "Music", "seeking_gender": "everyone"}],
+        )
+        all_profiles_resp = _make_resp(
+            200,
+            [
+                {
+                    "user_id": "lower-score",
+                    "name": "Lower",
+                    "interests": "Gaming",
+                    "gender": "Female",
+                    "is_complete": True,
+                },
+                {
+                    "user_id": "higher-score",
+                    "name": "Higher",
+                    "interests": "Music",
+                    "gender": "Female",
+                    "is_complete": True,
+                },
+            ],
+        )
+
+        mock = _mock_httpx(get_returns=[user_resp, my_profile_resp, all_profiles_resp])
+        with patch("httpx.Client", return_value=mock):
+            with patch(
+                "src.main.get_llm_compatibility_score", side_effect=[15.0, 93.0]
+            ):
+                res = client.get(
+                    "/api/v1/profiles/candidates?limit=5",
+                    headers={"Authorization": "Bearer tok"},
+                )
+
+        assert res.status_code == 200
+        assert [row["user_id"] for row in res.json()] == ["higher-score", "lower-score"]
+
     def test_requires_profile(self, client):
         user_resp = _make_resp(200, {"id": "no-profile"})
         empty_resp = _make_resp(200, [])

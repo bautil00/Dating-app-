@@ -1,5 +1,7 @@
 """Tests for utility functions (haversine, database matching score, gender filtering)."""
 
+from unittest.mock import MagicMock, patch
+
 from src.main import (
     build_profile_rpc_payload,
     get_match_compatibility_score,
@@ -116,6 +118,91 @@ class TestMatchCompatibility:
 
         result = get_match_compatibility_score(Settings(), "tok", "alice", "bob")
         assert result == 0.0
+
+    def test_llm_score_is_used_when_profiles_are_available(self):
+        class Settings:
+            supabase_url = "https://fake.supabase.co"
+            supabase_key = "fake-key"
+            openrouter_api_key = "openrouter-key"
+
+        with (
+            patch("src.main.get_llm_compatibility_score", return_value=87.0) as llm,
+            patch("src.main.get_database_compatibility_score") as db_score,
+        ):
+            result = get_match_compatibility_score(
+                Settings(),
+                "tok",
+                "alice",
+                "bob",
+                {"user_id": "alice", "interests": "Music", "age": 25},
+                {"user_id": "bob", "interests": "Music", "age": 26},
+            )
+
+        assert result == 87.0
+        llm.assert_called_once()
+        db_score.assert_not_called()
+
+    def test_database_score_is_fallback_when_llm_is_unavailable(self):
+        class Settings:
+            supabase_url = "https://fake.supabase.co"
+            supabase_key = "fake-key"
+            openrouter_api_key = "openrouter-key"
+
+        with (
+            patch("src.main.get_llm_compatibility_score", return_value=None),
+            patch("src.main.get_database_compatibility_score", return_value=42.0),
+        ):
+            result = get_match_compatibility_score(
+                Settings(),
+                "tok",
+                "alice",
+                "bob",
+                {"user_id": "alice", "interests": "Music", "age": 25},
+                {"user_id": "bob", "interests": "Gaming", "age": 30},
+            )
+
+        assert result == 42.0
+
+
+class TestLLMCompatibility:
+    def test_prompt_uses_live_profile_interests_field(self):
+        from src.compatibility import build_compatibility_prompt
+
+        prompt = build_compatibility_prompt(
+            {
+                "interests": ["music", "programming"],
+                "age": 25,
+                "job": "programmer",
+                "gender": "male",
+            },
+            {
+                "interests": "music,art",
+                "age": 26,
+                "job": "artist",
+                "gender": "female",
+            },
+        )
+
+        assert "music, programming" in prompt
+        assert "music, art" in prompt
+
+    def test_llm_score_parses_and_clamps_numeric_response(self):
+        from src.compatibility import get_llm_compatibility_score
+
+        response = MagicMock()
+        response.status_code = 200
+        response.json.return_value = {
+            "choices": [{"message": {"content": "118%"}}],
+        }
+        mock = MagicMock()
+        mock.__enter__ = lambda s: s
+        mock.__exit__ = MagicMock(return_value=False)
+        mock.post.return_value = response
+
+        with patch("httpx.Client", return_value=mock):
+            result = get_llm_compatibility_score("key", {}, {})
+
+        assert result == 100.0
 
 
 class TestBuildProfileRpcPayload:

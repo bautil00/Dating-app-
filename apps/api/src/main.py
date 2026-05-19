@@ -201,8 +201,20 @@ def get_database_compatibility_score(
 
 
 def get_match_compatibility_score(
-    settings, token: str, user1_id: str, user2_id: str
+    settings,
+    token: str,
+    user1_id: str,
+    user2_id: str,
+    profile_a: dict | None = None,
+    profile_b: dict | None = None,
 ) -> float:
+    if profile_a and profile_b:
+        llm_score = get_llm_compatibility_score(
+            getattr(settings, "openrouter_api_key", ""), profile_a, profile_b
+        )
+        if llm_score is not None:
+            return float(llm_score)
+
     score = get_database_compatibility_score(settings, token, user1_id, user2_id)
     return float(score) if score is not None else 0.0
 
@@ -415,7 +427,7 @@ def get_candidates(limit: int = 10, authorization: str = Header(None)):
 
         for c in filtered:
             c["compatibility_score"] = get_match_compatibility_score(
-                settings, token, user_id, c.get("user_id")
+                settings, token, user_id, c.get("user_id"), my_profile, c
             )
 
         filtered.sort(key=lambda x: x.get("compatibility_score", 0), reverse=True)
@@ -542,14 +554,15 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
     }
 
     with httpx.Client() as client:
-        my_profile_resp = client.get(  # noqa: F841
+        my_profile_resp = client.get(
             f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
             params={"user_id": f"eq.{sender_id}"},
             headers=base_headers,
         )
-        my_profiles = (  # noqa: F841
+        my_profiles = (
             my_profile_resp.json() if my_profile_resp.status_code < 400 else []
         )
+        my_profile = my_profiles[0] if my_profiles else {}
 
         receiver_profile_resp = client.get(
             f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
@@ -563,10 +576,15 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
         )
         if not receiver_profiles:
             raise HTTPException(status_code=404, detail="Candidate not found")
-        receiver_profile = receiver_profiles[0]  # noqa: F841
+        receiver_profile = receiver_profiles[0]
 
         compatibility_score = get_match_compatibility_score(
-            settings, token, sender_id, receiver_id
+            settings,
+            token,
+            sender_id,
+            receiver_id,
+            my_profile,
+            receiver_profile,
         )
 
         outgoing_resp = client.get(
@@ -1062,14 +1080,14 @@ def get_compatibility(target_user_id: str, authorization: str = Header(None)):
         if not target_profiles:
             raise HTTPException(status_code=404, detail="Target profile not found")
 
-        score = get_match_compatibility_score(settings, token, user_id, target_user_id)
-        llm_score = get_llm_compatibility_score(
-            getattr(settings, "openrouter_api_key", ""),
+        score = get_match_compatibility_score(
+            settings,
+            token,
+            user_id,
+            target_user_id,
             my_profiles[0],
             target_profiles[0],
         )
-        if llm_score > 0:
-            score = llm_score
         return {"profile_id": target_user_id, "compatibility_score": score}
 
 

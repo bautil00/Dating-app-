@@ -154,3 +154,36 @@ class TestLikeCandidate:
 
         assert res.status_code == 200
         assert "compatibility_score" in res.json()
+
+    def test_matches_endpoint_uses_llm_score_when_available(self, client):
+        user_resp = _make_resp(200, {"id": "alice"})
+        alice_profile = _make_resp(200, [{"user_id": "alice", "interests": "Music"}])
+        bob_profile = _make_resp(200, [{"user_id": "bob", "interests": "Music"}])
+        save_resp = _make_resp(201)
+        no_existing = _make_resp(200, [])
+
+        mock = _mock_httpx(
+            get_returns=[
+                user_resp,
+                alice_profile,
+                bob_profile,
+                no_existing,
+                no_existing,
+            ],
+            post_returns=[save_resp],
+        )
+        with patch("httpx.Client", return_value=mock):
+            with patch("src.main.get_settings") as mock_settings:
+                mock_settings.return_value.supabase_url = "https://fake.supabase.co"
+                mock_settings.return_value.supabase_key = "fake-key"
+                mock_settings.return_value.openrouter_api_key = "openrouter-key"
+                with patch("src.main.get_llm_compatibility_score", return_value=91.0):
+                    res = client.post(
+                        "/api/v1/matches/",
+                        json={"receiver_id": "bob"},
+                        headers={"Authorization": "Bearer tok"},
+                    )
+
+        assert res.status_code == 200
+        assert res.json()["compatibility_score"] == 91.0
+        assert mock.post.call_args.kwargs["json"]["compatibility_score"] == 91.0

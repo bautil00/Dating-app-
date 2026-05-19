@@ -1,17 +1,35 @@
+import re
+from typing import Any
+
 import httpx
 
 # LLM-based compatibility scoring using OpenRouter
 
 
-def build_compatibility_prompt(profile_a: dict, profile_b: dict) -> str:
-    def get_interests(profile):
-        interests = [
-            profile.get("interest_1", ""),
-            profile.get("interest_2", ""),
-            profile.get("interest_3", ""),
-        ]
-        return ", ".join([i for i in interests if i])
+def _profile_value(profile: dict, *keys: str) -> Any:
+    for key in keys:
+        value = profile.get(key)
+        if value not in (None, ""):
+            return value
+    return "unknown"
 
+
+def _profile_interests(profile: dict) -> str:
+    interests = profile.get("interests")
+    values: list[str]
+    if isinstance(interests, list):
+        values = [str(value).strip() for value in interests]
+    elif interests:
+        values = [value.strip() for value in str(interests).split(",")]
+    else:
+        values = [
+            str(profile.get(key, "")).strip()
+            for key in ("interest_1", "interest_2", "interest_3", "Interest")
+        ]
+    return ", ".join(value for value in values if value)
+
+
+def build_compatibility_prompt(profile_a: dict, profile_b: dict) -> str:
     return (
         "You are a dating app compatibility analyzer. "
         "Given two user profiles, return a compatibility score from 0 to 100 as a single number only. "
@@ -21,24 +39,28 @@ def build_compatibility_prompt(profile_a: dict, profile_b: dict) -> str:
         "The remaining 20 percent of the score should be calculated by comparing how compatible a person with each feature is with a person of another feature. "
         "Use the data available to you, as well as your own judgment, to decide on this 'trait compatibility' portion.\n\n"
         f"Person A:\n"
-        f"- Interests: {get_interests(profile_a)}\n"
-        f"- Age: {profile_a.get('age', 'unknown')}\n"
-        f"- Job: {profile_a.get('job', 'unknown')}\n"
-        f"- Gender: {profile_a.get('gender', 'unknown')}\n\n"
+        f"- Interests: {_profile_interests(profile_a) or 'unknown'}\n"
+        f"- Age: {_profile_value(profile_a, 'age', 'Age')}\n"
+        f"- Job: {_profile_value(profile_a, 'job', 'Job')}\n"
+        f"- Gender: {_profile_value(profile_a, 'gender', 'Gender')}\n"
+        f"- Education: {_profile_value(profile_a, 'education', 'Education')}\n"
+        f"- Relationship: {_profile_value(profile_a, 'relationship', 'relationship_status')}\n\n"
         f"Person B:\n"
-        f"- Interests: {get_interests(profile_b)}\n"
-        f"- Age: {profile_b.get('age', 'unknown')}\n"
-        f"- Job: {profile_b.get('job', 'unknown')}\n"
-        f"- Gender: {profile_b.get('gender', 'unknown')}\n\n"
+        f"- Interests: {_profile_interests(profile_b) or 'unknown'}\n"
+        f"- Age: {_profile_value(profile_b, 'age', 'Age')}\n"
+        f"- Job: {_profile_value(profile_b, 'job', 'Job')}\n"
+        f"- Gender: {_profile_value(profile_b, 'gender', 'Gender')}\n"
+        f"- Education: {_profile_value(profile_b, 'education', 'Education')}\n"
+        f"- Relationship: {_profile_value(profile_b, 'relationship', 'relationship_status')}\n\n"
         "Compatibility score (0-100):"
     )
 
 
 def get_llm_compatibility_score(
     api_key: str, profile_a: dict, profile_b: dict
-) -> float:
+) -> float | None:
     if not api_key:
-        return 0.0
+        return None
 
     prompt = build_compatibility_prompt(profile_a, profile_b)
 
@@ -64,7 +86,7 @@ def get_llm_compatibility_score(
                 timeout=60,
             )
             if resp.status_code >= 400:
-                return 0.0
+                return None
             content = (
                 resp.json()
                 .get("choices", [{}])[0]
@@ -72,6 +94,10 @@ def get_llm_compatibility_score(
                 .get("content", "0")
                 .strip()
             )
-            return float(content)
+            match = re.search(r"-?\d+(?:\.\d+)?", content)
+            if not match:
+                return None
+            score = float(match.group(0))
+            return max(0.0, min(100.0, score))
     except Exception:
-        return 0.0
+        return None
