@@ -7,9 +7,6 @@ import httpx
 
 DEFAULT_COMPATIBILITY_MODELS = [
     "liquid/lfm-2.5-1.2b-instruct:free",
-    "nvidia/nemotron-nano-9b-v2:free",
-    "openai/gpt-oss-20b:free",
-    "google/gemma-4-26b-a4b-it:free",
 ]
 
 

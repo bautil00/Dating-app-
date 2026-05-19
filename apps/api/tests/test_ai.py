@@ -188,16 +188,15 @@ class TestFallbackIcebreaker:
 
 
 class TestOpenRouterModels:
-    def test_ai_icebreaker_tries_next_free_model_after_failure(self):
+    def test_ai_icebreaker_uses_fastest_free_model_only(self):
         from src.config import Settings
         from src.main import _generate_ai_icebreaker
 
-        failed_response = _make_resp(429, {"error": "rate limited"})
         success_response = _make_resp(
             200,
             {"choices": [{"message": {"content": "Music is a great spark."}}]},
         )
-        mock = _mock_httpx(post_returns=[failed_response, success_response])
+        mock = _mock_httpx(post_returns=[success_response])
 
         with patch("httpx.Client", return_value=mock):
             result = _generate_ai_icebreaker(
@@ -205,4 +204,8 @@ class TestOpenRouterModels:
             )
 
         assert result == "Music is a great spark."
-        assert mock.post.call_count == 2
+        assert mock.post.call_count == 1
+        assert (
+            mock.post.call_args.kwargs["json"]["model"]
+            == "liquid/lfm-2.5-1.2b-instruct:free"
+        )
