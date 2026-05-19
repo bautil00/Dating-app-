@@ -170,65 +170,100 @@ build_deployable_images() {
   docker build -f apps/web/Dockerfile -t "blowtorch-web:${git_sha}" .
 }
 
-trigger_deploy_hook() {
-  local hook_url="$1"
-  local label="$2"
-
-  [[ -n "$hook_url" ]] || fail "Missing deploy hook URL for ${label}"
-
-  log "Triggering ${label} production deploy hook"
-  curl -fsS -X POST "$hook_url" > "${LOG_DIR}/${label}-deploy-hook.json"
-}
-
-wait_for_vercel_ready() {
-  local project_id="$1"
-  local label="$2"
-  local since_ms="$3"
-
-  if [[ -z "${VERCEL_TOKEN:-}" || -z "$project_id" ]]; then
-    log "Skipping Vercel API deployment-status polling for ${label}; token/project id not set"
-    return
-  fi
-
-  local query="projectId=${project_id}&target=production&limit=1"
-  if [[ -n "${VERCEL_TEAM_ID:-}" ]]; then
-    query="${query}&teamId=${VERCEL_TEAM_ID}"
-  fi
-
-  local deadline=$((SECONDS + DEPLOY_TIMEOUT_SECONDS))
-  while true; do
-    local body parsed state created dep_url
-    body="$(curl -fsS -H "Authorization: Bearer ${VERCEL_TOKEN}" \
-      "https://api.vercel.com/v6/deployments?${query}")"
-    parsed="$("${VENV_DIR}/bin/python" -c 'import json,sys; data=json.load(sys.stdin); d=(data.get("deployments") or [{}])[0]; print(d.get("state",""), d.get("created") or d.get("createdAt") or 0, d.get("url",""))' <<< "$body")"
-    read -r state created dep_url <<< "$parsed"
-
-    if [[ "$state" == "READY" && "$created" =~ ^[0-9]+$ && "$created" -ge "$since_ms" ]]; then
-      log "Vercel reports ${label} deployment ready: https://${dep_url}"
-      return
-    fi
-
-    if (( SECONDS >= deadline )); then
-      fail "Timed out waiting for Vercel ${label} production deployment to become READY"
-    fi
-    sleep "$DEPLOY_POLL_SECONDS"
-  done
-}
-
 deploy_to_production() {
   if [[ "$SKIP_DEPLOY" == "1" ]]; then
     log "SKIP_DEPLOY=1 set; not deploying to production"
     return
   fi
 
-  local since_ms
-  since_ms="$("${VENV_DIR}/bin/python" -c 'import time; print(int(time.time() * 1000))')"
+  require_vercel_api_env
+  create_vercel_redeployment "${BLOWTORCH_API_PROJECT_ID}" "api"
+  create_vercel_redeployment "${BLOWTORCH_WEB_PROJECT_ID}" "web"
+}
 
-  trigger_deploy_hook "${BLOWTORCH_API_DEPLOY_HOOK_URL:-}" "api"
-  trigger_deploy_hook "${BLOWTORCH_WEB_DEPLOY_HOOK_URL:-}" "web"
+require_vercel_api_env() {
+  [[ -n "${VERCEL_TOKEN:-}" ]] || fail "Missing VERCEL_TOKEN"
+  [[ -n "${BLOWTORCH_API_PROJECT_ID:-}" ]] || fail "Missing BLOWTORCH_API_PROJECT_ID"
+  [[ -n "${BLOWTORCH_WEB_PROJECT_ID:-}" ]] || fail "Missing BLOWTORCH_WEB_PROJECT_ID"
+}
 
-  wait_for_vercel_ready "${BLOWTORCH_API_PROJECT_ID:-}" "api" "$since_ms"
-  wait_for_vercel_ready "${BLOWTORCH_WEB_PROJECT_ID:-}" "web" "$since_ms"
+vercel_team_query() {
+  if [[ -n "${VERCEL_TEAM_ID:-}" ]]; then
+    printf '?teamId=%s' "${VERCEL_TEAM_ID}"
+  fi
+}
+
+latest_vercel_deployment_id() {
+  local project_id="$1"
+  local query="projectId=${project_id}&target=production&limit=1"
+  if [[ -n "${VERCEL_TEAM_ID:-}" ]]; then
+    query="${query}&teamId=${VERCEL_TEAM_ID}"
+  fi
+
+  local body deployment_id
+  body="$(curl -fsS -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+    "https://api.vercel.com/v6/deployments?${query}")"
+  deployment_id="$("${VENV_DIR}/bin/python" -c 'import json,sys; data=json.load(sys.stdin); d=(data.get("deployments") or [{}])[0]; print(d.get("uid") or d.get("id") or "")' <<< "$body")"
+
+  [[ -n "$deployment_id" ]] || fail "Could not find a previous production deployment for ${project_id}"
+  printf '%s' "$deployment_id"
+}
+
+create_vercel_redeployment() {
+  local project_id="$1"
+  local label="$2"
+  local previous_id body response deployment_id deployment_url
+
+  previous_id="$(latest_vercel_deployment_id "$project_id")"
+  body="{\"deploymentId\":\"${previous_id}\",\"project\":\"${project_id}\",\"target\":\"production\",\"withLatestCommit\":true}"
+
+  log "Triggering ${label} production deployment via Vercel REST API"
+  response="$(curl -fsS -X POST \
+    -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+    -H "Content-Type: application/json" \
+    -d "$body" \
+    "https://api.vercel.com/v13/deployments$(vercel_team_query)")"
+
+  deployment_id="$("${VENV_DIR}/bin/python" -c 'import json,sys; data=json.load(sys.stdin); print(data.get("id") or data.get("uid") or "")' <<< "$response")"
+  deployment_url="$("${VENV_DIR}/bin/python" -c 'import json,sys; data=json.load(sys.stdin); print(data.get("url") or "")' <<< "$response")"
+  [[ -n "$deployment_id" ]] || fail "Vercel did not return a deployment id for ${label}"
+
+  if [[ -n "$deployment_url" ]]; then
+    log "Created ${label} deployment: https://${deployment_url}"
+  else
+    log "Created ${label} deployment: ${deployment_id}"
+  fi
+
+  wait_for_vercel_deployment_id "$deployment_id" "$label"
+}
+
+wait_for_vercel_deployment_id() {
+  local deployment_id="$1"
+  local label="$2"
+  local deadline=$((SECONDS + DEPLOY_TIMEOUT_SECONDS))
+
+  while true; do
+    local body state deployment_url error_message
+    body="$(curl -fsS -H "Authorization: Bearer ${VERCEL_TOKEN}" \
+      "https://api.vercel.com/v13/deployments/${deployment_id}$(vercel_team_query)")"
+    state="$("${VENV_DIR}/bin/python" -c 'import json,sys; data=json.load(sys.stdin); print(data.get("readyState") or data.get("state") or "")' <<< "$body")"
+    deployment_url="$("${VENV_DIR}/bin/python" -c 'import json,sys; data=json.load(sys.stdin); print(data.get("url") or "")' <<< "$body")"
+    error_message="$("${VENV_DIR}/bin/python" -c 'import json,sys; data=json.load(sys.stdin); print(data.get("errorMessage") or data.get("errorCode") or "")' <<< "$body")"
+
+    if [[ "$state" == "READY" ]]; then
+      log "Vercel reports ${label} deployment ready: https://${deployment_url}"
+      return
+    fi
+
+    if [[ "$state" == "ERROR" || "$state" == "CANCELED" ]]; then
+      fail "Vercel ${label} deployment ended with ${state}: ${error_message}"
+    fi
+
+    if (( SECONDS >= deadline )); then
+      fail "Timed out waiting for Vercel ${label} deployment ${deployment_id} to become READY"
+    fi
+    sleep "$DEPLOY_POLL_SECONDS"
+  done
 }
 
 verify_production() {

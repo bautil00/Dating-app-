@@ -2,7 +2,7 @@
 
 This guide describes the one-touch production pipeline for the BLOWTORCH app.
 
-The pipeline script is [`scripts/deploy_prod.sh`](../scripts/deploy_prod.sh). It uses Vercel Deploy Hooks and the Vercel REST API for deployment/status checks instead of the Vercel CLI.
+The pipeline script is [`scripts/deploy_prod.sh`](../scripts/deploy_prod.sh). It uses Docker for packaging and Vercel's REST API for production deployment/status checks instead of the Vercel CLI.
 
 ## Accepted PRs In The Past Week
 
@@ -37,8 +37,8 @@ Repository link for PR and code standards review: <https://github.com/bautil00/D
 7. Packages deployable Docker images:
    - `blowtorch-api:<git-sha>`
    - `blowtorch-web:<git-sha>`
-8. Triggers production deploys through Vercel Deploy Hook URLs.
-9. Optionally polls the Vercel REST API until each production deployment is `READY`.
+8. Triggers production deploys through Vercel's REST API.
+9. Polls the Vercel REST API until each production deployment is `READY`.
 10. Verifies production URLs are reachable.
 
 ## Required Local Tools
@@ -56,16 +56,7 @@ Install these before running the pipeline:
 
 Do not commit these values to Git.
 
-Set the deploy hook URLs in your shell before running the script:
-
-```bash
-export BLOWTORCH_API_DEPLOY_HOOK_URL="https://api.vercel.com/v1/integrations/deploy/..."
-export BLOWTORCH_WEB_DEPLOY_HOOK_URL="https://api.vercel.com/v1/integrations/deploy/..."
-```
-
-The deploy hook URLs are created in each Vercel project under **Settings -> Git -> Deploy Hooks**. Create one hook for the backend project and one hook for the frontend project, both targeting the `main` branch.
-
-For stronger verification, also set Vercel REST API values:
+Set the Vercel REST API values in your shell before running the script:
 
 ```bash
 export VERCEL_TOKEN="..."
@@ -83,7 +74,7 @@ The script uses these default smoke-test URLs:
 
 ```bash
 export PROD_API_HEALTH_URL="https://api-lemon-psi-31.vercel.app/health"
-export PROD_WEB_URL="https://web-two-beta-72.vercel.app/"
+export PROD_WEB_URL="https://web-two-beta-72.vercel.app"
 ```
 
 Override them if production moves to a new Vercel URL or custom domain.
@@ -103,7 +94,7 @@ A successful run ends with:
 Pipeline completed successfully
 ```
 
-Logs from local smoke servers and deploy hook responses are written to `.pipeline-logs/`.
+Logs from local smoke servers are written to `.pipeline-logs/`.
 
 ## Dry Runs
 
