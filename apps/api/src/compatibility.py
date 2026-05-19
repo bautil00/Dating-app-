@@ -29,6 +29,17 @@ def _profile_interests(profile: dict) -> str:
     return ", ".join(value for value in values if value)
 
 
+def _profile_list(profile: dict, *keys: str) -> str:
+    for key in keys:
+        value = profile.get(key)
+        if value in (None, ""):
+            continue
+        if isinstance(value, list):
+            return ", ".join(str(item).strip() for item in value if str(item).strip())
+        return ", ".join(part.strip() for part in str(value).split(",") if part.strip())
+    return ""
+
+
 def build_compatibility_prompt(profile_a: dict, profile_b: dict) -> str:
     return (
         "You are a dating app compatibility analyzer. "
@@ -44,14 +55,18 @@ def build_compatibility_prompt(profile_a: dict, profile_b: dict) -> str:
         f"- Job: {_profile_value(profile_a, 'job', 'Job')}\n"
         f"- Gender: {_profile_value(profile_a, 'gender', 'Gender')}\n"
         f"- Education: {_profile_value(profile_a, 'education', 'Education')}\n"
-        f"- Relationship: {_profile_value(profile_a, 'relationship', 'relationship_status')}\n\n"
+        f"- Relationship: {_profile_value(profile_a, 'relationship', 'relationship_status')}\n"
+        f"- Available days: {_profile_list(profile_a, 'availability', 'day_availability') or 'unknown'}\n"
+        f"- Available times: {_profile_list(profile_a, 'time_availability', 'timeAvailability') or 'unknown'}\n\n"
         f"Person B:\n"
         f"- Interests: {_profile_interests(profile_b) or 'unknown'}\n"
         f"- Age: {_profile_value(profile_b, 'age', 'Age')}\n"
         f"- Job: {_profile_value(profile_b, 'job', 'Job')}\n"
         f"- Gender: {_profile_value(profile_b, 'gender', 'Gender')}\n"
         f"- Education: {_profile_value(profile_b, 'education', 'Education')}\n"
-        f"- Relationship: {_profile_value(profile_b, 'relationship', 'relationship_status')}\n\n"
+        f"- Relationship: {_profile_value(profile_b, 'relationship', 'relationship_status')}\n"
+        f"- Available days: {_profile_list(profile_b, 'availability', 'day_availability') or 'unknown'}\n"
+        f"- Available times: {_profile_list(profile_b, 'time_availability', 'timeAvailability') or 'unknown'}\n\n"
         "Compatibility score (0-100):"
     )
 

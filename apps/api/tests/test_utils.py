@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 from src.config import Settings
 from src.main import (
+    build_profile_rest_payload,
     build_profile_rpc_payload,
     get_match_compatibility_score,
     haversine_distance,
@@ -172,12 +173,16 @@ class TestLLMCompatibility:
         prompt = build_compatibility_prompt(
             {
                 "interests": ["music", "programming"],
+                "availability": ["fri", "sat"],
+                "time_availability": ["7-9pm"],
                 "age": 25,
                 "job": "programmer",
                 "gender": "male",
             },
             {
                 "interests": "music,art",
+                "availability": "fri,sun",
+                "time_availability": "9-11pm",
                 "age": 26,
                 "job": "artist",
                 "gender": "female",
@@ -186,6 +191,8 @@ class TestLLMCompatibility:
 
         assert "music, programming" in prompt
         assert "music, art" in prompt
+        assert "fri, sat" in prompt
+        assert "7-9pm" in prompt
 
     def test_llm_score_parses_and_clamps_numeric_response(self):
         from src.compatibility import get_llm_compatibility_score
@@ -210,6 +217,18 @@ class TestBuildProfileRpcPayload:
     def test_pronouns_match_database_enum_format(self):
         result = build_profile_rpc_payload({"pronouns": "She/Her"}, "u1")
         assert result["p_pronouns"] == "she her"
+
+    def test_availability_matches_database_enum_format(self):
+        result = build_profile_rpc_payload(
+            {"availability": ["Monday", "Thursday"]}, "u1"
+        )
+        assert result["p_availability"] == ["mon", "thur"]
+
+    def test_time_availability_in_rest_payload(self):
+        result = build_profile_rest_payload(
+            {"time_availability": ["7-9 PM", "11pm-1am"]}, "u1"
+        )
+        assert result["time_availability"] == ["7-9pm", "11pm-1am"]
 
 
 class TestSettings:

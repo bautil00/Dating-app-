@@ -79,6 +79,39 @@ _ENUM_VALUE_OVERRIDES = {
     "they_them": "they them",
 }
 
+_DAY_VALUE_OVERRIDES = {
+    "monday": "mon",
+    "mon": "mon",
+    "tuesday": "tue",
+    "tue": "tue",
+    "wednesday": "wed",
+    "wed": "wed",
+    "thursday": "thur",
+    "thu": "thur",
+    "thur": "thur",
+    "friday": "fri",
+    "fri": "fri",
+    "saturday": "sat",
+    "sat": "sat",
+    "sunday": "sun",
+    "sun": "sun",
+}
+
+_TIME_VALUE_OVERRIDES = {
+    "1-3am": "1-3am",
+    "3-5am": "3-5am",
+    "5-7am": "5-7am",
+    "7-9am": "7-9am",
+    "9-11am": "9-11am",
+    "11am-1pm": "11am-1pm",
+    "1-3pm": "1-3pm",
+    "3-5pm": "3-5pm",
+    "5-7pm": "5-7pm",
+    "7-9pm": "7-9pm",
+    "9-11pm": "9-11pm",
+    "11pm-1am": "11pm-1am",
+}
+
 
 def _enum_value(value):
     if value in (None, ""):
@@ -89,15 +122,72 @@ def _enum_value(value):
     return _ENUM_VALUE_OVERRIDES.get(normalized, normalized)
 
 
+def _array_values(value):
+    if value in (None, ""):
+        return []
+    if isinstance(value, list):
+        return value
+    return str(value).split(",")
+
+
 def _enum_array(value):
+    normalized = [_enum_value(v) for v in _array_values(value)]
+    return [v for v in normalized if v]
+
+
+def _schedule_value(value, overrides):
     if value in (None, ""):
         return None
-    if isinstance(value, list):
-        values = value
-    else:
-        values = str(value).split(",")
-    normalized = [_enum_value(v) for v in values]
-    return [v for v in normalized if v]
+    normalized = (
+        str(value)
+        .strip()
+        .lower()
+        .replace(" ", "")
+        .replace("_", "-")
+        .replace("/", "-")
+        .replace("–", "-")
+        .replace("—", "-")
+    )
+    return overrides.get(normalized)
+
+
+def _schedule_array(value, overrides):
+    normalized = [_schedule_value(v, overrides) for v in _array_values(value)]
+    values = [v for v in normalized if v]
+    return values or None
+
+
+def _first_profile_value(profile_data: dict, *keys: str):
+    for key in keys:
+        if key in profile_data and profile_data.get(key) not in (None, ""):
+            return profile_data.get(key)
+    return None
+
+
+def _availability_array(profile_data: dict):
+    return _schedule_array(
+        _first_profile_value(
+            profile_data,
+            "availability",
+            "day_availability",
+            "day availability",
+            "day avalibility",
+        ),
+        _DAY_VALUE_OVERRIDES,
+    )
+
+
+def _time_availability_array(profile_data: dict):
+    return _schedule_array(
+        _first_profile_value(
+            profile_data,
+            "time_availability",
+            "timeAvailability",
+            "time availability",
+            "time avalibility",
+        ),
+        _TIME_VALUE_OVERRIDES,
+    )
 
 
 def normalize_profile_row(row: dict) -> dict:
@@ -195,6 +285,7 @@ def build_profile_rpc_payload(profile_data: dict, user_id: str) -> dict:
         "p_age": _coerce_int(profile_data.get("age")),
         "p_location": _coerce_float(profile_data.get("location")),
         "p_interests": _enum_array(interests),
+        "p_availability": _availability_array(profile_data),
         "p_gender": _enum_value(profile_data.get("gender")),
         "p_job": _enum_value(profile_data.get("job")),
         "p_sexual_pref": _enum_value(profile_data.get("sexual_pref")),
@@ -221,6 +312,8 @@ def build_profile_rest_payload(profile_data: dict, user_id: str) -> dict:
         "age": _coerce_int(profile_data.get("age")),
         "location": _coerce_float(profile_data.get("location")),
         "interests": _enum_array(profile_data.get("interests")),
+        "availability": _availability_array(profile_data),
+        "time_availability": _time_availability_array(profile_data),
         "gender": _enum_value(profile_data.get("gender")),
         "job": _enum_value(profile_data.get("job")),
         "sexual_pref": _enum_value(profile_data.get("sexual_pref")),
@@ -550,10 +643,14 @@ def create_profile(profile_data: dict, authorization: str = Header(None)):
                 headers=supabase_headers(settings, token, content_type=True),
             )
             if not response_failed(result):
+                patch_payload: dict[str, Any] = {"is_complete": True}
+                time_availability = _time_availability_array(profile_data)
+                if time_availability:
+                    patch_payload["time_availability"] = time_availability
                 client.patch(
                     f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
                     params={"user_id": f"eq.{user_id}"},
-                    json={"is_complete": True},
+                    json=patch_payload,
                     headers=supabase_headers(settings, token, content_type=True),
                 )
         elif existed:

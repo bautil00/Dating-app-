@@ -120,6 +120,7 @@ React (Vercel) → FastAPI (Vercel) → Supabase PostgreSQL
 - [ ] AI compatibility scoring
 
 ### Planned (v1.0)
+- [ ] Add frontend timetable/schedule controls for `availability` and `time_availability`
 - [ ] Profile image upload
 - [ ] Real-time notifications
 - [ ] User blocking/reporting
