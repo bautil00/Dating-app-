@@ -32,6 +32,17 @@ type CacheOptions = {
   persist?: boolean;
 };
 
+type ApiErrorLike = {
+  response?: {
+    data?: {
+      detail?: unknown;
+      error_description?: unknown;
+      msg?: unknown;
+      message?: unknown;
+    };
+  };
+};
+
 const CACHE_PREFIX = 'blowtorch-api-cache-v1';
 const DEFAULT_CACHE_TTL_MS = 30_000;
 const memoryCache = new Map<string, CacheEntry>();
@@ -104,6 +115,55 @@ export function invalidateApiCache(pattern?: string | RegExp) {
     .filter(matches)
     .forEach((key) => memoryCache.delete(key));
   deleteMatchingSessionCache(matches);
+}
+
+function parseProviderError(raw: string): string | null {
+  try {
+    const parsed = JSON.parse(raw) as {
+      code?: string;
+      error_code?: string;
+      error_description?: string;
+      msg?: string;
+      message?: string;
+      weak_password?: { reasons?: string[] };
+    };
+    const code = parsed.error_code || parsed.code;
+
+    if (code === 'weak_password') {
+      return 'Use a stronger password with uppercase and lowercase letters, a number, and a symbol.';
+    }
+    if (code === 'email_exists' || code === 'user_already_exists') {
+      return 'That email already has an account. Try signing in instead.';
+    }
+    if (parsed.error_description) return parsed.error_description;
+    if (parsed.message) return parsed.message;
+    if (parsed.msg) return parsed.msg;
+  } catch {
+    return null;
+  }
+  return null;
+}
+
+export function userFacingError(error: unknown, fallback: string) {
+  const data = (error as ApiErrorLike).response?.data;
+  const detail = data?.detail ?? data?.error_description ?? data?.message ?? data?.msg;
+
+  if (typeof detail === 'string') {
+    const parsed = parseProviderError(detail);
+    if (parsed) return parsed;
+    if (detail.trim().startsWith('{')) return fallback;
+    return detail;
+  }
+
+  if (detail && typeof detail === 'object') {
+    const code = 'error_code' in detail ? String(detail.error_code) : '';
+    if (code === 'weak_password') {
+      return 'Use a stronger password with uppercase and lowercase letters, a number, and a symbol.';
+    }
+    return fallback;
+  }
+
+  return fallback;
 }
 
 export async function cachedGet<T = AxiosResponse['data']>(

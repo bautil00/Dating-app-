@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Camera, Check, Flame, Pencil } from 'lucide-react';
-import { profileService } from '../services/api';
+import { profileService, userFacingError } from '../services/api';
 import Navbar from '../components/Navbar';
 
 const ENUMS = {
@@ -156,8 +156,7 @@ export default function Profile() {
       setMessage('Profile saved.');
       window.setTimeout(() => navigate('/discover'), 1000);
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { detail?: string } } };
-      setMessage(err.response?.data?.detail || 'Failed to save profile');
+      setMessage(userFacingError(error, 'Failed to save profile'));
     } finally {
       setSaving(false);
     }
@@ -312,7 +311,7 @@ export default function Profile() {
 
             {message && (
               <p
-                className={`rounded-xl px-3 py-2 text-sm font-medium ${
+                className={`break-words rounded-xl px-3 py-2 text-sm font-medium leading-relaxed ${
                   message.includes('Failed')
                     ? 'bg-red-50 text-red-600'
                     : 'bg-orange-50 text-orange-700'

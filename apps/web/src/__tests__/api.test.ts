@@ -79,4 +79,20 @@ describe('API Service', () => {
     expect(second.data).toEqual({ name: 'Maya' });
     expect(api.get).toHaveBeenCalledTimes(1);
   });
+
+  it('normalizes Supabase weak password JSON into readable copy', async () => {
+    const { userFacingError } = await import('../services/api');
+    const error = {
+      response: {
+        data: {
+          detail:
+            '{"code":422,"error_code":"weak_password","msg":"Password should contain at least one character of each category"}',
+        },
+      },
+    };
+
+    expect(userFacingError(error, 'Registration failed')).toBe(
+      'Use a stronger password with uppercase and lowercase letters, a number, and a symbol.',
+    );
+  });
 });

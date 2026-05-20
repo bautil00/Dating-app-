@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Flame } from 'lucide-react';
-import { authService, clearApiCache } from '../services/api';
+import { authService, clearApiCache, userFacingError } from '../services/api';
 import GoogleIcon from '../components/GoogleIcon';
 
 export default function Register() {
@@ -35,8 +35,7 @@ export default function Register() {
       clearApiCache();
       window.location.href = '/discover';
     } catch (error: unknown) {
-      const err = error as { response?: { data?: { detail?: string } } };
-      setError(err.response?.data?.detail || 'Registration failed');
+      setError(userFacingError(error, 'Registration failed. Check your email and password.'));
     } finally {
       setLoading(false);
     }
@@ -143,7 +142,7 @@ export default function Register() {
               />
 
               {error && (
-                <p className="rounded-xl bg-red-50 px-3 py-2 text-sm font-medium text-red-600">
+                <p className="break-words rounded-xl bg-red-50 px-3 py-2 text-sm font-medium leading-relaxed text-red-600">
                   {error}
                 </p>
               )}
