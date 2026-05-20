@@ -155,6 +155,10 @@ def _text_array(value):
     return [v for v in values if v]
 
 
+def _nonempty_list(values):
+    return values if values else None
+
+
 def _enum_array(value):
     normalized = [_enum_value(v) for v in _array_values(value)]
     return [v for v in normalized if v]
@@ -332,7 +336,7 @@ def build_profile_rpc_payload(profile_data: dict, user_id: str) -> dict:
 def build_profile_extra_patch_payload(profile_data: dict) -> dict:
     """Fields outside the historical create_user_profile RPC contract."""
     payload = {
-        "interests": _enum_array(profile_data.get("interests")),
+        "interests": _nonempty_list(_enum_array(profile_data.get("interests"))),
         "bio": _text_value(profile_data.get("bio")),
         "height": _coerce_float(profile_data.get("height")),
         "weight": _coerce_float(profile_data.get("weight")),
@@ -342,11 +346,13 @@ def build_profile_extra_patch_payload(profile_data: dict) -> dict:
         "mbti": _enum_value(
             profile_data.get("mbti") or profile_data.get("personality_type")
         ),
-        "languages": _text_array(profile_data.get("languages")),
-        "socials": _text_array(profile_data.get("socials")),
-        "body_modification": _text_array(profile_data.get("body_modification")),
-        "availability": _availability_array(profile_data) or [],
-        "time_availability": _time_availability_array(profile_data) or [],
+        "languages": _nonempty_list(_text_array(profile_data.get("languages"))),
+        "socials": _nonempty_list(_text_array(profile_data.get("socials"))),
+        "body_modification": _nonempty_list(
+            _text_array(profile_data.get("body_modification"))
+        ),
+        "availability": _availability_array(profile_data),
+        "time_availability": _time_availability_array(profile_data),
     }
     return {k: v for k, v in payload.items() if v is not None}
 
@@ -382,9 +388,11 @@ def build_profile_rest_payload(profile_data: dict, user_id: str) -> dict:
         "mbti": _enum_value(
             profile_data.get("mbti") or profile_data.get("personality_type")
         ),
-        "languages": _text_array(profile_data.get("languages")),
-        "socials": _text_array(profile_data.get("socials")),
-        "body_modification": _text_array(profile_data.get("body_modification")),
+        "languages": _nonempty_list(_text_array(profile_data.get("languages"))),
+        "socials": _nonempty_list(_text_array(profile_data.get("socials"))),
+        "body_modification": _nonempty_list(
+            _text_array(profile_data.get("body_modification"))
+        ),
         "seeking_gender": profile_data.get("seeking_gender", "everyone"),
         "max_distance_km": _coerce_int(profile_data.get("max_distance_km")) or 50,
         "is_complete": True,
