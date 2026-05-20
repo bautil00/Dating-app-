@@ -10,7 +10,7 @@ BLOWTORCH is an AI-powered dating web application that helps users find meaningf
 - **Frontend**: React + TypeScript + Vite (Vercel)
 - **Backend**: Python + FastAPI (Vercel)
 - **Database**: Supabase (PostgreSQL)
-- **AI**: OpenAI API for compatibility scoring and icebreaker generation
+- **AI**: OpenRouter API for compatibility scoring and icebreaker generation, with database scoring fallback
 
 ## Team
 
@@ -76,6 +76,10 @@ OPENROUTER_API_KEY=your-openrouter-key
 
 The hand-built production pipeline is documented in [`docs/ci_cd_pipeline.md`](docs/ci_cd_pipeline.md).
 
+## Demo & Product Guide
+
+Use [`docs/demo_guide.md`](docs/demo_guide.md) to understand the product, explain the infrastructure, and guide a test user through registration, profile setup, Discover, Sparks, Messages, and AI icebreakers.
+
 Submission links:
 - GitHub repository for PR and code standards review: https://github.com/bautil00/Dating-app-
 - CI/CD pipeline guide: [`docs/ci_cd_pipeline.md`](docs/ci_cd_pipeline.md)
@@ -88,7 +92,7 @@ One-touch command from the repository root:
 
 ## Data Sources & APIs
 
-### External AI API (OpenAI)
+### External AI API (OpenRouter)
 - Compatibility scoring based on user profiles
 - AI-generated icebreaker messages
 
@@ -105,19 +109,19 @@ To use Google login, you must configure your Google Cloud Console OAuth 2.0 Clie
 ```
 React (Vercel) → FastAPI (Vercel) → Supabase PostgreSQL
                            ↓
-                     OpenAI API
+                    OpenRouter API
 ```
 
 ## Features
 
 ### In Progress (v0.5)
 - [x] User registration + Supabase auth (Email/Password & Google OAuth)
-- [ ] Profile CRUD
-- [ ] Candidate ranking (AI-powered)
-- [ ] Match workflow (create/accept/reject)
-- [ ] Chat between matches
-- [ ] AI icebreaker generation
-- [ ] AI compatibility scoring
+- [x] Profile CRUD
+- [x] Candidate ranking (AI-powered with database fallback)
+- [x] Match workflow (create/accept/reject)
+- [x] Chat between matches
+- [x] AI icebreaker generation
+- [x] AI compatibility scoring
 
 ### Planned (v1.0)
 - [ ] Add frontend timetable/schedule controls for `availability` and `time_availability`
