@@ -332,6 +332,7 @@ def build_profile_rpc_payload(profile_data: dict, user_id: str) -> dict:
 def build_profile_extra_patch_payload(profile_data: dict) -> dict:
     """Fields outside the historical create_user_profile RPC contract."""
     payload = {
+        "interests": _enum_array(profile_data.get("interests")),
         "bio": _text_value(profile_data.get("bio")),
         "height": _coerce_float(profile_data.get("height")),
         "weight": _coerce_float(profile_data.get("weight")),
@@ -718,12 +719,19 @@ def create_profile(profile_data: dict, authorization: str = Header(None)):
                     **build_profile_extra_patch_payload(profile_data),
                     "is_complete": True,
                 }
-                client.patch(
+                patch_result = client.patch(
                     f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
                     params={"user_id": f"eq.{user_id}"},
                     json=patch_payload,
-                    headers=supabase_headers(settings, token, content_type=True),
+                    headers={
+                        **supabase_headers(settings, token, content_type=True),
+                        "Prefer": "return=representation",
+                    },
                 )
+                if response_failed(patch_result):
+                    raise HTTPException(
+                        status_code=patch_result.status_code, detail=patch_result.text
+                    )
         elif existed:
             result = client.patch(
                 f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",

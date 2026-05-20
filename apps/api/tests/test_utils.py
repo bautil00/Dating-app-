@@ -260,6 +260,7 @@ class TestBuildProfileRpcPayload:
         result = build_profile_extra_patch_payload(
             {
                 "bio": "hello",
+                "interests": ["Music", "Programming"],
                 "mbti": "INFP",
                 "languages": ["English", "Spanish"],
                 "availability": ["Monday", "Friday"],
@@ -271,6 +272,7 @@ class TestBuildProfileRpcPayload:
         )
 
         assert result["bio"] == "hello"
+        assert result["interests"] == ["music", "programming"]
         assert result["mbti"] == "infp"
         assert result["languages"] == ["English", "Spanish"]
         assert result["availability"] == ["mon", "fri"]
