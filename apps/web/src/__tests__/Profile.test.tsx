@@ -2,12 +2,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 
+const mockApi = vi.hoisted(() => ({
+  get: vi.fn().mockResolvedValue({ data: { is_complete: false } }),
+  post: vi.fn().mockResolvedValue({ data: {} }),
+  patch: vi.fn(),
+  interceptors: { request: { use: vi.fn() } },
+}));
+
 vi.mock('../services/api', () => ({
-  default: {
-    get: vi.fn().mockResolvedValue({ data: { is_complete: false } }),
-    post: vi.fn().mockResolvedValue({ data: {} }),
-    interceptors: { request: { use: vi.fn() } },
+  default: mockApi,
+  profileService: {
+    getMe: () => mockApi.get('/profiles/me'),
+    create: (data: Record<string, unknown>) => mockApi.post('/profiles/', data),
   },
+  clearApiCache: vi.fn(),
+  invalidateApiCache: vi.fn(),
 }));
 
 const mockNavigate = vi.fn();

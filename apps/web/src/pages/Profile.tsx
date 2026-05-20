@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Camera, Check, Flame, Pencil } from 'lucide-react';
-import api from '../services/api';
+import { profileService } from '../services/api';
 import Navbar from '../components/Navbar';
 
 const ENUMS = {
@@ -113,7 +113,7 @@ export default function Profile() {
 
   const loadProfile = async () => {
     try {
-      const res = await api.get('/profiles/me');
+      const res = await profileService.getMe();
       if (res.data && res.data.is_complete !== false) {
         setFormData({
           display_name: String(res.data.Name || res.data.display_name || ''),
@@ -148,7 +148,7 @@ export default function Profile() {
     setSaving(true);
     setMessage('');
     try {
-      await api.post('/profiles/', {
+      await profileService.create({
         ...formData,
         age: formData.age ? parseInt(formData.age, 10) : null,
         max_distance_km: formData.max_distance_km ? parseInt(formData.max_distance_km, 10) : 50,

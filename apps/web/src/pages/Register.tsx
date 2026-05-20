@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Flame } from 'lucide-react';
-import { authService } from '../services/api';
+import { authService, clearApiCache } from '../services/api';
 import GoogleIcon from '../components/GoogleIcon';
 
 export default function Register() {
@@ -32,6 +32,7 @@ export default function Register() {
       await authService.register(email, password);
       const loginRes = await authService.login(email, password);
       localStorage.setItem('token', loginRes.data.access_token);
+      clearApiCache();
       window.location.href = '/discover';
     } catch (error: unknown) {
       const err = error as { response?: { data?: { detail?: string } } };

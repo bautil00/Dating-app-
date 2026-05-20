@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Flame, Search, Send, ShieldOff, Smile, UserX } from 'lucide-react';
-import api from '../services/api';
+import { authService, messageService, profileService } from '../services/api';
 import Navbar from '../components/Navbar';
 import { profileAge, profileInterests, profileName, shortUserId } from '../lib/profile';
 
@@ -72,15 +72,15 @@ export default function Messages() {
     setLoading(true);
     try {
       const [conversationRes, userRes] = await Promise.all([
-        api.get('/messages/conversations'),
-        api.get('/auth/me').catch(() => ({ data: null })),
+        messageService.getConversations(),
+        authService.getMe().catch(() => ({ data: null })),
       ]);
       setCurrentUserId(String(userRes.data?.id || ''));
       const rows: Conversation[] = conversationRes.data || [];
       const enriched = await Promise.all(
         rows.map(async (conversation) => {
-          const profileRes = await api
-            .get(`/profiles/${conversation.user_id}`)
+          const profileRes = await profileService
+            .getById(conversation.user_id)
             .catch(() => ({ data: null }));
           return { ...conversation, profile: profileRes.data };
         }),
@@ -96,7 +96,7 @@ export default function Messages() {
 
   const loadMessages = async (userId: string) => {
     try {
-      const res = await api.get(`/messages/conversations/${userId}`);
+      const res = await messageService.getConversation(userId);
       setConversations((prev) =>
         prev.map((conversation) =>
           conversation.user_id === userId
@@ -112,7 +112,7 @@ export default function Messages() {
   const sendMessage = async () => {
     if (!input.trim() || !activeId) return;
     try {
-      const res = await api.post('/messages/', { receiver_id: activeId, content: input.trim() });
+      const res = await messageService.send(activeId, input.trim());
       setConversations((prev) =>
         prev.map((conversation) =>
           conversation.user_id === activeId

@@ -6,12 +6,38 @@ import Matches from '../pages/Matches';
 import Chat from '../pages/Chat';
 import Messages from '../pages/Messages';
 
+const mockApi = vi.hoisted(() => ({
+  get: vi.fn(),
+  post: vi.fn(),
+  patch: vi.fn(),
+  interceptors: { request: { use: vi.fn() } },
+}));
+
 vi.mock('../services/api', () => ({
-  default: {
-    get: vi.fn(),
-    post: vi.fn(),
-    interceptors: { request: { use: vi.fn() } },
+  default: mockApi,
+  authService: {
+    getMe: () => mockApi.get('/auth/me'),
   },
+  profileService: {
+    getById: (id: string | number) => mockApi.get(`/profiles/${id}`),
+  },
+  matchService: {
+    getAll: () => mockApi.get('/matches/'),
+    accept: (id: number) => mockApi.patch(`/matches/${id}/accept`),
+    reject: (id: number) => mockApi.patch(`/matches/${id}/reject`),
+  },
+  messageService: {
+    send: (receiverId: string | number, content: string) =>
+      mockApi.post('/messages/', { receiver_id: receiverId, content }),
+    getConversations: () => mockApi.get('/messages/conversations'),
+    getConversation: (userId: string | number) => mockApi.get(`/messages/conversations/${userId}`),
+  },
+  aiService: {
+    getIcebreaker: (userId: string | number) => mockApi.get(`/ai/icebreaker/${userId}`),
+  },
+  clearApiCache: vi.fn(),
+  invalidateApiCache: vi.fn(),
+  cachedGet: (path: string) => mockApi.get(path),
 }));
 
 describe('Matches and Chat profile names', () => {

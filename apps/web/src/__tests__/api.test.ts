@@ -18,6 +18,7 @@ describe('API Service', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.clear();
+    sessionStorage.clear();
   });
 
   it('creates axios instance with correct baseURL pattern', async () => {
@@ -64,5 +65,18 @@ describe('API Service', () => {
     expect(messageService).toHaveProperty('send');
     expect(messageService).toHaveProperty('getConversation');
     expect(messageService).toHaveProperty('getConversations');
+  });
+
+  it('cachedGet reuses fresh GET responses', async () => {
+    const { default: api, cachedGet, clearApiCache } = await import('../services/api');
+    clearApiCache();
+    vi.mocked(api.get).mockResolvedValueOnce({ data: { name: 'Maya' } });
+
+    const first = await cachedGet('/profiles/me', { ttlMs: 60_000 });
+    const second = await cachedGet('/profiles/me', { ttlMs: 60_000 });
+
+    expect(first.data).toEqual({ name: 'Maya' });
+    expect(second.data).toEqual({ name: 'Maya' });
+    expect(api.get).toHaveBeenCalledTimes(1);
   });
 });

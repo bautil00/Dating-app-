@@ -12,6 +12,7 @@ vi.mock('../services/api', () => ({
     getMe: vi.fn(),
     getGoogleUrl: vi.fn(),
   },
+  clearApiCache: vi.fn(),
 }));
 
 import Login from '../pages/Login';

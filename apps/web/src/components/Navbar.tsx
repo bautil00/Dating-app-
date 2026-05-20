@@ -1,6 +1,13 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { Bell, ChevronDown, Flame, LogOut, MessageCircle, Settings, User } from 'lucide-react';
+import {
+  authService,
+  clearApiCache,
+  matchService,
+  messageService,
+  profileService,
+} from '../services/api';
 
 type NavbarProps = {
   sparkCount?: number;
@@ -45,7 +52,28 @@ export default function Navbar({
   const signOut = () => {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
+    clearApiCache();
     navigate('/login');
+  };
+
+  const prefetchRoute = (href: string) => {
+    if (!localStorage.getItem('token')) return;
+    void authService.getMe().catch(() => undefined);
+
+    if (href === '/discover') {
+      void profileService.getMe().catch(() => undefined);
+      void profileService.getCandidates(20).catch(() => undefined);
+      void matchService.getAll().catch(() => undefined);
+    }
+    if (href === '/sparks') {
+      void matchService.getAll().catch(() => undefined);
+    }
+    if (href === '/messages') {
+      void messageService.getConversations().catch(() => undefined);
+    }
+    if (href === '/profile') {
+      void profileService.getMe().catch(() => undefined);
+    }
   };
 
   const totalNotifs = sparkCount + unreadCount;
@@ -69,6 +97,8 @@ export default function Navbar({
               <Link
                 key={href}
                 to={href}
+                onFocus={() => prefetchRoute(href)}
+                onMouseEnter={() => prefetchRoute(href)}
                 className={`relative px-4 py-5 text-sm font-semibold transition-colors ${
                   active ? 'text-orange-500' : 'text-gray-500 hover:text-gray-800'
                 }`}

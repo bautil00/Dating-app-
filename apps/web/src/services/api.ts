@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { type AxiosResponse } from 'axios';
 
 const API_URL = import.meta.env.VITE_API_URL
   ? `${import.meta.env.VITE_API_URL}/api/v1`
@@ -21,6 +21,120 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
+type CacheEntry<T = AxiosResponse['data']> = {
+  data: T;
+  expiresAt: number;
+  cachedAt: number;
+};
+
+type CacheOptions = {
+  ttlMs?: number;
+  persist?: boolean;
+};
+
+const CACHE_PREFIX = 'blowtorch-api-cache-v1';
+const DEFAULT_CACHE_TTL_MS = 30_000;
+const memoryCache = new Map<string, CacheEntry>();
+
+function tokenScope() {
+  const token = localStorage.getItem('token') || 'anonymous';
+  let hash = 0;
+  for (let index = 0; index < token.length; index += 1) {
+    hash = (hash * 31 + token.charCodeAt(index)) >>> 0;
+  }
+  return hash.toString(36);
+}
+
+function cacheKey(url: string) {
+  return `${CACHE_PREFIX}:${tokenScope()}:${url}`;
+}
+
+function responseFromCache<T>(url: string, entry: CacheEntry<T>): AxiosResponse<T> {
+  return {
+    data: entry.data,
+    status: 200,
+    statusText: 'OK',
+    headers: { 'x-blowtorch-cache': 'hit' },
+    config: { url },
+  } as unknown as AxiosResponse<T>;
+}
+
+function readSessionCache<T>(key: string): CacheEntry<T> | null {
+  try {
+    const raw = sessionStorage.getItem(key);
+    if (!raw) return null;
+    return JSON.parse(raw) as CacheEntry<T>;
+  } catch {
+    sessionStorage.removeItem(key);
+    return null;
+  }
+}
+
+function writeSessionCache(key: string, entry: CacheEntry) {
+  try {
+    sessionStorage.setItem(key, JSON.stringify(entry));
+  } catch {
+    // Browsers can deny or evict storage. The in-memory cache still helps route switches.
+  }
+}
+
+function deleteMatchingSessionCache(match: (key: string) => boolean) {
+  try {
+    Object.keys(sessionStorage)
+      .filter((key) => key.startsWith(CACHE_PREFIX) && match(key))
+      .forEach((key) => sessionStorage.removeItem(key));
+  } catch {
+    // Ignore storage access failures.
+  }
+}
+
+export function clearApiCache() {
+  memoryCache.clear();
+  deleteMatchingSessionCache(() => true);
+}
+
+export function invalidateApiCache(pattern?: string | RegExp) {
+  const matches = (key: string) => {
+    if (!pattern) return true;
+    if (typeof pattern === 'string') return key.includes(pattern);
+    return pattern.test(key);
+  };
+
+  Array.from(memoryCache.keys())
+    .filter(matches)
+    .forEach((key) => memoryCache.delete(key));
+  deleteMatchingSessionCache(matches);
+}
+
+export async function cachedGet<T = AxiosResponse['data']>(
+  url: string,
+  { ttlMs = DEFAULT_CACHE_TTL_MS, persist = true }: CacheOptions = {},
+) {
+  const key = cacheKey(url);
+  const now = Date.now();
+  const memoryEntry = memoryCache.get(key) as CacheEntry<T> | undefined;
+
+  if (memoryEntry && memoryEntry.expiresAt > now) {
+    return responseFromCache(url, memoryEntry);
+  }
+
+  const sessionEntry = persist ? readSessionCache<T>(key) : null;
+  if (sessionEntry && sessionEntry.expiresAt > now) {
+    memoryCache.set(key, sessionEntry);
+    return responseFromCache(url, sessionEntry);
+  }
+
+  const response = await api.get<T>(url);
+  const entry: CacheEntry<T> = {
+    data: response.data,
+    cachedAt: now,
+    expiresAt: now + ttlMs,
+  };
+  memoryCache.set(key, entry);
+  if (persist) writeSessionCache(key, entry);
+  return response;
+}
+
 export const authService = {
   register: (email: string, password: string) => api.post('/auth/register', { email, password }),
 
@@ -28,42 +142,75 @@ export const authService = {
 
   getGoogleUrl: () => api.get('/auth/google/url'),
 
-  getMe: () => api.get('/auth/me'),
+  getMe: () => cachedGet('/auth/me', { ttlMs: 30_000, persist: false }),
 };
 
 export const profileService = {
-  create: (data: Record<string, unknown>) => api.post('/profiles/', data),
+  create: async (data: Record<string, unknown>) => {
+    const response = await api.post('/profiles/', data);
+    invalidateApiCache(/profiles|candidates|matches/);
+    return response;
+  },
 
-  getMe: () => api.get('/profiles/me'),
+  getMe: () => cachedGet('/profiles/me', { ttlMs: 60_000 }),
 
-  update: (data: Record<string, unknown>) => api.patch('/profiles/me', data),
+  update: async (data: Record<string, unknown>) => {
+    const response = await api.patch('/profiles/me', data);
+    invalidateApiCache(/profiles|candidates|matches/);
+    return response;
+  },
 
-  getCandidates: (limit = 10) => api.get(`/profiles/candidates?limit=${limit}`),
+  getCandidates: (limit = 10) =>
+    cachedGet(`/profiles/candidates?limit=${limit}`, { ttlMs: 20_000 }),
 
-  getById: (id: string | number) => api.get(`/profiles/${id}`),
+  getById: (id: string | number) => cachedGet(`/profiles/${id}`, { ttlMs: 5 * 60_000 }),
 };
 
 export const matchService = {
-  like: (candidateId: string) => api.post('/matches/', { receiver_id: candidateId }),
+  like: async (candidateId: string) => {
+    const response = await api.post('/matches/', { receiver_id: candidateId });
+    invalidateApiCache(/matches|candidates|messages/);
+    return response;
+  },
 
-  create: (receiverId: string | number) => api.post('/matches/', { receiver_id: receiverId }),
+  create: async (receiverId: string | number) => {
+    const response = await api.post('/matches/', { receiver_id: receiverId });
+    invalidateApiCache(/matches|candidates|messages/);
+    return response;
+  },
 
-  getAll: () => api.get('/matches/'),
+  getAll: () => cachedGet('/matches/', { ttlMs: 15_000 }),
 
-  accept: (id: number) => api.patch(`/matches/${id}/accept`),
+  accept: async (id: number) => {
+    const response = await api.patch(`/matches/${id}/accept`);
+    invalidateApiCache(/matches|messages|conversations/);
+    return response;
+  },
 
-  reject: (id: number) => api.patch(`/matches/${id}/reject`),
+  reject: async (id: number) => {
+    const response = await api.patch(`/matches/${id}/reject`);
+    invalidateApiCache(/matches|messages|conversations/);
+    return response;
+  },
 };
 
 export const messageService = {
-  send: (receiverId: string | number, content: string) =>
-    api.post('/messages/', { receiver_id: receiverId, content }),
+  send: async (receiverId: string | number, content: string) => {
+    const response = await api.post('/messages/', { receiver_id: receiverId, content });
+    invalidateApiCache(/messages|conversations/);
+    return response;
+  },
 
-  getConversations: () => api.get('/messages/conversations'),
+  getConversations: () => cachedGet('/messages/conversations', { ttlMs: 10_000 }),
 
-  getConversation: (userId: string | number) => api.get(`/messages/conversations/${userId}`),
+  getConversation: (userId: string | number) =>
+    cachedGet(`/messages/conversations/${userId}`, { ttlMs: 5_000, persist: false }),
 
-  markRead: (messageId: number) => api.patch(`/messages/${messageId}/read`),
+  markRead: async (messageId: number) => {
+    const response = await api.patch(`/messages/${messageId}/read`);
+    invalidateApiCache(/messages|conversations/);
+    return response;
+  },
 };
 
 export const aiService = {

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Eye, EyeOff, Flame } from 'lucide-react';
-import { authService } from '../services/api';
+import { authService, clearApiCache } from '../services/api';
 import GoogleIcon from '../components/GoogleIcon';
 
 export default function Login() {
@@ -22,6 +22,7 @@ export default function Login() {
     try {
       const res = await authService.login(email, password);
       localStorage.setItem('token', res.data.access_token);
+      clearApiCache();
       window.location.href = '/discover';
     } catch (error: unknown) {
       const err = error as { response?: { data?: { detail?: string } } };

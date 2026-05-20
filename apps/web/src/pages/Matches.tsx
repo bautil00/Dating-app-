@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Flame, Heart, MessageCircle, MoreHorizontal, ShieldOff, Star, UserX } from 'lucide-react';
-import api from '../services/api';
+import { authService, matchService } from '../services/api';
 import Navbar from '../components/Navbar';
 import {
   profileAge,
@@ -41,8 +41,8 @@ export default function Matches() {
     setLoading(true);
     try {
       const [matchesRes, userRes] = await Promise.all([
-        api.get('/matches/'),
-        api.get('/auth/me').catch(() => ({ data: null })),
+        matchService.getAll(),
+        authService.getMe().catch(() => ({ data: null })),
       ]);
       setMatches(matchesRes.data || []);
       setCurrentUserId(String(userRes.data?.id || ''));
@@ -55,7 +55,7 @@ export default function Matches() {
 
   const handleAccept = async (matchId: number) => {
     try {
-      await api.patch(`/matches/${matchId}/accept`);
+      await matchService.accept(matchId);
       setMatches((prev) => prev.map((m) => (m.id === matchId ? { ...m, status: 'accepted' } : m)));
     } catch (err) {
       console.error('Failed to accept:', err);
@@ -64,7 +64,7 @@ export default function Matches() {
 
   const handleReject = async (matchId: number) => {
     try {
-      await api.patch(`/matches/${matchId}/reject`);
+      await matchService.reject(matchId);
       setMatches((prev) => prev.filter((m) => m.id !== matchId));
     } catch (err) {
       console.error('Failed to reject:', err);

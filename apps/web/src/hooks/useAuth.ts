@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { authService } from '../services/api';
+import { authService, clearApiCache } from '../services/api';
 
 export function useAuth() {
   const [user, setUser] = useState<Record<string, unknown> | null>(null);
@@ -32,6 +32,7 @@ export function useAuth() {
   const login = async (email: string, password: string) => {
     const res = await authService.login(email, password);
     localStorage.setItem('token', res.data.access_token);
+    clearApiCache();
     const userRes = await authService.getMe();
     setUser(userRes.data);
     return res.data;
@@ -44,6 +45,7 @@ export function useAuth() {
 
   const logout = () => {
     localStorage.removeItem('token');
+    clearApiCache();
     setUser(null);
   };
 

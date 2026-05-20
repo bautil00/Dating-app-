@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { BadgeCheck, ChevronRight, Flame, Heart, MessageCircle, Users, X } from 'lucide-react';
-import api from '../services/api';
+import { authService, matchService, profileService } from '../services/api';
 import Navbar from '../components/Navbar';
 import {
   profileAge,
@@ -43,16 +43,16 @@ export default function Dashboard() {
     setLoading(true);
     try {
       const [userRes, profileRes] = await Promise.all([
-        api.get('/auth/me'),
-        api.get('/profiles/me').catch(() => ({ data: null })),
+        authService.getMe(),
+        profileService.getMe().catch(() => ({ data: null })),
       ]);
       setUser(userRes.data);
       setProfile(profileRes.data);
 
       if (profileRes.data && profileRes.data.is_complete !== false) {
         const [candidatesRes, matchesRes] = await Promise.all([
-          api.get('/profiles/candidates?limit=20'),
-          api.get('/matches/').catch(() => ({ data: [] })),
+          profileService.getCandidates(20),
+          matchService.getAll().catch(() => ({ data: [] })),
         ]);
         setCandidates(candidatesRes.data || []);
         setMatches(matchesRes.data || []);
@@ -96,7 +96,7 @@ export default function Dashboard() {
     if (!candidateId) return;
 
     try {
-      const result = await api.post('/matches/', { receiver_id: candidateId });
+      const result = await matchService.create(candidateId);
       setMatches((prev) => [result.data, ...prev.filter((match) => match.id !== result.data.id)]);
       setToast(result.data?.matched ? "It's a spark. You can message them now." : 'Ignite sent.');
       window.setTimeout(() => setToast(''), 2400);

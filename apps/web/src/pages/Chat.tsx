@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Flame, Lightbulb, Send, Smile } from 'lucide-react';
-import api from '../services/api';
+import { aiService, authService, messageService, profileService } from '../services/api';
 import Navbar from '../components/Navbar';
 import { profileAge, profileInterests, profileName } from '../lib/profile';
 
@@ -42,9 +42,9 @@ export default function Chat() {
     setLoading(true);
     try {
       const [messagesRes, profileRes, userRes] = await Promise.all([
-        api.get(`/messages/conversations/${userId}`),
-        api.get(`/profiles/${userId}`).catch(() => ({ data: null })),
-        api.get('/auth/me').catch(() => ({ data: null })),
+        messageService.getConversation(userId),
+        profileService.getById(userId).catch(() => ({ data: null })),
+        authService.getMe().catch(() => ({ data: null })),
       ]);
       setMessages(messagesRes.data || []);
       setProfile(profileRes.data);
@@ -62,10 +62,7 @@ export default function Chat() {
 
     setSending(true);
     try {
-      const res = await api.post('/messages/', {
-        receiver_id: userId,
-        content: newMessage.trim(),
-      });
+      const res = await messageService.send(userId, newMessage.trim());
       setMessages((prev) => [...prev, res.data]);
       setNewMessage('');
     } catch (err) {
@@ -78,7 +75,7 @@ export default function Chat() {
   const handleIcebreaker = async () => {
     if (!userId) return;
     try {
-      const res = await api.get(`/ai/icebreaker/${userId}`);
+      const res = await aiService.getIcebreaker(userId);
       setIcebreaker(res.data.icebreaker || res.data.message || '');
     } catch (err) {
       console.error('Failed to get icebreaker:', err);
