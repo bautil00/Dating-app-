@@ -10,6 +10,7 @@ import {
   profileInterests,
   profileLocation,
   profileName,
+  profilePhoto,
   profileUserId,
 } from '../lib/profile';
 
@@ -210,14 +211,12 @@ function DiscoverCard({
     `${name} shares signals that line up with your dating preferences and interests.`;
   const interests = profileInterests(profile);
   const location = profileLocation(profile);
-  const initial = name.charAt(0).toUpperCase();
+  const photo = profilePhoto(profile, name);
 
   return (
     <div className="relative">
-      <div className="relative h-[560px] w-[min(480px,calc(100vw-3rem))] overflow-hidden rounded-3xl bg-gradient-to-br from-orange-400 via-rose-500 to-gray-950 shadow-2xl">
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-[160px] font-black text-white/20">{initial}</span>
-        </div>
+      <div className="relative h-[560px] w-[min(480px,calc(100vw-3rem))] overflow-hidden rounded-3xl shadow-2xl">
+        <img src={photo} alt={name} className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute right-5 top-5 z-10 flex h-[76px] w-[76px] flex-col items-center justify-center rounded-full bg-gradient-to-br from-[#FF7A18] to-[#FF3D2E] shadow-xl">
           <span className="text-[22px] font-black leading-none text-white">{score}%</span>
           <span className="mt-0.5 text-[11px] font-semibold text-white/90">Spark</span>
@@ -332,9 +331,9 @@ function EmptyState() {
       <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-[#FF7A18] to-[#FF3D2E] shadow-xl">
         <Flame className="h-10 w-10 text-white" fill="white" />
       </div>
-      <h2 className="mb-2 text-2xl font-bold text-gray-900">All caught up</h2>
+      <h2 className="mb-2 text-2xl font-bold text-gray-900">All caught up!</h2>
       <p className="max-w-xs text-sm text-gray-500">
-        You have seen all available matches. Check back when more complete profiles are available.
+        You&apos;ve seen all your matches for today. Check back tomorrow.
       </p>
     </div>
   );

@@ -45,3 +45,18 @@ export function profileCompatibility(profile: ProfileLike) {
 export function shortUserId(userId: string) {
   return userId ? userId.slice(0, 8) : 'unknown';
 }
+
+export function profilePhoto(profile: ProfileLike, fallbackSeed = 'avatar') {
+  const direct =
+    profile?.photo ||
+    profile?.photo_url ||
+    profile?.profile_image_url ||
+    profile?.avatar_url ||
+    profile?.image_url;
+  if (direct) return String(direct);
+
+  const seed = encodeURIComponent(
+    String(profile?.user_id || profile?.id || profile?.Name || profile?.name || fallbackSeed),
+  );
+  return `https://picsum.photos/seed/${seed}/480/600`;
+}

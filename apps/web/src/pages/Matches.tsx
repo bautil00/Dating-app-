@@ -8,6 +8,7 @@ import {
   profileCompatibility,
   profileInterests,
   profileName,
+  profilePhoto,
   shortUserId,
 } from '../lib/profile';
 
@@ -216,6 +217,7 @@ export default function Matches() {
                   age={profileAge(profile)}
                   interests={profileInterests(profile)}
                   score={matchScore(match, profile)}
+                  photo={profilePhoto(profile, otherId)}
                   otherUserId={otherId}
                   isNew={newMatches.some((item) => item.id === match.id)}
                   onUnmatch={() => setConfirm({ type: 'unmatch', matchId: match.id, name })}
@@ -310,6 +312,7 @@ function MatchCard({
   age,
   interests,
   score,
+  photo,
   otherUserId,
   isNew,
   onUnmatch,
@@ -320,6 +323,7 @@ function MatchCard({
   age: string;
   interests: string[];
   score: number;
+  photo: string;
   otherUserId: string;
   isNew: boolean;
   onUnmatch: () => void;
@@ -343,10 +347,11 @@ function MatchCard({
         <div className="absolute inset-0 flex items-center justify-center">
           <span className="text-8xl font-black text-white/20">{initial}</span>
         </div>
+        <img src={photo} alt={name} className="absolute inset-0 h-full w-full object-cover" />
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
         {isNew && (
           <div className="absolute left-3 top-3 rounded-full bg-orange-500 px-2.5 py-1 text-xs font-bold text-white">
-            NEW
+            NEW ✨
           </div>
         )}
         <div className="absolute right-3 top-3 flex h-12 w-12 flex-col items-center justify-center rounded-full bg-gradient-to-br from-[#FF7A18] to-[#FF3D2E] shadow-lg">

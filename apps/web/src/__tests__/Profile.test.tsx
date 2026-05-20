@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 
 const mockApi = vi.hoisted(() => ({
@@ -39,24 +40,29 @@ describe('Profile Page', () => {
         <Profile />
       </MemoryRouter>,
     );
-    expect(screen.getAllByText('Basic Info').length).toBeGreaterThan(0);
     expect(screen.getAllByText('About You').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Identity').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Lifestyle').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Preferences').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Personality').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Appearance').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Socials').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Account').length).toBeGreaterThan(0);
   });
 
-  it('renders gender dropdown with correct enum values', () => {
-    const { container } = render(
+  it('renders gender dropdown with correct enum values', async () => {
+    render(
       <MemoryRouter>
         <Profile />
       </MemoryRouter>,
     );
-    const select = container.querySelector('select[name="gender"]');
-    expect(select).not.toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: /identity/i }));
+    await userEvent.click(screen.getByRole('button', { name: /edit/i }));
     expect(screen.getAllByText('Male').length).toBeGreaterThan(0);
     expect(screen.getAllByText('Female').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Non-Binary').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Mtf').length).toBeGreaterThan(0);
-    expect(screen.getAllByText('Ftm').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('Non-binary').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('MTF').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('FTM').length).toBeGreaterThan(0);
   });
 
   it('renders multi-select interests', () => {
@@ -70,36 +76,37 @@ describe('Profile Page', () => {
     expect(screen.getByText('Programming')).toBeInTheDocument();
   });
 
-  it('renders schedule and lifestyle fields', () => {
+  it('renders schedule and lifestyle fields', async () => {
     render(
       <MemoryRouter>
         <Profile />
       </MemoryRouter>,
     );
-    expect(screen.getAllByText('Schedule').length).toBeGreaterThan(0);
-    expect(screen.getByText('Available Days')).toBeInTheDocument();
-    expect(screen.getByText('Available Time Windows')).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /lifestyle/i }));
+    expect(screen.getByText('Availability')).toBeInTheDocument();
+    expect(screen.getByText('Time Availability')).toBeInTheDocument();
     expect(screen.getByText('Has Pets')).toBeInTheDocument();
   });
 
   it('renders job dropdown', () => {
-    const { container } = render(
+    render(
       <MemoryRouter>
         <Profile />
       </MemoryRouter>,
     );
-    const select = container.querySelector('select[name="job"]');
-    expect(select).not.toBeNull();
     expect(screen.getByText('Programmer')).toBeInTheDocument();
   });
 
-  it('renders zodiac dropdown', () => {
-    const { container } = render(
+  it('renders zodiac dropdown', async () => {
+    render(
       <MemoryRouter>
         <Profile />
       </MemoryRouter>,
     );
-    expect(container.querySelector('select[name="zodiac"]')).not.toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: /personality/i }));
+    await userEvent.click(screen.getByRole('button', { name: /edit/i }));
+    expect(screen.getByText('Zodiac')).toBeInTheDocument();
+    expect(screen.getByText('Leo')).toBeInTheDocument();
   });
 
   it('renders save button', () => {
@@ -108,7 +115,7 @@ describe('Profile Page', () => {
         <Profile />
       </MemoryRouter>,
     );
-    expect(screen.getByText('Save Profile')).toBeInTheDocument();
+    expect(screen.getByText('Save')).toBeInTheDocument();
   });
 
   it('redirects to login if no token', () => {

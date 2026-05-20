@@ -1,9 +1,19 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Flame, Search, Send, ShieldOff, Smile, UserX } from 'lucide-react';
+import {
+  Flame,
+  MoreHorizontal,
+  Phone,
+  Search,
+  Send,
+  ShieldOff,
+  Smile,
+  UserX,
+  Video,
+} from 'lucide-react';
 import { authService, messageService, profileService } from '../services/api';
 import Navbar from '../components/Navbar';
-import { profileAge, profileInterests, profileName, shortUserId } from '../lib/profile';
+import { profileAge, profileName, profilePhoto, shortUserId } from '../lib/profile';
 
 type Conversation = {
   user_id: string;
@@ -40,10 +50,12 @@ export default function Messages() {
   const [input, setInput] = useState('');
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [emojiTab, setEmojiTab] = useState(0);
+  const [moreOpen, setMoreOpen] = useState(false);
   const [toast, setToast] = useState('');
   const [confirm, setConfirm] = useState<{ type: 'unmatch' | 'block'; name: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const emojiRef = useRef<HTMLDivElement>(null);
+  const moreRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
@@ -59,6 +71,7 @@ export default function Messages() {
   useEffect(() => {
     const closeEmoji = (event: MouseEvent) => {
       if (emojiRef.current && !emojiRef.current.contains(event.target as Node)) setEmojiOpen(false);
+      if (moreRef.current && !moreRef.current.contains(event.target as Node)) setMoreOpen(false);
     };
     document.addEventListener('mousedown', closeEmoji);
     return () => document.removeEventListener('mousedown', closeEmoji);
@@ -182,7 +195,10 @@ export default function Messages() {
                     active?.user_id === conversation.user_id ? 'bg-orange-50' : 'hover:bg-gray-50'
                   }`}
                 >
-                  <Avatar name={profileName(conversation.profile, conversation.user_id)} />
+                  <Avatar
+                    name={profileName(conversation.profile, conversation.user_id)}
+                    photo={profilePhoto(conversation.profile, conversation.user_id)}
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="mb-0.5 flex items-center justify-between">
                       <p
@@ -221,44 +237,82 @@ export default function Messages() {
             <div className="flex min-w-0 flex-1 flex-col">
               <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
                 <div className="flex items-center gap-3">
-                  <Avatar name={profileName(active.profile, active.user_id)} size="sm" />
+                  <Avatar
+                    name={profileName(active.profile, active.user_id)}
+                    photo={profilePhoto(active.profile, active.user_id)}
+                    size="sm"
+                    online
+                  />
                   <div>
                     <h1 className="text-sm font-bold text-gray-900">
                       {profileName(active.profile, `User ${shortUserId(active.user_id)}`)}
                       {profileAge(active.profile) ? `, ${profileAge(active.profile)}` : ''}
                     </h1>
-                    <p className="text-xs text-gray-400">
-                      {profileInterests(active.profile).slice(0, 3).join(', ') || 'Ready to chat'}
-                    </p>
+                    <p className="text-xs text-gray-400">Online now</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
                   <button
                     type="button"
-                    onClick={() =>
-                      setConfirm({
-                        type: 'unmatch',
-                        name: profileName(active.profile, active.user_id),
-                      })
-                    }
-                    className="rounded-xl p-2 text-gray-400 transition-all hover:bg-gray-50 hover:text-orange-500"
-                    aria-label="Unmatch"
+                    className="rounded-xl p-2 text-gray-400 transition-all hover:bg-gray-50 hover:text-gray-700"
+                    aria-label="Call"
                   >
-                    <UserX className="h-4 w-4" />
+                    <Phone className="h-4 w-4" />
                   </button>
                   <button
                     type="button"
-                    onClick={() =>
-                      setConfirm({
-                        type: 'block',
-                        name: profileName(active.profile, active.user_id),
-                      })
-                    }
-                    className="rounded-xl p-2 text-gray-400 transition-all hover:bg-gray-50 hover:text-red-500"
-                    aria-label="Hide conversation"
+                    className="rounded-xl p-2 text-gray-400 transition-all hover:bg-gray-50 hover:text-gray-700"
+                    aria-label="Video call"
                   >
-                    <ShieldOff className="h-4 w-4" />
+                    <Video className="h-4 w-4" />
                   </button>
+                  <div ref={moreRef} className="relative">
+                    <button
+                      type="button"
+                      onClick={() => setMoreOpen((open) => !open)}
+                      className={`rounded-xl p-2 transition-all ${
+                        moreOpen
+                          ? 'bg-gray-100 text-gray-700'
+                          : 'text-gray-400 hover:bg-gray-50 hover:text-gray-700'
+                      }`}
+                      aria-label="Conversation actions"
+                    >
+                      <MoreHorizontal className="h-4 w-4" />
+                    </button>
+
+                    {moreOpen && (
+                      <div className="absolute right-0 top-full z-30 mt-2 w-44 rounded-xl border border-gray-100 bg-white py-1 shadow-xl">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMoreOpen(false);
+                            setConfirm({
+                              type: 'unmatch',
+                              name: profileName(active.profile, active.user_id),
+                            });
+                          }}
+                          className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-orange-600 transition-colors hover:bg-orange-50"
+                        >
+                          <UserX className="h-4 w-4" />
+                          Unmatch
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setMoreOpen(false);
+                            setConfirm({
+                              type: 'block',
+                              name: profileName(active.profile, active.user_id),
+                            });
+                          }}
+                          className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-red-600 transition-colors hover:bg-red-50"
+                        >
+                          <ShieldOff className="h-4 w-4" />
+                          Block
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -279,7 +333,11 @@ export default function Messages() {
                         className={`flex ${sent ? 'justify-end' : 'justify-start'}`}
                       >
                         {!sent && (
-                          <Avatar name={profileName(active.profile, active.user_id)} size="xs" />
+                          <Avatar
+                            name={profileName(active.profile, active.user_id)}
+                            photo={profilePhoto(active.profile, active.user_id)}
+                            size="xs"
+                          />
                         )}
                         <div className="max-w-xs lg:max-w-sm">
                           <div
@@ -435,7 +493,17 @@ export default function Messages() {
   );
 }
 
-function Avatar({ name, size = 'md' }: { name: string; size?: 'xs' | 'sm' | 'md' }) {
+function Avatar({
+  name,
+  photo,
+  size = 'md',
+  online = false,
+}: {
+  name: string;
+  photo: string;
+  size?: 'xs' | 'sm' | 'md';
+  online?: boolean;
+}) {
   const className =
     size === 'xs'
       ? 'mr-2 mt-1 h-7 w-7 text-xs'
@@ -443,10 +511,23 @@ function Avatar({ name, size = 'md' }: { name: string; size?: 'xs' | 'sm' | 'md'
         ? 'h-10 w-10 text-sm'
         : 'h-12 w-12 text-base';
   return (
-    <div
-      className={`${className} flex flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-orange-600 font-bold text-white`}
-    >
-      {name.charAt(0).toUpperCase() || 'B'}
+    <div className="relative flex-shrink-0">
+      <div
+        className={`${className} flex items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-orange-400 to-orange-600 font-bold text-white`}
+      >
+        <span className="absolute">{name.charAt(0).toUpperCase() || 'B'}</span>
+        <img
+          src={photo}
+          alt={name}
+          className="relative h-full w-full object-cover"
+          onError={(event) => {
+            event.currentTarget.style.display = 'none';
+          }}
+        />
+      </div>
+      {online && (
+        <span className="absolute bottom-0 right-0 h-2.5 w-2.5 rounded-full border-2 border-white bg-green-400" />
+      )}
     </div>
   );
 }

@@ -78,6 +78,7 @@ export default function Navbar({
 
   const totalNotifs = sparkCount + unreadCount;
   const initial = profileName.trim().charAt(0).toUpperCase() || 'B';
+  const avatarSrc = `https://picsum.photos/seed/${encodeURIComponent(profileEmail || profileName || 'avatar')}/40/40`;
 
   return (
     <nav className="sticky top-0 z-50 border-b border-gray-100 bg-white shadow-sm">
@@ -87,7 +88,7 @@ export default function Navbar({
           <span className="text-lg font-extrabold tracking-tight text-gray-900">Blowtorch</span>
         </Link>
 
-        <div className="hidden items-center gap-1 md:flex">
+        <div className="flex items-center gap-1">
           {navLinks.map(({ href, label }) => {
             const active =
               location.pathname === href ||
@@ -139,10 +140,13 @@ export default function Navbar({
             </button>
             {bellOpen && (
               <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-xl">
-                <div className="border-b border-gray-100 px-4 py-3">
+                <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
                   <h3 className="text-sm font-bold text-gray-900">Notifications</h3>
+                  <span className="cursor-pointer text-xs font-semibold text-orange-500 hover:text-orange-600">
+                    Mark all read
+                  </span>
                 </div>
-                <div className="divide-y divide-gray-50">
+                <div className="max-h-72 divide-y divide-gray-50 overflow-y-auto">
                   <Link
                     to="/sparks"
                     onClick={() => setBellOpen(false)}
@@ -170,6 +174,15 @@ export default function Navbar({
                     </div>
                   </Link>
                 </div>
+                <div className="border-t border-gray-100 px-4 py-2.5">
+                  <Link
+                    to="/sparks"
+                    onClick={() => setBellOpen(false)}
+                    className="text-xs font-semibold text-orange-500 hover:text-orange-600"
+                  >
+                    View all notifications →
+                  </Link>
+                </div>
               </div>
             )}
           </div>
@@ -184,8 +197,16 @@ export default function Navbar({
               className="group flex items-center gap-1.5 rounded-full focus:outline-none"
               aria-label="Profile menu"
             >
-              <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-orange-400 to-orange-600 font-bold text-white ring-2 ring-orange-200 transition-all group-hover:ring-orange-400">
-                {initial}
+              <div className="relative flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-orange-400 to-orange-600 font-bold text-white ring-2 ring-orange-200 transition-all group-hover:ring-orange-400">
+                <span className="absolute inset-0 flex items-center justify-center">{initial}</span>
+                <img
+                  src={avatarSrc}
+                  alt="Avatar"
+                  className="relative h-full w-full object-cover"
+                  onError={(event) => {
+                    event.currentTarget.style.display = 'none';
+                  }}
+                />
               </div>
               <ChevronDown
                 className={`h-3.5 w-3.5 text-gray-400 transition-transform duration-200 ${
