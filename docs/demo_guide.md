@@ -282,7 +282,7 @@ Expected result:
 - `user_data` owns dating profile fields.
 - `matches` owns like/match state.
 - `messages` owns chat history.
-- Availability and schedule fields exist in the backend/database, but the current frontend does not expose full schedule controls yet.
+- Availability, time availability, interests, MBTI, languages, and lifestyle fields are editable on the profile page and feed compatibility scoring.
 
 ### Deployment Explanation
 
@@ -375,7 +375,6 @@ Fastest successful path:
 ## Current Limitations To State Honestly
 
 - Profile image upload is not implemented yet; cards use generated initials/gradients.
-- Full frontend schedule/timetable controls are not exposed yet, although backend/database fields for availability exist.
 - Blocking/hiding from the UI is not a full moderation system.
 - Google OAuth requires provider configuration in Supabase/Google Cloud.
 - This is a class MVP, not a production dating service with moderation, safety review, or real identity verification.

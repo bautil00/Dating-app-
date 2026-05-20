@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 from src.config import Settings
 from src.main import (
+    build_profile_extra_patch_payload,
     build_profile_rest_payload,
     build_profile_rpc_payload,
     get_match_compatibility_score,
@@ -254,6 +255,29 @@ class TestBuildProfileRpcPayload:
             {"time_availability": ["7-9 PM", "11pm-1am"]}, "u1"
         )
         assert result["time_availability"] == ["7-9pm", "11pm-1am"]
+
+    def test_extra_patch_payload_preserves_scoring_fields(self):
+        result = build_profile_extra_patch_payload(
+            {
+                "bio": "hello",
+                "mbti": "INFP",
+                "languages": ["English", "Spanish"],
+                "availability": ["Monday", "Friday"],
+                "time_availability": ["7-9 PM"],
+                "kids": "no",
+                "pets": "yes",
+                "drives": "true",
+            }
+        )
+
+        assert result["bio"] == "hello"
+        assert result["mbti"] == "infp"
+        assert result["languages"] == ["English", "Spanish"]
+        assert result["availability"] == ["mon", "fri"]
+        assert result["time_availability"] == ["7-9pm"]
+        assert result["kids"] is False
+        assert result["pets"] is True
+        assert result["drives"] is True
 
 
 class TestSettings:

@@ -59,17 +59,27 @@ describe('Profile Page', () => {
     expect(screen.getAllByText('Ftm').length).toBeGreaterThan(0);
   });
 
-  it('renders interests dropdown', () => {
-    const { container } = render(
+  it('renders multi-select interests', () => {
+    render(
       <MemoryRouter>
         <Profile />
       </MemoryRouter>,
     );
-    const select = container.querySelector('select[name="interests"]');
-    expect(select).not.toBeNull();
     expect(screen.getByText('Music')).toBeInTheDocument();
     expect(screen.getByText('Gaming')).toBeInTheDocument();
     expect(screen.getByText('Programming')).toBeInTheDocument();
+  });
+
+  it('renders schedule and lifestyle fields', () => {
+    render(
+      <MemoryRouter>
+        <Profile />
+      </MemoryRouter>,
+    );
+    expect(screen.getAllByText('Schedule').length).toBeGreaterThan(0);
+    expect(screen.getByText('Available Days')).toBeInTheDocument();
+    expect(screen.getByText('Available Time Windows')).toBeInTheDocument();
+    expect(screen.getByText('Has Pets')).toBeInTheDocument();
   });
 
   it('renders job dropdown', () => {

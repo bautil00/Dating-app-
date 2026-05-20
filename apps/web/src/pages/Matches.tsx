@@ -17,6 +17,7 @@ type MatchRecord = {
   receiver_id: string;
   status: string;
   created_at: string;
+  compatibility_score?: number | string | null;
   sender_profile?: Record<string, unknown> | null;
   receiver_profile?: Record<string, unknown> | null;
   other_profile?: Record<string, unknown> | null;
@@ -149,6 +150,12 @@ export default function Matches() {
           </div>
         </div>
 
+        <div className="mb-6 grid gap-3 md:grid-cols-3">
+          <StatusPill label="Mutual Sparks" value={accepted.length} tone="orange" />
+          <StatusPill label="They Ignited You" value={pendingIncoming.length} tone="rose" />
+          <StatusPill label="Awaiting Response" value={pendingOutgoing.length} tone="gray" />
+        </div>
+
         {pendingIncoming.length > 0 && (
           <section className="mb-8 rounded-2xl border border-orange-100 bg-white p-5 shadow-sm">
             <h2 className="mb-4 text-sm font-bold uppercase tracking-wide text-gray-500">
@@ -191,7 +198,10 @@ export default function Matches() {
         )}
 
         {visibleMatches.length === 0 ? (
-          <EmptyState />
+          <EmptyState
+            pendingOutgoing={pendingOutgoing.length}
+            pendingIncoming={pendingIncoming.length}
+          />
         ) : (
           <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
             {visibleMatches.map((match) => {
@@ -205,7 +215,7 @@ export default function Matches() {
                   name={name}
                   age={profileAge(profile)}
                   interests={profileInterests(profile)}
-                  score={profileCompatibility(profile) ?? 76}
+                  score={matchScore(match, profile)}
                   otherUserId={otherId}
                   isNew={newMatches.some((item) => item.id === match.id)}
                   onUnmatch={() => setConfirm({ type: 'unmatch', matchId: match.id, name })}
@@ -415,16 +425,48 @@ function MatchCard({
   );
 }
 
-function EmptyState() {
+function StatusPill({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone: 'orange' | 'rose' | 'gray';
+}) {
+  const classes = {
+    orange: 'border-orange-100 bg-orange-50 text-orange-600',
+    rose: 'border-rose-100 bg-rose-50 text-rose-600',
+    gray: 'border-gray-100 bg-white text-gray-600',
+  };
+  return (
+    <div className={`rounded-2xl border p-4 shadow-sm ${classes[tone]}`}>
+      <p className="text-2xl font-black">{value}</p>
+      <p className="mt-0.5 text-xs font-bold uppercase tracking-wide">{label}</p>
+    </div>
+  );
+}
+
+function EmptyState({
+  pendingOutgoing,
+  pendingIncoming,
+}: {
+  pendingOutgoing: number;
+  pendingIncoming: number;
+}) {
+  const detail =
+    pendingIncoming > 0
+      ? 'You have incoming requests above. Accept one to create a mutual spark.'
+      : pendingOutgoing > 0
+        ? 'Your ignites are listed below as awaiting response. They become mutual sparks after the other person accepts or likes back.'
+        : 'Keep discovering people. Mutual likes will show up here.';
   return (
     <div className="flex flex-col items-center justify-center py-32 text-center">
       <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-[#FF7A18] to-[#FF3D2E] shadow-xl">
         <Heart className="h-10 w-10 text-white" fill="white" />
       </div>
       <h2 className="mb-2 text-2xl font-bold text-gray-900">No sparks yet</h2>
-      <p className="mb-6 max-w-xs text-sm text-gray-500">
-        Keep discovering people. Mutual likes will show up here.
-      </p>
+      <p className="mb-6 max-w-xs text-sm text-gray-500">{detail}</p>
       <Link
         to="/discover"
         className="rounded-2xl px-6 py-3 text-sm font-semibold text-white btn-ignite"
@@ -448,4 +490,11 @@ function otherProfile(match: MatchRecord, currentUserId: string) {
       ? match.sender_profile
       : match.receiver_profile)
   );
+}
+
+function matchScore(match: MatchRecord, profile: Record<string, unknown> | null | undefined) {
+  const ownScore = Number(match.compatibility_score);
+  if (Number.isFinite(ownScore))
+    return ownScore > 1 ? Math.round(ownScore) : Math.round(ownScore * 100);
+  return profileCompatibility(profile) ?? 76;
 }

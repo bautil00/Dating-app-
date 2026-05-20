@@ -49,9 +49,25 @@ Body: {
   "age": 25,
   "gender": "string",
   "location": "string",
-  "profile_image_url": "string",
-  "interests": "string (comma-separated)",
-  "personality_type": "string (optional)"
+  "height": 68,
+  "weight": 150,
+  "interests": ["music", "programming"],
+  "job": "programmer",
+  "education": "bachelors",
+  "relationship_status": "single",
+  "living_status": "alone",
+  "sexual_pref": "straight",
+  "pronouns": "she her",
+  "zodiac": "leo",
+  "mbti": "infp",
+  "languages": ["english", "spanish"],
+  "availability": ["mon", "wed", "fri"],
+  "time_availability": ["7-9pm"],
+  "kids": false,
+  "pets": true,
+  "drives": true,
+  "seeking_gender": "everyone",
+  "max_distance_km": 50
 }
 Response: ProfileResponse
 ```

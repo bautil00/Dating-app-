@@ -122,9 +122,9 @@ React (Vercel) → FastAPI (Vercel) → Supabase PostgreSQL
 - [x] Chat between matches
 - [x] AI icebreaker generation
 - [x] AI compatibility scoring
+- [x] Profile preferences, multi-interest selection, and schedule availability controls
 
 ### Planned (v1.0)
-- [ ] Add frontend timetable/schedule controls for `availability` and `time_availability`
 - [ ] Profile image upload
 - [ ] Real-time notifications
 - [ ] User blocking/reporting

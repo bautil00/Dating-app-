@@ -71,6 +71,25 @@ def _coerce_int(value):
         return None
 
 
+def _coerce_bool(value):
+    if value in (None, ""):
+        return None
+    if isinstance(value, bool):
+        return value
+    normalized = str(value).strip().lower()
+    if normalized in {"true", "yes", "1", "on"}:
+        return True
+    if normalized in {"false", "no", "0", "off"}:
+        return False
+    return None
+
+
+def _text_value(value):
+    if value in (None, ""):
+        return None
+    return str(value).strip()
+
+
 _ENUM_VALUE_OVERRIDES = {
     "books_reading": "books reading",
     "he_him": "he him",
@@ -129,6 +148,11 @@ def _array_values(value):
     if isinstance(value, list):
         return value
     return str(value).split(",")
+
+
+def _text_array(value):
+    values = [str(v).strip() for v in _array_values(value)]
+    return [v for v in values if v]
 
 
 def _enum_array(value):
@@ -305,6 +329,27 @@ def build_profile_rpc_payload(profile_data: dict, user_id: str) -> dict:
     return _compact_dict(payload)
 
 
+def build_profile_extra_patch_payload(profile_data: dict) -> dict:
+    """Fields outside the historical create_user_profile RPC contract."""
+    payload = {
+        "bio": _text_value(profile_data.get("bio")),
+        "height": _coerce_float(profile_data.get("height")),
+        "weight": _coerce_float(profile_data.get("weight")),
+        "kids": _coerce_bool(profile_data.get("kids")),
+        "pets": _coerce_bool(profile_data.get("pets")),
+        "drives": _coerce_bool(profile_data.get("drives")),
+        "mbti": _enum_value(
+            profile_data.get("mbti") or profile_data.get("personality_type")
+        ),
+        "languages": _text_array(profile_data.get("languages")),
+        "socials": _text_array(profile_data.get("socials")),
+        "body_modification": _text_array(profile_data.get("body_modification")),
+        "availability": _availability_array(profile_data) or [],
+        "time_availability": _time_availability_array(profile_data) or [],
+    }
+    return {k: v for k, v in payload.items() if v is not None}
+
+
 def build_profile_rest_payload(profile_data: dict, user_id: str) -> dict:
     """Direct table payload for local/mocked clients; production uses create_user_profile RPC."""
     payload = {
@@ -312,6 +357,9 @@ def build_profile_rest_payload(profile_data: dict, user_id: str) -> dict:
         "name": profile_data.get("display_name") or profile_data.get("name"),
         "age": _coerce_int(profile_data.get("age")),
         "location": _coerce_float(profile_data.get("location")),
+        "bio": _text_value(profile_data.get("bio")),
+        "height": _coerce_float(profile_data.get("height")),
+        "weight": _coerce_float(profile_data.get("weight")),
         "interests": _enum_array(profile_data.get("interests")),
         "availability": _availability_array(profile_data),
         "time_availability": _time_availability_array(profile_data),
@@ -327,6 +375,15 @@ def build_profile_rest_payload(profile_data: dict, user_id: str) -> dict:
         "living": _enum_value(
             profile_data.get("living_status") or profile_data.get("living")
         ),
+        "kids": _coerce_bool(profile_data.get("kids")),
+        "pets": _coerce_bool(profile_data.get("pets")),
+        "drives": _coerce_bool(profile_data.get("drives")),
+        "mbti": _enum_value(
+            profile_data.get("mbti") or profile_data.get("personality_type")
+        ),
+        "languages": _text_array(profile_data.get("languages")),
+        "socials": _text_array(profile_data.get("socials")),
+        "body_modification": _text_array(profile_data.get("body_modification")),
         "seeking_gender": profile_data.get("seeking_gender", "everyone"),
         "max_distance_km": _coerce_int(profile_data.get("max_distance_km")) or 50,
         "is_complete": True,
@@ -657,10 +714,10 @@ def create_profile(profile_data: dict, authorization: str = Header(None)):
                 headers=supabase_headers(settings, token, content_type=True),
             )
             if not response_failed(result):
-                patch_payload: dict[str, Any] = {"is_complete": True}
-                time_availability = _time_availability_array(profile_data)
-                if time_availability:
-                    patch_payload["time_availability"] = time_availability
+                patch_payload: dict[str, Any] = {
+                    **build_profile_extra_patch_payload(profile_data),
+                    "is_complete": True,
+                }
                 client.patch(
                     f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
                     params={"user_id": f"eq.{user_id}"},
