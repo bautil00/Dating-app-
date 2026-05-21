@@ -256,11 +256,16 @@ class TestBuildProfileRpcPayload:
         )
         assert result["time_availability"] == ["7-9pm", "11pm-1am"]
 
+    def test_weight_uses_database_integer_format(self):
+        result = build_profile_rest_payload({"weight": 150.0}, "u1")
+        assert result["weight"] == 150
+
     def test_extra_patch_payload_preserves_scoring_fields(self):
         result = build_profile_extra_patch_payload(
             {
                 "bio": "hello",
                 "interests": ["Music", "Programming"],
+                "weight": 150.0,
                 "mbti": "INFP",
                 "languages": ["English", "Spanish"],
                 "availability": ["Monday", "Friday"],
@@ -274,6 +279,7 @@ class TestBuildProfileRpcPayload:
 
         assert result["bio"] == "hello"
         assert result["interests"] == ["music", "programming"]
+        assert result["weight"] == 150
         assert result["mbti"] == "infp"
         assert result["languages"] == ["English", "Spanish"]
         assert result["availability"] == ["mon", "fri"]

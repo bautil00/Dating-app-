@@ -285,7 +285,7 @@ export default function Profile() {
         ...formData,
         age: formData.age ? parseInt(formData.age, 10) : null,
         height: formData.height ? parseFloat(formData.height) : null,
-        weight: formData.weight ? parseFloat(formData.weight) : null,
+        weight: formData.weight ? parseInt(formData.weight, 10) : null,
         kids: boolPayload(formData.kids),
         pets: boolPayload(formData.pets),
         drives: boolPayload(formData.drives),
