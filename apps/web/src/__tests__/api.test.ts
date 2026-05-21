@@ -52,6 +52,11 @@ describe('API Service', () => {
     expect(profileService).toHaveProperty('getCandidates');
   });
 
+  it('locationService exports expected methods', async () => {
+    const { locationService } = await import('../services/api');
+    expect(locationService).toHaveProperty('search');
+  });
+
   it('matchService exports expected methods', async () => {
     const { matchService } = await import('../services/api');
     expect(matchService).toHaveProperty('like');
@@ -65,7 +70,10 @@ describe('API Service', () => {
     const { messageService } = await import('../services/api');
     expect(messageService).toHaveProperty('send');
     expect(messageService).toHaveProperty('getConversation');
+    expect(messageService).toHaveProperty('getConversationFresh');
     expect(messageService).toHaveProperty('getConversations');
+    expect(messageService).toHaveProperty('getConversationsFresh');
+    expect(messageService).toHaveProperty('markRead');
   });
 
   it('cachedGet reuses fresh GET responses', async () => {
@@ -79,6 +87,22 @@ describe('API Service', () => {
     expect(first.data).toEqual({ name: 'Maya' });
     expect(second.data).toEqual({ name: 'Maya' });
     expect(api.get).toHaveBeenCalledTimes(1);
+  });
+
+  it('messageService fresh conversation fetches bypass cached responses', async () => {
+    const { default: api, messageService, clearApiCache } = await import('../services/api');
+    clearApiCache();
+    vi.mocked(api.get)
+      .mockResolvedValueOnce({ data: [{ id: 1, content: 'first' }] })
+      .mockResolvedValueOnce({ data: [{ id: 2, content: 'second' }] });
+
+    await messageService.getConversationFresh('maya-user-id');
+    await messageService.getConversationFresh('maya-user-id');
+
+    expect(api.get).toHaveBeenCalledTimes(2);
+    expect(api.get).toHaveBeenCalledWith('/messages/conversations/maya-user-id', {
+      params: { fresh: expect.any(Number) },
+    });
   });
 
   it('normalizes Supabase weak password JSON into readable copy', async () => {

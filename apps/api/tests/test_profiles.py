@@ -185,42 +185,48 @@ class TestCreateProfile:
         res = client.post("/api/v1/profiles/", json={"display_name": "No Auth"})
         assert res.status_code == 401
 
-    def test_location_converted_to_float(self, client):
+    def test_location_name_and_coordinates_are_saved(self, client):
         user_resp = _make_resp(200, {"id": "u1"})
         existing_resp = _make_resp(200, [])
         create_resp = _make_resp(201, [{"id": 1}])
+        patch_resp = _make_resp(200, [{"id": 1}])
 
         mock = _mock_httpx(
             get_returns=[user_resp, existing_resp],
             post_returns=[create_resp],
+            patch_returns=[patch_resp],
         )
         with patch("httpx.Client", return_value=mock):
             res = client.post(
                 "/api/v1/profiles/",
                 json={
                     "display_name": "Loc",
-                    "location": "47.6",
+                    "location_name": "Seattle, Washington, United States",
+                    "latitude": "47.6062",
+                    "longitude": "-122.3321",
                     "gender": "Male",
                     "interests": "Music",
                 },
                 headers={"Authorization": "Bearer tok"},
             )
         assert res.status_code == 200
-        # Verify the POST call used a float for Location
-        post_call = mock.post.call_args
-        assert post_call is not None
-        sent_json = post_call.kwargs.get("json", {})
-        if "Location" in sent_json:
-            assert isinstance(sent_json["Location"], float)
+        rpc_json = mock.post.call_args.kwargs.get("json", {})
+        patch_json = mock.patch.call_args.kwargs.get("json", {})
+        assert rpc_json["p_location"] == 47.6062
+        assert patch_json["location_name"] == "Seattle, Washington, United States"
+        assert patch_json["latitude"] == 47.6062
+        assert patch_json["longitude"] == -122.3321
 
-    def test_invalid_location_ignored(self, client):
+    def test_free_text_location_is_not_saved_as_display_name(self, client):
         user_resp = _make_resp(200, {"id": "u1"})
         existing_resp = _make_resp(200, [])
         create_resp = _make_resp(201, [{"id": 1}])
+        patch_resp = _make_resp(200, [{"id": 1}])
 
         mock = _mock_httpx(
             get_returns=[user_resp, existing_resp],
             post_returns=[create_resp],
+            patch_returns=[patch_resp],
         )
         with patch("httpx.Client", return_value=mock):
             res = client.post(
@@ -234,6 +240,7 @@ class TestCreateProfile:
                 headers={"Authorization": "Bearer tok"},
             )
         assert res.status_code == 200
+        assert "location_name" not in mock.patch.call_args.kwargs.get("json", {})
 
 
 class TestGetCandidates:

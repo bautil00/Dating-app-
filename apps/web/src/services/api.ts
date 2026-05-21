@@ -226,6 +226,23 @@ export const profileService = {
   getById: (id: string | number) => cachedGet(`/profiles/${id}`, { ttlMs: 5 * 60_000 }),
 };
 
+export type LocationResult = {
+  label: string;
+  city?: string | null;
+  region?: string | null;
+  country?: string | null;
+  latitude: number;
+  longitude: number;
+  source_id: string;
+};
+
+export const locationService = {
+  search: (query: string) =>
+    cachedGet<LocationResult[]>(`/locations/search?q=${encodeURIComponent(query)}`, {
+      ttlMs: 60 * 60_000,
+    }),
+};
+
 export const matchService = {
   like: async (candidateId: string) => {
     const response = await api.post('/matches/', { receiver_id: candidateId });
@@ -269,8 +286,14 @@ export const messageService = {
 
   getConversations: () => cachedGet('/messages/conversations', { ttlMs: 10_000 }),
 
+  getConversationsFresh: () =>
+    api.get('/messages/conversations', { params: { fresh: Date.now() } }),
+
   getConversation: (userId: string | number) =>
     cachedGet(`/messages/conversations/${userId}`, { ttlMs: 5_000, persist: false }),
+
+  getConversationFresh: (userId: string | number) =>
+    api.get(`/messages/conversations/${userId}`, { params: { fresh: Date.now() } }),
 
   markRead: async (messageId: number) => {
     const response = await api.patch(`/messages/${messageId}/read`);

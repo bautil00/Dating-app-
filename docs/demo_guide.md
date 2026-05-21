@@ -152,7 +152,7 @@ Ask the tester to complete:
 - Gender
 - Interested in
 - Age
-- Location
+- Location: type a city or place, click Search, then select one of the named results
 - Bio
 - At least 1 profile photo
 
@@ -279,6 +279,7 @@ Expected result:
 
 - Supabase Auth owns account identity.
 - `user_data` owns dating profile fields.
+- Location is saved as `location_name`, `latitude`, and `longitude`; users only see the named place in the app.
 - `matches` owns like/match state.
 - `messages` owns chat history.
 - Availability, time availability, interests, MBTI, languages, and lifestyle fields are editable on the profile page and feed compatibility scoring.

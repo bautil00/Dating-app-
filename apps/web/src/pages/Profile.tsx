@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Camera, Check, Flame, Pencil } from 'lucide-react';
 import { profileService, userFacingError } from '../services/api';
 import Navbar from '../components/Navbar';
+import LocationSearch from '../components/LocationSearch';
 
 const ENUMS = {
   gender: ['male', 'female', 'non binary', 'mtf', 'ftm'],
@@ -127,7 +128,9 @@ type FormData = {
   education: string;
   relationship_status: string;
   living_status: string;
-  location: string;
+  location_name: string;
+  latitude: string;
+  longitude: string;
   height: string;
   weight: string;
   mbti: string;
@@ -154,7 +157,9 @@ const initialForm: FormData = {
   education: '',
   relationship_status: '',
   living_status: '',
-  location: '',
+  location_name: '',
+  latitude: '',
+  longitude: '',
   height: '',
   weight: '',
   mbti: '',
@@ -239,7 +244,11 @@ export default function Profile() {
             res.data.relationship || res.data.relationship_status,
           ),
           living_status: normalizeOption(res.data.living || res.data.living_status),
-          location: String(res.data.Location || res.data.location || ''),
+          location_name: String(
+            res.data.location_name || res.data.Location || res.data.location || '',
+          ),
+          latitude: String(res.data.latitude || ''),
+          longitude: String(res.data.longitude || ''),
           height: String(res.data.height || ''),
           weight: String(res.data.weight || ''),
           mbti: normalizeOption(res.data.mbti || res.data.personality_type),
@@ -284,6 +293,10 @@ export default function Profile() {
       await profileService.create({
         ...formData,
         age: formData.age ? parseInt(formData.age, 10) : null,
+        location: formData.latitude ? parseFloat(formData.latitude) : null,
+        location_name: formData.location_name || null,
+        latitude: formData.latitude ? parseFloat(formData.latitude) : null,
+        longitude: formData.longitude ? parseFloat(formData.longitude) : null,
         height: formData.height ? parseFloat(formData.height) : null,
         weight: formData.weight ? parseInt(formData.weight, 10) : null,
         kids: boolPayload(formData.kids),
@@ -441,12 +454,16 @@ export default function Profile() {
                 {renderSelect('pronouns', 'Pronouns', ENUMS.pronouns)}
                 {renderSelect('zodiac', 'Zodiac', ENUMS.zodiac)}
                 {renderSelect('mbti', 'MBTI', ENUMS.mbti)}
-                <FieldText
-                  label="Location"
-                  name="location"
-                  value={formData.location}
-                  onChange={handleChange}
-                  placeholder="City or latitude"
+                <LocationSearch
+                  value={formData.location_name}
+                  onSelect={(location) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      location_name: location.location_name,
+                      latitude: location.latitude === null ? '' : String(location.latitude),
+                      longitude: location.longitude === null ? '' : String(location.longitude),
+                    }))
+                  }
                 />
                 <FieldText
                   label="Height"

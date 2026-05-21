@@ -10,6 +10,7 @@ from src.main import (
     get_match_compatibility_score,
     haversine_distance,
     filter_by_gender,
+    normalize_profile_row,
 )
 
 
@@ -288,6 +289,53 @@ class TestBuildProfileRpcPayload:
         assert result["kids"] is False
         assert result["pets"] is True
         assert result["drives"] is True
+
+    def test_location_fields_preserve_name_and_coordinates(self):
+        result = build_profile_rest_payload(
+            {
+                "location_name": "Seattle, Washington, United States",
+                "latitude": 47.6062,
+                "longitude": -122.3321,
+            },
+            "u1",
+        )
+
+        assert result["location_name"] == "Seattle, Washington, United States"
+        assert result["latitude"] == 47.6062
+        assert result["longitude"] == -122.3321
+        assert result["location"] == 47.6062
+
+    def test_extra_patch_payload_includes_location_fields(self):
+        result = build_profile_extra_patch_payload(
+            {
+                "location_name": "Seattle, Washington, United States",
+                "latitude": "47.6062",
+                "longitude": "-122.3321",
+            }
+        )
+
+        assert result["location_name"] == "Seattle, Washington, United States"
+        assert result["latitude"] == 47.6062
+        assert result["longitude"] == -122.3321
+        assert result["location"] == 47.6062
+
+    def test_profile_normalization_hides_legacy_numeric_location(self):
+        result = normalize_profile_row({"name": "Alex", "location": 47.6062})
+
+        assert result["Location"] == ""
+        assert result["location"] == ""
+
+    def test_profile_normalization_prefers_location_name(self):
+        result = normalize_profile_row(
+            {
+                "name": "Alex",
+                "location": 47.6062,
+                "location_name": "Seattle, Washington, United States",
+            }
+        )
+
+        assert result["Location"] == "Seattle, Washington, United States"
+        assert result["location"] == "Seattle, Washington, United States"
 
 
 class TestSettings:

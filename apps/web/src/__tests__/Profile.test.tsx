@@ -15,6 +15,10 @@ vi.mock('../services/api', () => ({
     getMe: () => mockApi.get('/profiles/me'),
     create: (data: Record<string, unknown>) => mockApi.post('/profiles/', data),
   },
+  locationService: {
+    search: vi.fn(),
+  },
+  userFacingError: () => 'Failed to save profile',
   clearApiCache: vi.fn(),
   invalidateApiCache: vi.fn(),
 }));

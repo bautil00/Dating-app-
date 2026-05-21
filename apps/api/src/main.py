@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 import httpx
 from typing import Optional, Any, cast, Dict
 import math
+import time
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -12,6 +13,10 @@ from .config import get_settings
 from .compatibility import get_llm_compatibility_score
 
 PROFILE_TABLE = "user_data"
+NOMINATIM_SEARCH_URL = "https://nominatim.openstreetmap.org/search"
+NOMINATIM_USER_AGENT = "BLOWTORCH-CSS360/1.0 (https://web-two-beta-72.vercel.app)"
+LOCATION_CACHE_TTL_SECONDS = 60 * 60
+LOCATION_SEARCH_CACHE: dict[str, tuple[float, list[dict]]] = {}
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 app = FastAPI(title="BLOWTORCH", version="0.1.0")
@@ -219,6 +224,27 @@ def _time_availability_array(profile_data: dict):
     )
 
 
+def _location_name_value(profile_data: dict):
+    location_name = _text_value(
+        _first_profile_value(profile_data, "location_name", "Location", "locationLabel")
+    )
+    return None if _looks_numeric(location_name) else location_name
+
+
+def _location_latitude_value(profile_data: dict):
+    return _coerce_float(
+        _first_profile_value(profile_data, "latitude", "lat", "location")
+    )
+
+
+def _location_longitude_value(profile_data: dict):
+    return _coerce_float(_first_profile_value(profile_data, "longitude", "lng", "lon"))
+
+
+def _looks_numeric(value) -> bool:
+    return _coerce_float(value) is not None
+
+
 def normalize_profile_row(row: dict) -> dict:
     """Keep current frontend aliases while using the live database schema."""
     if not isinstance(row, dict):
@@ -237,6 +263,16 @@ def normalize_profile_row(row: dict) -> dict:
     for alias, source in alias_pairs.items():
         if alias not in normalized and source in normalized:
             normalized[alias] = normalized[source]
+    location_name = _text_value(normalized.get("location_name"))
+    if location_name:
+        normalized["location_name"] = location_name
+        normalized["Location"] = location_name
+        normalized["location"] = location_name
+    elif _looks_numeric(normalized.get("location")) or _looks_numeric(
+        normalized.get("Location")
+    ):
+        normalized["Location"] = ""
+        normalized["location"] = ""
     return normalized
 
 
@@ -256,6 +292,11 @@ def _profile_display_summary(row: dict | None) -> dict | None:
             "name": normalized.get("name") or normalized.get("Name"),
             "Name": normalized.get("Name") or normalized.get("name"),
             "age": normalized.get("age") or normalized.get("Age"),
+            "location": normalized.get("location"),
+            "Location": normalized.get("Location"),
+            "location_name": normalized.get("location_name"),
+            "latitude": normalized.get("latitude"),
+            "longitude": normalized.get("longitude"),
             "gender": normalized.get("gender"),
             "interests": normalized.get("interests"),
             "profile_image_url": normalized.get("profile_image_url"),
@@ -274,7 +315,10 @@ def _profile_lookup_for_user_ids(client, settings, token: str, user_ids: set[str
         f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
         params={
             "user_id": f"in.({ids})",
-            "select": "user_id,name,age,gender,interests,profile_image_url",
+            "select": (
+                "user_id,name,age,location,location_name,latitude,longitude,"
+                "gender,interests,profile_image_url"
+            ),
         },
         headers=supabase_headers(settings, token),
     )
@@ -308,11 +352,12 @@ def _enrich_matches_with_profiles(
 def build_profile_rpc_payload(profile_data: dict, user_id: str) -> dict:
     interests = profile_data.get("interests")
     pronouns = profile_data.get("pronouns")
+    latitude = _location_latitude_value(profile_data)
     payload = {
         "p_user_id": user_id,
         "p_name": profile_data.get("display_name") or profile_data.get("name"),
         "p_age": _coerce_int(profile_data.get("age")),
-        "p_location": _coerce_float(profile_data.get("location")),
+        "p_location": latitude,
         "p_interests": _enum_array(interests),
         "p_availability": _availability_array(profile_data),
         "p_gender": _enum_value(profile_data.get("gender")),
@@ -335,8 +380,13 @@ def build_profile_rpc_payload(profile_data: dict, user_id: str) -> dict:
 
 def build_profile_extra_patch_payload(profile_data: dict) -> dict:
     """Fields outside the historical create_user_profile RPC contract."""
+    latitude = _location_latitude_value(profile_data)
     payload = {
         "interests": _nonempty_list(_enum_array(profile_data.get("interests"))),
+        "location": latitude,
+        "location_name": _location_name_value(profile_data),
+        "latitude": latitude,
+        "longitude": _location_longitude_value(profile_data),
         "bio": _text_value(profile_data.get("bio")),
         "height": _coerce_float(profile_data.get("height")),
         "weight": _coerce_int(profile_data.get("weight")),
@@ -360,11 +410,15 @@ def build_profile_extra_patch_payload(profile_data: dict) -> dict:
 
 def build_profile_rest_payload(profile_data: dict, user_id: str) -> dict:
     """Direct table payload for local/mocked clients; production uses create_user_profile RPC."""
+    latitude = _location_latitude_value(profile_data)
     payload = {
         "user_id": user_id,
         "name": profile_data.get("display_name") or profile_data.get("name"),
         "age": _coerce_int(profile_data.get("age")),
-        "location": _coerce_float(profile_data.get("location")),
+        "location": latitude,
+        "location_name": _location_name_value(profile_data),
+        "latitude": latitude,
+        "longitude": _location_longitude_value(profile_data),
         "bio": _text_value(profile_data.get("bio")),
         "height": _coerce_float(profile_data.get("height")),
         "weight": _coerce_int(profile_data.get("weight")),
@@ -505,6 +559,141 @@ def get_google_oauth_url(request: Request):
 
 
 app.include_router(auth_router, prefix="/api/v1")
+
+
+def _get_user_id_and_token(authorization: str, settings):
+    """Extract user_id and clean token from Bearer token via Supabase."""
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing authorization")
+    token = authorization.replace("Bearer ", "").strip()
+    with httpx.Client() as client:
+        resp = client.get(
+            f"{settings.supabase_url}/auth/v1/user",
+            headers={
+                "apikey": settings.supabase_key,
+                "Authorization": f"Bearer {token}",
+            },
+        )
+        if resp.status_code != 200:
+            raise HTTPException(status_code=401, detail="Invalid token")
+        return resp.json().get("id"), token
+
+
+def _location_cache_key(query: str) -> str:
+    return " ".join(query.strip().lower().split())
+
+
+def _address_city(address: dict) -> str | None:
+    for key in (
+        "city",
+        "town",
+        "village",
+        "municipality",
+        "hamlet",
+        "county",
+    ):
+        value = _text_value(address.get(key))
+        if value:
+            return value
+    return None
+
+
+def _result_address(item: dict) -> dict:
+    address = item.get("address")
+    return address if isinstance(address, dict) else {}
+
+
+def _location_label(item: dict) -> str:
+    address = _result_address(item)
+    parts = [
+        _address_city(address),
+        _text_value(address.get("state") or address.get("region")),
+        _text_value(address.get("country")),
+    ]
+    label = ", ".join(dict.fromkeys(part for part in parts if part))
+    if label:
+        return label
+    display = _text_value(item.get("display_name"))
+    if not display:
+        return "Unknown location"
+    return ", ".join([part.strip() for part in display.split(",")[:3] if part.strip()])
+
+
+def _map_nominatim_result(item: dict) -> dict | None:
+    latitude = _coerce_float(item.get("lat"))
+    longitude = _coerce_float(item.get("lon"))
+    if latitude is None or longitude is None:
+        return None
+    address = _result_address(item)
+    return {
+        "label": _location_label(item),
+        "city": _address_city(address),
+        "region": _text_value(address.get("state") or address.get("region")),
+        "country": _text_value(address.get("country")),
+        "latitude": latitude,
+        "longitude": longitude,
+        "source_id": str(item.get("place_id") or item.get("osm_id") or ""),
+    }
+
+
+def _search_locations_via_nominatim(query: str) -> list[dict]:
+    cache_key = _location_cache_key(query)
+    now = time.time()
+    cached = LOCATION_SEARCH_CACHE.get(cache_key)
+    if cached and cached[0] > now:
+        return cached[1]
+
+    with httpx.Client(timeout=8.0) as client:
+        response = client.get(
+            NOMINATIM_SEARCH_URL,
+            params={
+                "q": query,
+                "format": "jsonv2",
+                "addressdetails": 1,
+                "limit": 5,
+                "featureType": "settlement",
+            },
+            headers={
+                "User-Agent": NOMINATIM_USER_AGENT,
+                "Accept-Language": "en",
+            },
+        )
+    if response.status_code >= 400:
+        raise HTTPException(status_code=502, detail="Location search unavailable")
+
+    results = [
+        mapped
+        for item in response.json()
+        if isinstance(item, dict)
+        for mapped in [_map_nominatim_result(item)]
+        if mapped
+    ]
+    LOCATION_SEARCH_CACHE[cache_key] = (now + LOCATION_CACHE_TTL_SECONDS, results)
+    return results
+
+
+locations_router = APIRouter(prefix="/locations", tags=["Locations"])
+
+
+@locations_router.get("/search")
+@limiter.limit("15/minute")
+def search_locations(request: Request, q: str = "", authorization: str = Header(None)):
+    query = q.strip()
+    if len(query) < 2:
+        raise HTTPException(
+            status_code=422, detail="Search query must be at least 2 characters"
+        )
+    settings = get_settings()
+    _get_user_id_and_token(authorization, settings)
+    try:
+        return _search_locations_via_nominatim(query)
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=502, detail="Location search unavailable")
+
+
+app.include_router(locations_router, prefix="/api/v1")
 
 
 match_router = APIRouter(prefix="/match", tags=["Match"])
@@ -823,24 +1012,6 @@ app.include_router(profiles_router, prefix="/api/v1")
 
 # ---- Matches Routes (Supabase REST) ----
 matches_router = APIRouter(prefix="/matches", tags=["Matches"])
-
-
-def _get_user_id_and_token(authorization: str, settings):
-    """Extract user_id and clean token from Bearer token via Supabase."""
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Missing authorization")
-    token = authorization.replace("Bearer ", "").strip()
-    with httpx.Client() as client:
-        resp = client.get(
-            f"{settings.supabase_url}/auth/v1/user",
-            headers={
-                "apikey": settings.supabase_key,
-                "Authorization": f"Bearer {token}",
-            },
-        )
-        if resp.status_code != 200:
-            raise HTTPException(status_code=401, detail="Invalid token")
-        return resp.json().get("id"), token
 
 
 def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: str):

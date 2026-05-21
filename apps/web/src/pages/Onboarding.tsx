@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Flame, Plus, X } from 'lucide-react';
 import { authService, profileService, userFacingError } from '../services/api';
+import LocationSearch from '../components/LocationSearch';
 
 type Step = 'interests' | 'about' | 'story' | 'photos';
 
@@ -168,7 +169,9 @@ export default function Onboarding() {
   const [gender, setGender] = useState('');
   const [seekingGender, setSeekingGender] = useState('');
   const [age, setAge] = useState(25);
-  const [location, setLocation] = useState('');
+  const [locationName, setLocationName] = useState('');
+  const [latitude, setLatitude] = useState<number | null>(null);
+  const [longitude, setLongitude] = useState<number | null>(null);
   const [bio, setBio] = useState('');
   const [photos, setPhotos] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
@@ -228,7 +231,10 @@ export default function Onboarding() {
         interests,
         seeking_gender: seekingGender,
         bio,
-        location,
+        location: latitude,
+        location_name: locationName,
+        latitude,
+        longitude,
         profile_image_url: photos[0],
         max_distance_km: 50,
       });
@@ -272,7 +278,9 @@ export default function Onboarding() {
   }
 
   if (step === 'about') {
-    const canContinue = Boolean(gender && seekingGender && location.trim());
+    const canContinue = Boolean(
+      gender && seekingGender && locationName && latitude !== null && longitude !== null,
+    );
     return (
       <QuizShell step={step}>
         <div className="mb-6 text-center">
@@ -314,16 +322,14 @@ export default function Onboarding() {
           className="mb-5 w-full accent-orange-500"
         />
 
-        <label className="mb-2 block text-sm font-semibold text-gray-700" htmlFor="location">
-          Location
-        </label>
-        <input
-          id="location"
-          type="text"
-          placeholder="San Francisco, CA"
-          value={location}
-          onChange={(event) => setLocation(event.target.value)}
-          className="mb-6 w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm transition-all placeholder:text-gray-400 focus:border-orange-400 focus:outline-none"
+        <LocationSearch
+          value={locationName}
+          className="mb-6"
+          onSelect={(location) => {
+            setLocationName(location.location_name);
+            setLatitude(location.latitude);
+            setLongitude(location.longitude);
+          }}
         />
 
         <ContinueButton disabled={!canContinue} onClick={() => setStep('story')} />

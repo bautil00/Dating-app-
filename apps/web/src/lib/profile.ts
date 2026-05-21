@@ -16,7 +16,9 @@ export function profileAge(profile: ProfileLike) {
 }
 
 export function profileLocation(profile: ProfileLike) {
-  return String(profile?.Location || profile?.location || '');
+  const value = profile?.location_name || profile?.Location || profile?.location || '';
+  const text = String(value || '').trim();
+  return Number.isFinite(Number(text)) ? '' : text;
 }
 
 export function profileInterests(profile: ProfileLike): string[] {

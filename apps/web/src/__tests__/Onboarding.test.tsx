@@ -6,6 +6,7 @@ import { MemoryRouter } from 'react-router-dom';
 const mocks = vi.hoisted(() => ({
   getMe: vi.fn(),
   createProfile: vi.fn(),
+  searchLocations: vi.fn(),
   navigate: vi.fn(),
 }));
 
@@ -15,6 +16,9 @@ vi.mock('../services/api', () => ({
   },
   profileService: {
     create: mocks.createProfile,
+  },
+  locationService: {
+    search: mocks.searchLocations,
   },
   userFacingError: () => 'Could not finish onboarding. Try again.',
 }));
@@ -31,6 +35,16 @@ describe('Onboarding Page', () => {
     vi.clearAllMocks();
     localStorage.setItem('token', 'fake-token');
     mocks.getMe.mockResolvedValue({ data: { email: 'tester@example.com' } });
+    mocks.searchLocations.mockResolvedValue({
+      data: [
+        {
+          label: 'Seattle, Washington, United States',
+          latitude: 47.6062,
+          longitude: -122.3321,
+          source_id: '123',
+        },
+      ],
+    });
   });
 
   it('walks through Zack-style onboarding steps before the photo gate', async () => {
@@ -51,6 +65,10 @@ describe('Onboarding Page', () => {
     await user.click(screen.getAllByRole('button', { name: 'Female' })[0]);
     await user.click(screen.getByRole('button', { name: 'Everyone' }));
     await user.type(screen.getByLabelText('Location'), 'Seattle');
+    await user.click(screen.getByRole('button', { name: 'Search' }));
+    await user.click(
+      await screen.findByRole('button', { name: 'Seattle, Washington, United States' }),
+    );
     await user.click(screen.getByRole('button', { name: 'Continue' }));
 
     expect(screen.getByText('Tell your story')).toBeInTheDocument();
