@@ -55,6 +55,7 @@ describe('API Service', () => {
   it('matchService exports expected methods', async () => {
     const { matchService } = await import('../services/api');
     expect(matchService).toHaveProperty('like');
+    expect(matchService).toHaveProperty('dismiss');
     expect(matchService).toHaveProperty('getAll');
     expect(matchService).toHaveProperty('accept');
     expect(matchService).toHaveProperty('reject');

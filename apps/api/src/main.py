@@ -526,6 +526,30 @@ def get_user_from_token(authorization: str = Header(None)):
         return response.json()
 
 
+def _related_match_user_ids(client, settings, token: str, user_id: str) -> set[str]:
+    headers = supabase_headers(settings, token)
+    related: set[str] = set()
+    for field in ("sender_id", "receiver_id"):
+        response = client.get(
+            f"{settings.supabase_url}/rest/v1/matches",
+            params={
+                field: f"eq.{user_id}",
+                "select": "sender_id,receiver_id,status",
+            },
+            headers=headers,
+        )
+        if response.status_code >= 400:
+            raise HTTPException(status_code=response.status_code, detail=response.text)
+        for row in response.json():
+            sender = str(row.get("sender_id") or "")
+            receiver = str(row.get("receiver_id") or "")
+            if sender == user_id and receiver:
+                related.add(receiver)
+            elif receiver == user_id and sender:
+                related.add(sender)
+    return related
+
+
 @match_router.post("/")
 def like_candidate(data: dict, authorization: str = Header(None)):
     settings = get_settings()
@@ -637,6 +661,7 @@ def get_candidates(limit: int = 10, authorization: str = Header(None)):
         if not my_resp.json():
             raise HTTPException(status_code=404, detail="Create profile first")
         my_profile = my_resp.json()[0]
+        hidden_user_ids = _related_match_user_ids(client, settings, token, user_id)
 
         all_resp = client.get(
             f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
@@ -644,7 +669,12 @@ def get_candidates(limit: int = 10, authorization: str = Header(None)):
             headers=supabase_headers(settings, token),
         )
 
-        candidates = [c for c in all_resp.json() if c.get("user_id") != user_id]
+        candidates = [
+            c
+            for c in all_resp.json()
+            if c.get("user_id") != user_id
+            and str(c.get("user_id") or "") not in hidden_user_ids
+        ]
         if not candidates:
             return []
 
@@ -975,6 +1005,104 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
         return outgoing
 
 
+def _patch_match_status(
+    client, settings, headers: dict, match: dict, status: str
+) -> dict:
+    match_id = match.get("id")
+    params = (
+        {"id": f"eq.{match_id}"}
+        if match_id is not None
+        else {
+            "sender_id": f"eq.{match.get('sender_id')}",
+            "receiver_id": f"eq.{match.get('receiver_id')}",
+        }
+    )
+    response = client.patch(
+        f"{settings.supabase_url}/rest/v1/matches",
+        params=params,
+        json={"status": status},
+        headers=headers,
+    )
+    if response.status_code >= 400:
+        raise HTTPException(status_code=response.status_code, detail=response.text)
+    rows = response.json()
+    updated = rows[0] if isinstance(rows, list) and rows else dict(match)
+    updated["status"] = status
+    return updated
+
+
+def _dismiss_match(settings, token: str, sender_id: str, receiver_id: str) -> dict:
+    if not receiver_id:
+        raise HTTPException(status_code=400, detail="receiver_id required")
+    if sender_id == receiver_id:
+        raise HTTPException(status_code=400, detail="Cannot match with yourself")
+
+    base_headers = supabase_headers(settings, token)
+    write_headers = {
+        **base_headers,
+        "Content-Type": "application/json",
+        "Prefer": "return=representation",
+    }
+
+    with httpx.Client() as client:
+        outgoing_resp = client.get(
+            f"{settings.supabase_url}/rest/v1/matches",
+            params={
+                "sender_id": f"eq.{sender_id}",
+                "receiver_id": f"eq.{receiver_id}",
+                "order": "created_at.desc",
+                "limit": 1,
+            },
+            headers=base_headers,
+        )
+        outgoing_rows = outgoing_resp.json() if outgoing_resp.status_code < 400 else []
+        outgoing = outgoing_rows[0] if outgoing_rows else None
+        if outgoing:
+            if outgoing.get("status") in {"accepted", "matched"}:
+                return outgoing
+            return _patch_match_status(
+                client, settings, write_headers, outgoing, "rejected"
+            )
+
+        reciprocal_resp = client.get(
+            f"{settings.supabase_url}/rest/v1/matches",
+            params={
+                "sender_id": f"eq.{receiver_id}",
+                "receiver_id": f"eq.{sender_id}",
+                "order": "created_at.desc",
+                "limit": 1,
+            },
+            headers=base_headers,
+        )
+        reciprocal_rows = (
+            reciprocal_resp.json() if reciprocal_resp.status_code < 400 else []
+        )
+        reciprocal = reciprocal_rows[0] if reciprocal_rows else None
+        if reciprocal:
+            if reciprocal.get("status") in {"accepted", "matched"}:
+                return reciprocal
+            return _patch_match_status(
+                client, settings, write_headers, reciprocal, "rejected"
+            )
+
+        payload = {
+            "sender_id": sender_id,
+            "receiver_id": receiver_id,
+            "status": "rejected",
+        }
+        save_resp = client.post(
+            f"{settings.supabase_url}/rest/v1/matches",
+            json=payload,
+            headers=write_headers,
+        )
+        if save_resp.status_code >= 400:
+            raise HTTPException(
+                status_code=save_resp.status_code, detail=save_resp.text
+            )
+        rows = save_resp.json()
+        return rows[0] if isinstance(rows, list) and rows else payload
+
+
 @matches_router.post("/")
 def create_match(data: dict, authorization: str = Header(None)):
     settings = get_settings()
@@ -997,6 +1125,28 @@ def create_match(data: dict, authorization: str = Header(None)):
         "matched": result.get("matched", False),
         "compatibility_score": result.get("compatibility_score"),
         "created_at": result.get("created_at"),
+    }
+
+
+@matches_router.post("/dismiss")
+def dismiss_match(data: dict, authorization: str = Header(None)):
+    settings = get_settings()
+    receiver_id = data.get("receiver_id") or data.get("candidate_id")
+    if not receiver_id:
+        raise HTTPException(status_code=400, detail="receiver_id required")
+
+    user_id, token = _get_user_id_and_token(authorization, settings)
+    result = _dismiss_match(
+        settings=settings,
+        token=token,
+        sender_id=user_id,
+        receiver_id=str(receiver_id),
+    )
+    return {
+        "id": result.get("id"),
+        "sender_id": result.get("sender_id"),
+        "receiver_id": result.get("receiver_id"),
+        "status": result.get("status", "rejected"),
     }
 
 
