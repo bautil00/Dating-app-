@@ -7,6 +7,7 @@ import {
   profileAge,
   profileBio,
   profileCompatibility,
+  profileImage,
   profileInterests,
   profileLocation,
   profileName,
@@ -225,14 +226,19 @@ function DiscoverCard({
     `${name} shares signals that line up with your dating preferences and interests.`;
   const interests = profileInterests(profile);
   const location = profileLocation(profile);
+  const image = profileImage(profile);
   const initial = name.charAt(0).toUpperCase();
 
   return (
     <div className="relative">
       <div className="relative h-[560px] w-[min(480px,calc(100vw-3rem))] overflow-hidden rounded-3xl bg-gradient-to-br from-orange-400 via-rose-500 to-gray-950 shadow-2xl">
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-[160px] font-black text-white/20">{initial}</span>
-        </div>
+        {image ? (
+          <img src={image} alt={name} className="absolute inset-0 h-full w-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-[160px] font-black text-white/20">{initial}</span>
+          </div>
+        )}
         <div className="absolute right-5 top-5 z-10 flex h-[76px] w-[76px] flex-col items-center justify-center rounded-full bg-gradient-to-br from-[#FF7A18] to-[#FF3D2E] shadow-xl">
           <span className="text-[22px] font-black leading-none text-white">{score}%</span>
           <span className="mt-0.5 text-[11px] font-semibold text-white/90">Spark</span>
@@ -332,10 +338,10 @@ function CompleteProfile() {
         Add your details before discovery so the matcher has real data to score.
       </p>
       <Link
-        to="/profile"
+        to="/onboarding"
         className="rounded-2xl px-6 py-3 text-sm font-semibold text-white btn-ignite"
       >
-        Build profile
+        Start onboarding
       </Link>
     </div>
   );

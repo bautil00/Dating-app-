@@ -138,33 +138,31 @@ Ask the tester to:
 Expected result:
 
 - They land on Discover if they already have a complete profile.
-- They are asked to complete their profile if profile data is missing.
+- New users are sent into the onboarding flow if profile data is missing.
 
-### 2. Complete The Profile
+### 2. Complete Onboarding
 
 Say:
 
 > The profile is the data source for matching. The backend saves these fields in Supabase and uses them for LLM scoring and database fallback scoring.
 
-Ask the tester to fill:
+Ask the tester to complete:
 
-- Display name
-- Age
+- At least 3 interests
 - Gender
-- Interest
-- Job
-- Education
-- Relationship
-- Living status
 - Interested in
-- Max distance
+- Age
+- Location
+- Bio
+- At least 1 profile photo
 
-Then click Save Profile.
+Then click Continue.
 
 Expected result:
 
 - The app returns to Discover.
 - The profile is saved through `POST /api/v1/profiles/`.
+- The uploaded profile photo is saved as `profile_image_url` and appears on Discover cards.
 
 ### 3. Use Discover
 
@@ -181,8 +179,9 @@ Ask the tester to:
 
 Expected result:
 
-- Pass removes the current card locally.
+- Pass writes a `rejected` row through `POST /api/v1/matches/dismiss` and hides that profile from future Discover results.
 - Ignite sends `POST /api/v1/matches/` with the candidate's `user_id`.
+- Ignited profiles are stored in `matches` and should not appear again in Discover.
 - If the other person already liked this user, it becomes a mutual Spark.
 
 ### 4. Create A Mutual Spark

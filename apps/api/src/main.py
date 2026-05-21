@@ -274,7 +274,7 @@ def _profile_lookup_for_user_ids(client, settings, token: str, user_ids: set[str
         f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
         params={
             "user_id": f"in.({ids})",
-            "select": "user_id,name,age,gender,interests",
+            "select": "user_id,name,age,gender,interests,profile_image_url",
         },
         headers=supabase_headers(settings, token),
     )
@@ -351,6 +351,7 @@ def build_profile_extra_patch_payload(profile_data: dict) -> dict:
         "body_modification": _nonempty_list(
             _text_array(profile_data.get("body_modification"))
         ),
+        "profile_image_url": _text_value(profile_data.get("profile_image_url")),
         "availability": _availability_array(profile_data),
         "time_availability": _time_availability_array(profile_data),
     }
@@ -393,6 +394,7 @@ def build_profile_rest_payload(profile_data: dict, user_id: str) -> dict:
         "body_modification": _nonempty_list(
             _text_array(profile_data.get("body_modification"))
         ),
+        "profile_image_url": _text_value(profile_data.get("profile_image_url")),
         "seeking_gender": profile_data.get("seeking_gender", "everyone"),
         "max_distance_km": _coerce_int(profile_data.get("max_distance_km")) or 50,
         "is_complete": True,

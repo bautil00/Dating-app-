@@ -3,6 +3,7 @@ import { useAuth } from './hooks/useAuth';
 import Login from './pages/Login';
 import Register from './pages/Register';
 import Dashboard from './pages/Dashboard';
+import Onboarding from './pages/Onboarding';
 import Profile from './pages/Profile';
 import Matches from './pages/Matches';
 import Messages from './pages/Messages';
@@ -21,6 +22,7 @@ function App() {
         <Route path="/" element={<Navigate to={user ? '/discover' : '/register'} />} />
         <Route path="/discover" element={user ? <Dashboard /> : <Navigate to="/login" />} />
         <Route path="/dashboard" element={user ? <Dashboard /> : <Navigate to="/login" />} />
+        <Route path="/onboarding" element={user ? <Onboarding /> : <Navigate to="/login" />} />
         <Route path="/profile" element={user ? <Profile /> : <Navigate to="/login" />} />
         <Route path="/matches" element={user ? <Matches /> : <Navigate to="/login" />} />
         <Route path="/sparks" element={user ? <Matches /> : <Navigate to="/login" />} />

@@ -35,6 +35,16 @@ export function profileBio(profile: ProfileLike) {
   return String(profile?.bio || profile?.Bio || '');
 }
 
+export function profileImage(profile: ProfileLike) {
+  return String(
+    profile?.profile_image_url ||
+      profile?.avatar_url ||
+      profile?.photo_url ||
+      profile?.image_url ||
+      '',
+  );
+}
+
 export function profileCompatibility(profile: ProfileLike) {
   const score = profile?.compatibility_score || profile?.match_score || profile?.score;
   const value = typeof score === 'number' ? score : Number(score);

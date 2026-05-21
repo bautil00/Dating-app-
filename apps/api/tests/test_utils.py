@@ -265,6 +265,7 @@ class TestBuildProfileRpcPayload:
                 "languages": ["English", "Spanish"],
                 "availability": ["Monday", "Friday"],
                 "time_availability": ["7-9 PM"],
+                "profile_image_url": "data:image/jpeg;base64,abc",
                 "kids": "no",
                 "pets": "yes",
                 "drives": "true",
@@ -277,6 +278,7 @@ class TestBuildProfileRpcPayload:
         assert result["languages"] == ["English", "Spanish"]
         assert result["availability"] == ["mon", "fri"]
         assert result["time_availability"] == ["7-9pm"]
+        assert result["profile_image_url"] == "data:image/jpeg;base64,abc"
         assert result["kids"] is False
         assert result["pets"] is True
         assert result["drives"] is True

@@ -33,7 +33,7 @@ export default function Register() {
       const loginRes = await authService.login(email, password);
       localStorage.setItem('token', loginRes.data.access_token);
       clearApiCache();
-      window.location.href = '/discover';
+      window.location.href = '/onboarding';
     } catch (error: unknown) {
       setError(userFacingError(error, 'Registration failed. Check your email and password.'));
     } finally {
