@@ -7,10 +7,12 @@ from src.main import (
     build_profile_extra_patch_payload,
     build_profile_rest_payload,
     build_profile_rpc_payload,
+    filter_by_distance,
     get_match_compatibility_score,
     haversine_distance,
     filter_by_gender,
     normalize_profile_row,
+    profile_distance_km,
 )
 
 
@@ -38,6 +40,53 @@ class TestHaversineDistance:
     def test_antipodal_points(self):
         result = haversine_distance(0, 0, 0, 180)
         assert 19500 < result < 20500
+
+
+class TestProfileDistance:
+    def test_profile_distance_uses_coordinates(self):
+        result = profile_distance_km(
+            {"latitude": 47.6038321, "longitude": -122.330062},
+            {"latitude": 47.6144219, "longitude": -122.1923372},
+        )
+
+        assert result is not None
+        assert 10 < result < 12
+
+    def test_profile_distance_returns_none_without_coordinates(self):
+        result = profile_distance_km(
+            {"location_name": "Seattle"},
+            {"latitude": 47.6144219, "longitude": -122.1923372},
+        )
+
+        assert result is None
+
+    def test_distance_filter_keeps_near_and_unknown_profiles(self):
+        result = filter_by_distance(
+            [
+                {
+                    "user_id": "near",
+                    "latitude": 47.6144219,
+                    "longitude": -122.1923372,
+                },
+                {
+                    "user_id": "far",
+                    "latitude": 40.7128,
+                    "longitude": -74.006,
+                },
+                {"user_id": "legacy-location-only"},
+            ],
+            {
+                "latitude": 47.6038321,
+                "longitude": -122.330062,
+                "max_distance_km": 50,
+            },
+        )
+
+        assert [profile["user_id"] for profile in result] == [
+            "near",
+            "legacy-location-only",
+        ]
+        assert result[0]["distance_km"] == 10.4
 
 
 class TestFilterByGender:
@@ -195,6 +244,25 @@ class TestLLMCompatibility:
         assert "music, art" in prompt
         assert "fri, sat" in prompt
         assert "7-9pm" in prompt
+
+    def test_prompt_includes_location_and_distance(self):
+        from src.compatibility import build_compatibility_prompt
+
+        prompt = build_compatibility_prompt(
+            {
+                "location_name": "Seattle, Washington, United States",
+                "interests": ["music"],
+            },
+            {
+                "location_name": "Bellevue, Washington, United States",
+                "distance_km": 10.4,
+                "interests": ["music"],
+            },
+        )
+
+        assert "Seattle, Washington, United States" in prompt
+        assert "Bellevue, Washington, United States" in prompt
+        assert "Distance from Person A: 10.4 km" in prompt
 
     def test_llm_score_parses_and_clamps_numeric_response(self):
         from src.compatibility import get_llm_compatibility_score

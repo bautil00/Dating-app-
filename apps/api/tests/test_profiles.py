@@ -411,6 +411,69 @@ class TestGetCandidates:
         assert res.status_code == 200
         assert [row["user_id"] for row in res.json()] == ["fresh-candidate"]
 
+    def test_candidates_filter_by_max_distance_and_include_distance(self, client):
+        user_resp = _make_resp(200, {"id": "me-id"})
+        my_profile_resp = _make_resp(
+            200,
+            [
+                {
+                    "user_id": "me-id",
+                    "interests": "Music",
+                    "seeking_gender": "everyone",
+                    "latitude": 47.6038321,
+                    "longitude": -122.330062,
+                    "max_distance_km": 50,
+                }
+            ],
+        )
+        all_profiles_resp = _make_resp(
+            200,
+            [
+                {
+                    "user_id": "near",
+                    "name": "Near",
+                    "interests": "Music",
+                    "gender": "Female",
+                    "is_complete": True,
+                    "latitude": 47.6144219,
+                    "longitude": -122.1923372,
+                },
+                {
+                    "user_id": "far",
+                    "name": "Far",
+                    "interests": "Music",
+                    "gender": "Female",
+                    "is_complete": True,
+                    "latitude": 40.7128,
+                    "longitude": -74.006,
+                },
+            ],
+        )
+        sent_matches_resp = _make_resp(200, [])
+        received_matches_resp = _make_resp(200, [])
+        mock = _mock_httpx(
+            get_returns=[
+                user_resp,
+                my_profile_resp,
+                sent_matches_resp,
+                received_matches_resp,
+                all_profiles_resp,
+            ]
+        )
+
+        with patch("httpx.Client", return_value=mock):
+            with patch("src.main.get_match_compatibility_score", return_value=80.0):
+                res = client.get(
+                    "/api/v1/profiles/candidates?limit=5",
+                    headers={"Authorization": "Bearer tok"},
+                )
+
+        assert res.status_code == 200
+        data = res.json()
+        assert [row["user_id"] for row in data] == ["near"]
+        assert data[0]["distance_km"] == 10.4
+        assert data[0]["compatibility_score"] == 80.0
+
     def test_requires_profile(self, client):
         user_resp = _make_resp(200, {"id": "no-profile"})
         empty_resp = _make_resp(200, [])

@@ -781,6 +781,45 @@ def haversine_distance(lat1, lon1, lat2, lon2):
     return R * 2 * math.asin(math.sqrt(a))
 
 
+def _profile_coordinates(profile: dict) -> tuple[float, float] | None:
+    latitude = _coerce_float(profile.get("latitude"))
+    longitude = _coerce_float(profile.get("longitude"))
+    if latitude is None or longitude is None:
+        return None
+    return latitude, longitude
+
+
+def profile_distance_km(profile_a: dict, profile_b: dict) -> float | None:
+    coords_a = _profile_coordinates(profile_a)
+    coords_b = _profile_coordinates(profile_b)
+    if not coords_a or not coords_b:
+        return None
+    return haversine_distance(coords_a[0], coords_a[1], coords_b[0], coords_b[1])
+
+
+def _profile_max_distance_km(profile: dict) -> int:
+    return _coerce_int(profile.get("max_distance_km")) or 50
+
+
+def _with_distance_context(my_profile: dict, candidate: dict) -> dict:
+    enriched = dict(candidate)
+    distance = profile_distance_km(my_profile, candidate)
+    if distance is not None:
+        enriched["distance_km"] = round(distance, 1)
+    return enriched
+
+
+def filter_by_distance(profiles: list[dict], my_profile: dict) -> list[dict]:
+    max_distance = _profile_max_distance_km(my_profile)
+    filtered = []
+    for profile in profiles:
+        enriched = _with_distance_context(my_profile, profile)
+        distance = enriched.get("distance_km")
+        if distance is None or distance <= max_distance:
+            filtered.append(enriched)
+    return filtered
+
+
 def filter_by_gender(profiles, seeking):
     if not seeking or seeking == "everyone":
         return profiles
@@ -871,6 +910,7 @@ def get_candidates(limit: int = 10, authorization: str = Header(None)):
 
         seeking = my_profile.get("seeking_gender", "everyone")
         filtered = filter_by_gender(candidates, seeking)
+        filtered = filter_by_distance(filtered, my_profile)
 
         candidate_pool = filtered[: min(len(filtered), max(limit, 1) * 2, 25)]
 
@@ -1054,6 +1094,9 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
         if not receiver_profiles:
             raise HTTPException(status_code=404, detail="Candidate not found")
         receiver_profile = receiver_profiles[0]
+        receiver_profile_for_scoring = _with_distance_context(
+            my_profile, receiver_profile
+        )
 
         compatibility_score = get_match_compatibility_score(
             settings,
@@ -1061,7 +1104,7 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
             sender_id,
             receiver_id,
             my_profile,
-            receiver_profile,
+            receiver_profile_for_scoring,
         )
 
         outgoing_resp = client.get(

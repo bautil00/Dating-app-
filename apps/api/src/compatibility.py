@@ -45,6 +45,16 @@ def _profile_list(profile: dict, *keys: str) -> str:
     return ""
 
 
+def _profile_distance(profile: dict) -> str:
+    value = profile.get("distance_km")
+    if value in (None, ""):
+        return "unknown"
+    try:
+        return f"{float(value):.1f} km"
+    except (TypeError, ValueError):
+        return str(value)
+
+
 def build_compatibility_prompt(profile_a: dict, profile_b: dict) -> str:
     return (
         "You are a dating app compatibility analyzer. "
@@ -59,6 +69,7 @@ def build_compatibility_prompt(profile_a: dict, profile_b: dict) -> str:
         f"- Age: {_profile_value(profile_a, 'age', 'Age')}\n"
         f"- Job: {_profile_value(profile_a, 'job', 'Job')}\n"
         f"- Gender: {_profile_value(profile_a, 'gender', 'Gender')}\n"
+        f"- Location: {_profile_value(profile_a, 'location_name', 'Location', 'location')}\n"
         f"- Education: {_profile_value(profile_a, 'education', 'Education')}\n"
         f"- Relationship: {_profile_value(profile_a, 'relationship', 'relationship_status')}\n"
         f"- Available days: {_profile_list(profile_a, 'availability', 'day_availability') or 'unknown'}\n"
@@ -68,6 +79,8 @@ def build_compatibility_prompt(profile_a: dict, profile_b: dict) -> str:
         f"- Age: {_profile_value(profile_b, 'age', 'Age')}\n"
         f"- Job: {_profile_value(profile_b, 'job', 'Job')}\n"
         f"- Gender: {_profile_value(profile_b, 'gender', 'Gender')}\n"
+        f"- Location: {_profile_value(profile_b, 'location_name', 'Location', 'location')}\n"
+        f"- Distance from Person A: {_profile_distance(profile_b)}\n"
         f"- Education: {_profile_value(profile_b, 'education', 'Education')}\n"
         f"- Relationship: {_profile_value(profile_b, 'relationship', 'relationship_status')}\n"
         f"- Available days: {_profile_list(profile_b, 'availability', 'day_availability') or 'unknown'}\n"

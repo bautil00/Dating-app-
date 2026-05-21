@@ -157,8 +157,28 @@ class TestLikeCandidate:
 
     def test_matches_endpoint_uses_llm_score_when_available(self, client):
         user_resp = _make_resp(200, {"id": "alice"})
-        alice_profile = _make_resp(200, [{"user_id": "alice", "interests": "Music"}])
-        bob_profile = _make_resp(200, [{"user_id": "bob", "interests": "Music"}])
+        alice_profile = _make_resp(
+            200,
+            [
+                {
+                    "user_id": "alice",
+                    "interests": "Music",
+                    "latitude": 47.6038321,
+                    "longitude": -122.330062,
+                }
+            ],
+        )
+        bob_profile = _make_resp(
+            200,
+            [
+                {
+                    "user_id": "bob",
+                    "interests": "Music",
+                    "latitude": 47.6144219,
+                    "longitude": -122.1923372,
+                }
+            ],
+        )
         save_resp = _make_resp(201)
         no_existing = _make_resp(200, [])
 
@@ -177,7 +197,9 @@ class TestLikeCandidate:
                 mock_settings.return_value.supabase_url = "https://fake.supabase.co"
                 mock_settings.return_value.supabase_key = "fake-key"
                 mock_settings.return_value.openrouter_api_key = "openrouter-key"
-                with patch("src.main.get_llm_compatibility_score", return_value=91.0):
+                with patch(
+                    "src.main.get_llm_compatibility_score", return_value=91.0
+                ) as llm_score:
                     res = client.post(
                         "/api/v1/matches/",
                         json={"receiver_id": "bob"},
@@ -187,6 +209,7 @@ class TestLikeCandidate:
         assert res.status_code == 200
         assert res.json()["compatibility_score"] == 91.0
         assert mock.post.call_args.kwargs["json"]["compatibility_score"] == 91.0
+        assert llm_score.call_args.args[2]["distance_km"] == 10.4
 
 
 class TestDismissCandidate:
