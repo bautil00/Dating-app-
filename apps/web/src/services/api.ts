@@ -239,6 +239,12 @@ export const matchService = {
     return response;
   },
 
+  dismiss: async (receiverId: string | number) => {
+    const response = await api.post('/matches/dismiss', { receiver_id: receiverId });
+    invalidateApiCache(/matches|candidates|messages/);
+    return response;
+  },
+
   getAll: () => cachedGet('/matches/', { ttlMs: 15_000 }),
 
   accept: async (id: number) => {

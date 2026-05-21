@@ -108,6 +108,21 @@ export default function Dashboard() {
     }
   };
 
+  const handlePass = async () => {
+    if (!current) return;
+    const candidateId = profileUserId(current);
+    if (!candidateId) return;
+
+    try {
+      await matchService.dismiss(candidateId);
+      advance();
+    } catch (err) {
+      console.error('Failed to pass profile:', err);
+      setToast('Could not save pass. Try again.');
+      window.setTimeout(() => setToast(''), 2400);
+    }
+  };
+
   const displayName = profileName(
     profile || {
       display_name:
@@ -156,7 +171,7 @@ export default function Dashboard() {
                 <div className="flex flex-col items-center gap-1.5">
                   <button
                     type="button"
-                    onClick={advance}
+                    onClick={handlePass}
                     className="flex h-14 w-14 items-center justify-center rounded-full border border-gray-100 bg-white shadow-md transition-all hover:scale-105 hover:shadow-lg active:scale-95"
                     aria-label="Pass"
                   >

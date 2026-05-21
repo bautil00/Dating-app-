@@ -187,3 +187,86 @@ class TestLikeCandidate:
         assert res.status_code == 200
         assert res.json()["compatibility_score"] == 91.0
         assert mock.post.call_args.kwargs["json"]["compatibility_score"] == 91.0
+
+
+class TestDismissCandidate:
+    def test_dismiss_creates_rejected_match_row(self, client):
+        user_resp = _make_resp(200, {"id": "alice"})
+        no_existing = _make_resp(200, [])
+        save_resp = _make_resp(
+            201,
+            [
+                {
+                    "id": 42,
+                    "sender_id": "alice",
+                    "receiver_id": "bob",
+                    "status": "rejected",
+                }
+            ],
+        )
+
+        mock = _mock_httpx(
+            get_returns=[user_resp, no_existing, no_existing],
+            post_returns=[save_resp],
+        )
+        with patch("httpx.Client", return_value=mock):
+            with patch("src.main.get_settings") as mock_settings:
+                mock_settings.return_value.supabase_url = "https://fake.supabase.co"
+                mock_settings.return_value.supabase_key = "fake-key"
+                res = client.post(
+                    "/api/v1/matches/dismiss",
+                    json={"receiver_id": "bob"},
+                    headers={"Authorization": "Bearer tok"},
+                )
+
+        assert res.status_code == 200
+        assert res.json()["status"] == "rejected"
+        assert mock.post.call_args.kwargs["json"] == {
+            "sender_id": "alice",
+            "receiver_id": "bob",
+            "status": "rejected",
+        }
+
+    def test_dismiss_rejects_incoming_pending_request(self, client):
+        user_resp = _make_resp(200, {"id": "alice"})
+        no_outgoing = _make_resp(200, [])
+        incoming = _make_resp(
+            200,
+            [
+                {
+                    "id": 7,
+                    "sender_id": "bob",
+                    "receiver_id": "alice",
+                    "status": "pending",
+                }
+            ],
+        )
+        patch_resp = _make_resp(
+            200,
+            [
+                {
+                    "id": 7,
+                    "sender_id": "bob",
+                    "receiver_id": "alice",
+                    "status": "rejected",
+                }
+            ],
+        )
+
+        mock = _mock_httpx(
+            get_returns=[user_resp, no_outgoing, incoming],
+            patch_returns=[patch_resp],
+        )
+        with patch("httpx.Client", return_value=mock):
+            with patch("src.main.get_settings") as mock_settings:
+                mock_settings.return_value.supabase_url = "https://fake.supabase.co"
+                mock_settings.return_value.supabase_key = "fake-key"
+                res = client.post(
+                    "/api/v1/matches/dismiss",
+                    json={"receiver_id": "bob"},
+                    headers={"Authorization": "Bearer tok"},
+                )
+
+        assert res.status_code == 200
+        assert res.json()["status"] == "rejected"
+        assert mock.patch.call_args.kwargs["params"] == {"id": "eq.7"}
