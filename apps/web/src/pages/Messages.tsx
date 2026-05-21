@@ -1,8 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Flame, Search, Send, ShieldOff, Smile, UserX } from 'lucide-react';
 import { authService, messageService, profileService } from '../services/api';
 import Navbar from '../components/Navbar';
+import {
+  markIncomingMessagesRead,
+  mergeMessages,
+  type LiveMessageRecord,
+  useChatPolling,
+} from '../hooks/useChatPolling';
 import { profileAge, profileInterests, profileName, shortUserId } from '../lib/profile';
 
 type Conversation = {
@@ -14,15 +20,7 @@ type Conversation = {
 
 type ConversationView = Conversation & {
   profile?: Record<string, unknown> | null;
-  messages?: MessageRecord[];
-};
-
-type MessageRecord = {
-  id: number;
-  content: string;
-  created_at: string;
-  sender_id: string;
-  receiver_id?: string;
+  messages?: LiveMessageRecord[];
 };
 
 const EMOJI_CATEGORIES = [
@@ -43,9 +41,97 @@ export default function Messages() {
   const [toast, setToast] = useState('');
   const [confirm, setConfirm] = useState<{ type: 'unmatch' | 'block'; name: string } | null>(null);
   const [loading, setLoading] = useState(true);
+  const conversationsRef = useRef<ConversationView[]>([]);
+  const messageListRef = useRef<HTMLDivElement>(null);
+  const shouldAutoScrollRef = useRef(true);
   const emojiRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    conversationsRef.current = conversations;
+  }, [conversations]);
+
+  const updateAutoScroll = () => {
+    const element = messageListRef.current;
+    if (!element) return;
+    const distanceFromBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
+    shouldAutoScrollRef.current = distanceFromBottom < 80;
+  };
+
+  const loadConversations = useCallback(
+    async ({
+      background = false,
+      fresh = false,
+    }: { background?: boolean; fresh?: boolean } = {}) => {
+      if (!background) setLoading(true);
+      try {
+        const [conversationRes, userRes] = await Promise.all([
+          fresh ? messageService.getConversationsFresh() : messageService.getConversations(),
+          authService.getMe().catch(() => ({ data: null })),
+        ]);
+        setCurrentUserId(String(userRes.data?.id || ''));
+        const rows: Conversation[] = conversationRes.data || [];
+        const enriched = await Promise.all(
+          rows.map(async (conversation) => {
+            const existing = conversationsRef.current.find(
+              (row) => row.user_id === conversation.user_id,
+            );
+            const profile =
+              existing?.profile !== undefined
+                ? existing.profile
+                : (await profileService.getById(conversation.user_id).catch(() => ({ data: null })))
+                    .data;
+            return { ...conversation, profile, messages: existing?.messages };
+          }),
+        );
+        setConversations(enriched);
+        setActiveId((active) => active || enriched[0]?.user_id || '');
+      } catch (err) {
+        console.error('Failed to load conversations:', err);
+      } finally {
+        if (!background) setLoading(false);
+      }
+    },
+    [],
+  );
+
+  const loadMessages = useCallback(
+    async (userId: string, fresh = false) => {
+      try {
+        const res = fresh
+          ? await messageService.getConversationFresh(userId)
+          : await messageService.getConversation(userId);
+        const freshMessages = (res.data || []) as LiveMessageRecord[];
+        if (currentUserId) await markIncomingMessagesRead(freshMessages, currentUserId);
+        setConversations((prev) =>
+          prev.map((conversation) => {
+            if (conversation.user_id !== userId) return conversation;
+            const mergedMessages = mergeMessages(conversation.messages || [], freshMessages).map(
+              (message) =>
+                currentUserId && String(message.sender_id) !== currentUserId
+                  ? { ...message, is_read: true }
+                  : message,
+            );
+            return { ...conversation, unread_count: 0, messages: mergedMessages };
+          }),
+        );
+      } catch (err) {
+        console.error('Failed to load messages:', err);
+      }
+    },
+    [currentUserId],
+  );
+
+  const refreshActiveMessages = useCallback(async () => {
+    if (!activeId || !currentUserId) return;
+    await loadMessages(activeId, true);
+  }, [activeId, currentUserId, loadMessages]);
+
+  const refreshConversations = useCallback(
+    () => loadConversations({ background: true, fresh: true }),
+    [loadConversations],
+  );
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -54,7 +140,7 @@ export default function Messages() {
       return;
     }
     loadConversations();
-  }, [navigate]);
+  }, [loadConversations, navigate]);
 
   useEffect(() => {
     const closeEmoji = (event: MouseEvent) => {
@@ -66,72 +152,23 @@ export default function Messages() {
 
   useEffect(() => {
     if (activeId) loadMessages(activeId);
+  }, [activeId, loadMessages]);
+
+  useEffect(() => {
+    shouldAutoScrollRef.current = true;
   }, [activeId]);
 
-  const loadConversations = async () => {
-    setLoading(true);
-    try {
-      const [conversationRes, userRes] = await Promise.all([
-        messageService.getConversations(),
-        authService.getMe().catch(() => ({ data: null })),
-      ]);
-      setCurrentUserId(String(userRes.data?.id || ''));
-      const rows: Conversation[] = conversationRes.data || [];
-      const enriched = await Promise.all(
-        rows.map(async (conversation) => {
-          const profileRes = await profileService
-            .getById(conversation.user_id)
-            .catch(() => ({ data: null }));
-          return { ...conversation, profile: profileRes.data };
-        }),
-      );
-      setConversations(enriched);
-      setActiveId((active) => active || enriched[0]?.user_id || '');
-    } catch (err) {
-      console.error('Failed to load conversations:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  useChatPolling({
+    enabled: Boolean(activeId && currentUserId),
+    intervalMs: 3_000,
+    onPoll: refreshActiveMessages,
+  });
 
-  const loadMessages = async (userId: string) => {
-    try {
-      const res = await messageService.getConversation(userId);
-      setConversations((prev) =>
-        prev.map((conversation) =>
-          conversation.user_id === userId
-            ? { ...conversation, messages: res.data || [] }
-            : conversation,
-        ),
-      );
-    } catch (err) {
-      console.error('Failed to load messages:', err);
-    }
-  };
-
-  const sendMessage = async () => {
-    if (!input.trim() || !activeId) return;
-    try {
-      const res = await messageService.send(activeId, input.trim());
-      setConversations((prev) =>
-        prev.map((conversation) =>
-          conversation.user_id === activeId
-            ? {
-                ...conversation,
-                last_message: input.trim(),
-                last_timestamp: new Date().toISOString(),
-                messages: [...(conversation.messages || []), res.data],
-              }
-            : conversation,
-        ),
-      );
-      setInput('');
-    } catch (err) {
-      console.error('Failed to send message:', err);
-      setToast('Message failed to send.');
-      window.setTimeout(() => setToast(''), 2400);
-    }
-  };
+  useChatPolling({
+    enabled: Boolean(currentUserId),
+    intervalMs: 10_000,
+    onPoll: refreshConversations,
+  });
 
   const filtered = conversations.filter((conversation) => {
     const name = profileName(conversation.profile, `User ${shortUserId(conversation.user_id)}`);
@@ -143,6 +180,40 @@ export default function Messages() {
     (total, conversation) => total + (conversation.unread_count || 0),
     0,
   );
+
+  useEffect(() => {
+    if (shouldAutoScrollRef.current) {
+      messageListRef.current?.scrollTo?.({
+        top: messageListRef.current.scrollHeight,
+        behavior: 'smooth',
+      });
+    }
+  }, [active?.messages]);
+
+  const sendMessage = async () => {
+    if (!input.trim() || !activeId) return;
+    try {
+      const res = await messageService.send(activeId, input.trim());
+      shouldAutoScrollRef.current = true;
+      setConversations((prev) =>
+        prev.map((conversation) =>
+          conversation.user_id === activeId
+            ? {
+                ...conversation,
+                last_message: input.trim(),
+                last_timestamp: new Date().toISOString(),
+                messages: mergeMessages(conversation.messages || [], [res.data]),
+              }
+            : conversation,
+        ),
+      );
+      setInput('');
+    } catch (err) {
+      console.error('Failed to send message:', err);
+      setToast('Message failed to send.');
+      window.setTimeout(() => setToast(''), 2400);
+    }
+  };
 
   if (loading) {
     return (
@@ -262,7 +333,11 @@ export default function Messages() {
                 </div>
               </div>
 
-              <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
+              <div
+                ref={messageListRef}
+                onScroll={updateAutoScroll}
+                className="flex-1 space-y-3 overflow-y-auto px-5 py-4"
+              >
                 {(active.messages || []).length === 0 ? (
                   <div className="flex h-full flex-col items-center justify-center text-center">
                     <Flame className="mb-3 h-12 w-12 text-orange-300" fill="currentColor" />

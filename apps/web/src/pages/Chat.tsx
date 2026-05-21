@@ -1,43 +1,48 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { Flame, Lightbulb, Send, Smile } from 'lucide-react';
 import { aiService, authService, messageService, profileService } from '../services/api';
 import Navbar from '../components/Navbar';
+import {
+  markIncomingMessagesRead,
+  mergeMessages,
+  type LiveMessageRecord,
+  useChatPolling,
+} from '../hooks/useChatPolling';
 import { profileAge, profileInterests, profileName } from '../lib/profile';
-
-type MessageRecord = {
-  id: number;
-  content: string;
-  created_at: string;
-  sender_id: string;
-};
 
 export default function Chat() {
   const { userId } = useParams();
-  const [messages, setMessages] = useState<MessageRecord[]>([]);
+  const [messages, setMessages] = useState<LiveMessageRecord[]>([]);
   const [profile, setProfile] = useState<Record<string, unknown> | null>(null);
   const [currentUserId, setCurrentUserId] = useState('');
   const [newMessage, setNewMessage] = useState('');
   const [icebreaker, setIcebreaker] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const messageListRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const shouldAutoScrollRef = useRef(true);
   const navigate = useNavigate();
 
-  useEffect(() => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      navigate('/login');
-      return;
-    }
-    if (userId) loadMessages();
-  }, [userId, navigate]);
+  const updateAutoScroll = () => {
+    const element = messageListRef.current;
+    if (!element) return;
+    const distanceFromBottom = element.scrollHeight - element.scrollTop - element.clientHeight;
+    shouldAutoScrollRef.current = distanceFromBottom < 80;
+  };
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView?.({ behavior: 'smooth' });
-  }, [messages]);
+  const markReadLocally = useCallback(
+    (nextMessages: LiveMessageRecord[]) =>
+      nextMessages.map((message) =>
+        currentUserId && String(message.sender_id) !== currentUserId
+          ? { ...message, is_read: true }
+          : message,
+      ),
+    [currentUserId],
+  );
 
-  const loadMessages = async () => {
+  const loadMessages = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
     try {
@@ -46,15 +51,60 @@ export default function Chat() {
         profileService.getById(userId).catch(() => ({ data: null })),
         authService.getMe().catch(() => ({ data: null })),
       ]);
-      setMessages(messagesRes.data || []);
+      const userIdentifier = String(userRes.data?.id || '');
+      const loadedMessages = messagesRes.data || [];
+      if (userIdentifier) await markIncomingMessagesRead(loadedMessages, userIdentifier);
+      setMessages(
+        userIdentifier
+          ? loadedMessages.map((message: LiveMessageRecord) =>
+              String(message.sender_id) !== userIdentifier
+                ? { ...message, is_read: true }
+                : message,
+            )
+          : loadedMessages,
+      );
       setProfile(profileRes.data);
-      setCurrentUserId(String(userRes.data?.id || ''));
+      setCurrentUserId(userIdentifier);
+      shouldAutoScrollRef.current = true;
     } catch (err) {
       console.error('Failed to load chat:', err);
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId]);
+
+  const refreshMessages = useCallback(async () => {
+    if (!userId || !currentUserId) return;
+    try {
+      const res = await messageService.getConversationFresh(userId);
+      const freshMessages = (res.data || []) as LiveMessageRecord[];
+      await markIncomingMessagesRead(freshMessages, currentUserId);
+      setMessages((prev) => markReadLocally(mergeMessages(prev, freshMessages)));
+    } catch (err) {
+      console.error('Failed to refresh chat:', err);
+    }
+  }, [currentUserId, markReadLocally, userId]);
+
+  useEffect(() => {
+    const token = localStorage.getItem('token');
+    if (!token) {
+      navigate('/login');
+      return;
+    }
+    if (userId) loadMessages();
+  }, [loadMessages, navigate, userId]);
+
+  useEffect(() => {
+    if (shouldAutoScrollRef.current) {
+      messagesEndRef.current?.scrollIntoView?.({ behavior: 'smooth' });
+    }
+  }, [messages]);
+
+  useChatPolling({
+    enabled: Boolean(userId && currentUserId),
+    intervalMs: 3_000,
+    onPoll: refreshMessages,
+  });
 
   const handleSend = async (event?: React.FormEvent) => {
     event?.preventDefault();
@@ -63,7 +113,8 @@ export default function Chat() {
     setSending(true);
     try {
       const res = await messageService.send(userId, newMessage.trim());
-      setMessages((prev) => [...prev, res.data]);
+      shouldAutoScrollRef.current = true;
+      setMessages((prev) => mergeMessages(prev, [res.data]));
       setNewMessage('');
     } catch (err) {
       console.error('Failed to send:', err);
@@ -142,7 +193,11 @@ export default function Chat() {
             </div>
           )}
 
-          <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
+          <div
+            ref={messageListRef}
+            onScroll={updateAutoScroll}
+            className="flex-1 space-y-3 overflow-y-auto px-5 py-4"
+          >
             {messages.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center text-center">
                 <Flame className="mb-3 h-12 w-12 text-orange-300" fill="currentColor" />
