@@ -23,6 +23,7 @@ class TestRegister:
             )
         assert res.status_code == 200
         assert "access_token" in res.json()
+        assert res.json()["user"]["email"] == "a@test.com"
 
     def test_register_duplicate_email(self, client, mock_supabase_response):
         mock_resp = mock_supabase_response(400, {"error": "already registered"})
@@ -58,6 +59,17 @@ class TestLogin:
             )
         assert res.status_code == 200
         assert "access_token" in res.json()
+        assert res.json()["user"]["id"] == "u2"
+
+    def test_login_rejects_missing_password(self, client):
+        res = client.post("/api/v1/auth/login", json={"email": "b@test.com"})
+        assert res.status_code == 422
+
+    def test_login_rejects_invalid_email(self, client):
+        res = client.post(
+            "/api/v1/auth/login", json={"email": "not-an-email", "password": "pass123"}
+        )
+        assert res.status_code == 422
 
     def test_login_wrong_password(self, client, mock_supabase_response):
         mock_resp = mock_supabase_response(401, {"error": "invalid"})
