@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from concurrent.futures import ThreadPoolExecutor
 import httpx
 from typing import Optional, Any, cast, Dict
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 import math
 import time
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -36,6 +37,70 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
 )
+
+
+class AuthCredentials(BaseModel):
+    email: str = Field(..., min_length=3, max_length=254)
+    password: str = Field(..., min_length=1, max_length=4096)
+
+    @field_validator("email")
+    @classmethod
+    def validate_email(cls, value: str) -> str:
+        email = value.strip().lower()
+        if "@" not in email or email.startswith("@") or email.endswith("@"):
+            raise ValueError("Valid email address required")
+        return email
+
+
+class AuthUserResponse(BaseModel):
+    id: Optional[str] = None
+    email: Optional[str] = None
+    model_config = ConfigDict(extra="allow")
+
+
+class AuthSessionResponse(BaseModel):
+    access_token: Optional[str] = None
+    token_type: Optional[str] = None
+    expires_in: Optional[int] = None
+    expires_at: Optional[int] = None
+    refresh_token: Optional[str] = None
+    user: Optional[AuthUserResponse] = None
+    model_config = ConfigDict(extra="allow")
+
+
+class GoogleUrlResponse(BaseModel):
+    url: str
+
+
+class MatchAnalytics(BaseModel):
+    sent: int
+    received: int
+    pending: int
+    accepted: int
+    rejected: int
+    dismissed: int
+    total: int
+
+
+class MessageAnalytics(BaseModel):
+    sent: int
+    received: int
+    unread: int
+    total: int
+
+
+class CompatibilityAnalytics(BaseModel):
+    scored_matches: int
+    average_score: Optional[float]
+
+
+class UserAnalyticsResponse(BaseModel):
+    user_id: str
+    profile_created: bool
+    profile_complete: bool
+    matches: MatchAnalytics
+    messages: MessageAnalytics
+    compatibility: CompatibilityAnalytics
 
 
 def get_supabase_client():
@@ -509,25 +574,27 @@ def response_failed(resp) -> bool:
 auth_router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
-@auth_router.post("/register")
-def register(user: dict):
+@auth_router.post("/register", response_model=AuthSessionResponse)
+def register(user: AuthCredentials):
     with get_supabase_client() as client:
-        response = client.post("/auth/v1/signup", json=user)
+        response = client.post("/auth/v1/signup", json=user.model_dump())
         if response.status_code >= 400:
             raise HTTPException(status_code=400, detail=response.text)
         return response.json()
 
 
-@auth_router.post("/login")
-def login(user: dict):
+@auth_router.post("/login", response_model=AuthSessionResponse)
+def login(user: AuthCredentials):
     with get_supabase_client() as client:
-        response = client.post("/auth/v1/token?grant_type=password", json=user)
+        response = client.post(
+            "/auth/v1/token?grant_type=password", json=user.model_dump()
+        )
         if response.status_code >= 400:
             raise HTTPException(status_code=401, detail="Invalid credentials")
         return response.json()
 
 
-@auth_router.get("/me")
+@auth_router.get("/me", response_model=AuthUserResponse)
 def me(authorization: str = Header(None)):
     if not authorization:
         raise HTTPException(status_code=401, detail="Missing authorization header")
@@ -541,7 +608,7 @@ def me(authorization: str = Header(None)):
         return response.json()
 
 
-@auth_router.get("/google/url")
+@auth_router.get("/google/url", response_model=GoogleUrlResponse)
 def get_google_oauth_url(request: Request):
     settings = get_settings()
     # Get the origin or referer to know where to redirect back to
@@ -1613,6 +1680,120 @@ def get_all_conversations(authorization: str = Header(None)):
 
 
 app.include_router(messages_router, prefix="/api/v1")
+
+
+# ---- Analytics Routes (Supabase REST) ----
+analytics_router = APIRouter(prefix="/analytics", tags=["Analytics"])
+
+
+def _status_count(matches: list[dict], *statuses: str) -> int:
+    normalized_statuses = {status.lower() for status in statuses}
+    return sum(
+        1
+        for match in matches
+        if str(match.get("status", "")).strip().lower() in normalized_statuses
+    )
+
+
+def _average_compatibility_score(matches: list[dict]) -> tuple[int, Optional[float]]:
+    scores = [
+        score
+        for score in (
+            _coerce_float(match.get("compatibility_score")) for match in matches
+        )
+        if score is not None
+    ]
+    if not scores:
+        return 0, None
+    return len(scores), round(sum(scores) / len(scores), 2)
+
+
+@analytics_router.get("/users/me", response_model=UserAnalyticsResponse)
+def get_user_analytics(authorization: str = Header(None)):
+    settings = get_settings()
+    user_id, token = _get_user_id_and_token(authorization, settings)
+    headers = supabase_headers(settings, token)
+
+    with httpx.Client() as client:
+        profile_resp = client.get(
+            f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
+            params={"user_id": f"eq.{user_id}", "limit": 1},
+            headers=headers,
+        )
+        if profile_resp.status_code >= 400:
+            raise HTTPException(
+                status_code=profile_resp.status_code, detail=profile_resp.text
+            )
+        profiles = profile_resp.json()
+        profile = profiles[0] if profiles else {}
+
+        sent_matches_resp = client.get(
+            f"{settings.supabase_url}/rest/v1/matches",
+            params={"sender_id": f"eq.{user_id}"},
+            headers=headers,
+        )
+        received_matches_resp = client.get(
+            f"{settings.supabase_url}/rest/v1/matches",
+            params={"receiver_id": f"eq.{user_id}"},
+            headers=headers,
+        )
+        sent_messages_resp = client.get(
+            f"{settings.supabase_url}/rest/v1/messages",
+            params={"sender_id": f"eq.{user_id}"},
+            headers=headers,
+        )
+        received_messages_resp = client.get(
+            f"{settings.supabase_url}/rest/v1/messages",
+            params={"receiver_id": f"eq.{user_id}"},
+            headers=headers,
+        )
+
+        for resp in (
+            sent_matches_resp,
+            received_matches_resp,
+            sent_messages_resp,
+            received_messages_resp,
+        ):
+            if resp.status_code >= 400:
+                raise HTTPException(status_code=resp.status_code, detail=resp.text)
+
+        sent_matches = sent_matches_resp.json()
+        received_matches = received_matches_resp.json()
+        sent_messages = sent_messages_resp.json()
+        received_messages = received_messages_resp.json()
+
+    all_matches = sent_matches + received_matches
+    scored_count, average_score = _average_compatibility_score(all_matches)
+
+    return UserAnalyticsResponse(
+        user_id=user_id,
+        profile_created=bool(profile),
+        profile_complete=bool(profile.get("is_complete")) if profile else False,
+        matches=MatchAnalytics(
+            sent=len(sent_matches),
+            received=len(received_matches),
+            pending=_status_count(all_matches, "pending"),
+            accepted=_status_count(all_matches, "accepted", "matched"),
+            rejected=_status_count(all_matches, "rejected"),
+            dismissed=_status_count(all_matches, "dismissed"),
+            total=len(all_matches),
+        ),
+        messages=MessageAnalytics(
+            sent=len(sent_messages),
+            received=len(received_messages),
+            unread=sum(
+                1 for message in received_messages if not message.get("is_read")
+            ),
+            total=len(sent_messages) + len(received_messages),
+        ),
+        compatibility=CompatibilityAnalytics(
+            scored_matches=scored_count,
+            average_score=average_score,
+        ),
+    )
+
+
+app.include_router(analytics_router, prefix="/api/v1")
 
 
 # ---- AI Routes (OpenRouter + fallback) ----
