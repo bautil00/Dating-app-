@@ -85,6 +85,62 @@ class TestGetMatches:
         assert res.status_code == 401
 
 
+class TestRejectMatch:
+    def test_sender_can_reject_existing_match(self, client):
+        user_resp = _make_resp(200, {"id": "alice"})
+        match_resp = _make_resp(
+            200,
+            [
+                {
+                    "id": 12,
+                    "sender_id": "alice",
+                    "receiver_id": "bob",
+                    "status": "accepted",
+                }
+            ],
+        )
+        patch_resp = _make_resp(200, [])
+
+        mock = _mock_httpx(
+            get_returns=[user_resp, match_resp], patch_returns=[patch_resp]
+        )
+        with patch("httpx.Client", return_value=mock):
+            res = client.patch(
+                "/api/v1/matches/12/reject",
+                headers={"Authorization": "Bearer tok"},
+            )
+
+        assert res.status_code == 200
+        assert res.json()["status"] == "rejected"
+        assert res.json()["sender_id"] == "alice"
+        assert res.json()["receiver_id"] == "bob"
+        assert mock.patch.call_args.kwargs["params"] == {"id": "eq.12"}
+
+    def test_non_participant_cannot_reject_match(self, client):
+        user_resp = _make_resp(200, {"id": "mallory"})
+        match_resp = _make_resp(
+            200,
+            [
+                {
+                    "id": 12,
+                    "sender_id": "alice",
+                    "receiver_id": "bob",
+                    "status": "accepted",
+                }
+            ],
+        )
+
+        mock = _mock_httpx(get_returns=[user_resp, match_resp])
+        with patch("httpx.Client", return_value=mock):
+            res = client.patch(
+                "/api/v1/matches/12/reject",
+                headers={"Authorization": "Bearer tok"},
+            )
+
+        assert res.status_code == 403
+        assert not mock.patch.called
+
+
 class TestSendMessage:
     def test_send_message(self, client):
         user_resp = _make_resp(200, {"id": "alice"})

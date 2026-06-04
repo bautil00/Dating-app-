@@ -1510,7 +1510,8 @@ def reject_match(match_id: int, authorization: str = Header(None)):
         if not matches:
             raise HTTPException(status_code=404, detail="Match not found")
         match = matches[0]
-        if match.get("receiver_id") != user_id:
+        participants = {str(match.get("sender_id")), str(match.get("receiver_id"))}
+        if str(user_id) not in participants:
             raise HTTPException(status_code=403, detail="Not authorized")
         client.patch(
             f"{settings.supabase_url}/rest/v1/matches",
@@ -1518,7 +1519,8 @@ def reject_match(match_id: int, authorization: str = Header(None)):
             json={"status": "rejected"},
             headers=rls_headers,
         )
-        return {"status": "rejected"}
+        match["status"] = "rejected"
+        return match
 
 
 app.include_router(matches_router, prefix="/api/v1")
