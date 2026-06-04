@@ -1,9 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, Check, Flame, Pencil } from 'lucide-react';
+import { Camera, Check, Flame, Pencil, X } from 'lucide-react';
 import { profileService, userFacingError } from '../services/api';
 import Navbar from '../components/Navbar';
 import LocationSearch from '../components/LocationSearch';
+import { dataUrlForFile } from '../lib/images';
 
 const ENUMS = {
   gender: ['male', 'female', 'non binary', 'mtf', 'ftm'],
@@ -142,6 +143,7 @@ type FormData = {
   drives: string;
   seeking_gender: string;
   max_distance_km: string;
+  profile_image_url: string;
 };
 
 const initialForm: FormData = {
@@ -171,6 +173,7 @@ const initialForm: FormData = {
   drives: '',
   seeking_gender: 'everyone',
   max_distance_km: '50',
+  profile_image_url: '',
 };
 
 function optionLabel(value: string) {
@@ -214,6 +217,7 @@ export default function Profile() {
   const [formData, setFormData] = useState<FormData>(initialForm);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -260,6 +264,13 @@ export default function Profile() {
           drives: boolField(res.data.drives),
           seeking_gender: normalizeOption(res.data.seeking_gender || 'everyone'),
           max_distance_km: String(res.data.max_distance_km || '50'),
+          profile_image_url: String(
+            res.data.profile_image_url ||
+              res.data.avatar_url ||
+              res.data.photo_url ||
+              res.data.image_url ||
+              '',
+          ),
         });
       }
     } catch {
@@ -283,6 +294,22 @@ export default function Profile() {
         : [...current, value];
       return { ...prev, [name]: next };
     });
+  };
+
+  const handlePhotoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setMessage('');
+    try {
+      const imageUrl = await dataUrlForFile(file);
+      setFormData((prev) => ({ ...prev, profile_image_url: imageUrl }));
+      setMessage('Profile photo ready. Save profile to keep it.');
+    } catch {
+      setMessage('Failed to load profile photo. Try a different image.');
+    } finally {
+      if (photoInputRef.current) photoInputRef.current.value = '';
+    }
   };
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -370,6 +397,7 @@ export default function Profile() {
   };
 
   const initial = formData.display_name.charAt(0).toUpperCase() || 'B';
+  const profileImageUrl = formData.profile_image_url;
 
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
@@ -416,16 +444,42 @@ export default function Profile() {
             <section className="space-y-5">
               <div className="flex justify-center">
                 <div className="relative">
-                  <div className="flex h-24 w-24 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-orange-600 text-3xl font-bold text-white shadow-lg">
-                    {initial}
+                  <div className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-orange-400 to-orange-600 text-3xl font-bold text-white shadow-lg">
+                    {profileImageUrl ? (
+                      <img
+                        src={profileImageUrl}
+                        alt="Profile"
+                        className="h-full w-full object-cover"
+                      />
+                    ) : (
+                      initial
+                    )}
                   </div>
                   <button
                     type="button"
+                    onClick={() => photoInputRef.current?.click()}
                     className="absolute bottom-0 right-0 flex h-8 w-8 items-center justify-center rounded-full bg-white text-orange-500 shadow-md"
-                    aria-label="Profile photo"
+                    aria-label={profileImageUrl ? 'Change profile photo' : 'Upload profile photo'}
                   >
                     <Camera className="h-4 w-4" />
                   </button>
+                  {profileImageUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setFormData((prev) => ({ ...prev, profile_image_url: '' }))}
+                      className="absolute left-0 top-0 flex h-7 w-7 items-center justify-center rounded-full bg-gray-900/80 text-white shadow-md"
+                      aria-label="Remove profile photo"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handlePhotoChange}
+                  />
                 </div>
               </div>
 
