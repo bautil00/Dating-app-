@@ -21,6 +21,8 @@ type MatchRecord = {
   status?: string;
 };
 
+type SwipeAction = 'pass' | 'like';
+
 export default function Dashboard() {
   const [user, setUser] = useState<Record<string, unknown> | null>(null);
   const [profile, setProfile] = useState<Record<string, unknown> | null>(null);
@@ -28,6 +30,8 @@ export default function Dashboard() {
   const [matches, setMatches] = useState<MatchRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [exiting, setExiting] = useState(false);
+  const [exitDirection, setExitDirection] = useState<SwipeAction>('pass');
+  const [pendingAction, setPendingAction] = useState<SwipeAction | null>(null);
   const [toast, setToast] = useState('');
   const navigate = useNavigate();
 
@@ -83,7 +87,8 @@ export default function Dashboard() {
     ).size;
   }, [matches, user]);
 
-  const advance = () => {
+  const advance = (direction: SwipeAction) => {
+    setExitDirection(direction);
     setExiting(true);
     window.setTimeout(() => {
       setCandidates((prev) => prev.slice(1));
@@ -92,35 +97,41 @@ export default function Dashboard() {
   };
 
   const handleLike = async () => {
-    if (!current) return;
+    if (!current || pendingAction) return;
     const candidateId = profileUserId(current);
     if (!candidateId) return;
 
+    setPendingAction('like');
     try {
       const result = await matchService.create(candidateId);
       setMatches((prev) => [result.data, ...prev.filter((match) => match.id !== result.data.id)]);
       setToast(result.data?.matched ? "It's a spark. You can message them now." : 'Ignite sent.');
       window.setTimeout(() => setToast(''), 2400);
-      advance();
+      advance('like');
     } catch (err) {
       console.error('Failed to like profile:', err);
       setToast('Could not send ignite. Try again.');
       window.setTimeout(() => setToast(''), 2400);
+    } finally {
+      setPendingAction(null);
     }
   };
 
   const handlePass = async () => {
-    if (!current) return;
+    if (!current || pendingAction) return;
     const candidateId = profileUserId(current);
     if (!candidateId) return;
 
+    setPendingAction('pass');
     try {
       await matchService.dismiss(candidateId);
-      advance();
+      advance('pass');
     } catch (err) {
       console.error('Failed to pass profile:', err);
       setToast('Could not save pass. Try again.');
       window.setTimeout(() => setToast(''), 2400);
+    } finally {
+      setPendingAction(null);
     }
   };
 
@@ -161,11 +172,18 @@ export default function Dashboard() {
               <div
                 className={`transition-all duration-200 ${
                   exiting
-                    ? '-translate-x-4 scale-95 opacity-0'
+                    ? `${
+                        exitDirection === 'like' ? 'translate-x-8' : '-translate-x-8'
+                      } scale-95 opacity-0`
                     : 'translate-x-0 scale-100 opacity-100'
                 }`}
               >
-                <DiscoverCard profile={current} onNext={advance} />
+                <DiscoverCard
+                  profile={current}
+                  onPass={handlePass}
+                  onLike={handleLike}
+                  disabled={Boolean(pendingAction) || exiting}
+                />
               </div>
 
               <div className="flex items-center gap-10">
@@ -173,7 +191,8 @@ export default function Dashboard() {
                   <button
                     type="button"
                     onClick={handlePass}
-                    className="flex h-14 w-14 items-center justify-center rounded-full border border-gray-100 bg-white shadow-md transition-all hover:scale-105 hover:shadow-lg active:scale-95"
+                    disabled={Boolean(pendingAction) || exiting}
+                    className="flex h-14 w-14 items-center justify-center rounded-full border border-gray-100 bg-white shadow-md transition-all hover:scale-105 hover:shadow-lg active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                     aria-label="Pass"
                   >
                     <X className="h-6 w-6 text-gray-500" />
@@ -185,7 +204,8 @@ export default function Dashboard() {
                   <button
                     type="button"
                     onClick={handleLike}
-                    className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#FF7A18] to-[#FF3D2E] shadow-lg transition-all hover:scale-105 hover:shadow-[0_0_20px_rgba(255,122,24,0.5)] active:scale-95"
+                    disabled={Boolean(pendingAction) || exiting}
+                    className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#FF7A18] to-[#FF3D2E] shadow-lg transition-all hover:scale-105 hover:shadow-[0_0_20px_rgba(255,122,24,0.5)] active:scale-95 disabled:cursor-not-allowed disabled:opacity-50"
                     aria-label="Ignite"
                   >
                     <Heart className="h-6 w-6 text-white" fill="white" />
@@ -213,11 +233,17 @@ export default function Dashboard() {
 
 function DiscoverCard({
   profile,
-  onNext,
+  onPass,
+  onLike,
+  disabled,
 }: {
   profile: Record<string, unknown>;
-  onNext: () => void;
+  onPass: () => void | Promise<void>;
+  onLike: () => void | Promise<void>;
+  disabled?: boolean;
 }) {
+  const [dragStart, setDragStart] = useState<number | null>(null);
+  const [dragOffset, setDragOffset] = useState(0);
   const name = profileName(profile);
   const age = profileAge(profile);
   const score = profileCompatibility(profile) ?? 72;
@@ -228,9 +254,51 @@ function DiscoverCard({
   const location = profileLocation(profile);
   const image = profileImage(profile);
   const initial = name.charAt(0).toUpperCase();
+  const swipeThreshold = 90;
+  const rotation = Math.max(-12, Math.min(12, dragOffset / 18));
+
+  const resetDrag = () => {
+    setDragStart(null);
+    setDragOffset(0);
+  };
+
+  const handlePointerDown = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (disabled) return;
+    setDragStart(event.clientX);
+    setDragOffset(0);
+    event.currentTarget.setPointerCapture?.(event.pointerId);
+  };
+
+  const handlePointerMove = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (disabled || dragStart === null) return;
+    setDragOffset(event.clientX - dragStart);
+  };
+
+  const handlePointerUp = (event: React.PointerEvent<HTMLDivElement>) => {
+    if (disabled || dragStart === null) return;
+    event.currentTarget.releasePointerCapture?.(event.pointerId);
+    const offset = event.clientX - dragStart;
+    resetDrag();
+    if (offset >= swipeThreshold) {
+      void onLike();
+    } else if (offset <= -swipeThreshold) {
+      void onPass();
+    }
+  };
 
   return (
-    <div className="relative">
+    <div
+      className={`relative touch-pan-y select-none ${disabled ? 'cursor-not-allowed' : 'cursor-grab active:cursor-grabbing'}`}
+      data-testid="discover-card"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={resetDrag}
+      style={{
+        transform: `translateX(${dragOffset}px) rotate(${rotation}deg)`,
+        transition: dragStart === null ? 'transform 160ms ease' : 'none',
+      }}
+    >
       <div className="relative h-[560px] w-[min(480px,calc(100vw-3rem))] overflow-hidden rounded-3xl bg-gradient-to-br from-orange-400 via-rose-500 to-gray-950 shadow-2xl">
         {image ? (
           <img src={image} alt={name} className="absolute inset-0 h-full w-full object-cover" />
@@ -244,6 +312,16 @@ function DiscoverCard({
           <span className="mt-0.5 text-[11px] font-semibold text-white/90">Spark</span>
         </div>
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
+        {dragOffset > 40 && (
+          <div className="absolute left-6 top-8 z-20 rotate-[-10deg] rounded-2xl border-4 border-orange-400 px-4 py-2 text-xl font-black uppercase tracking-wide text-orange-300">
+            Ignite
+          </div>
+        )}
+        {dragOffset < -40 && (
+          <div className="absolute right-6 top-8 z-20 rotate-[10deg] rounded-2xl border-4 border-white/70 px-4 py-2 text-xl font-black uppercase tracking-wide text-white/80">
+            Pass
+          </div>
+        )}
         <div className="absolute bottom-0 left-0 right-0 p-6">
           <div className="mb-2 flex items-center gap-2">
             <h2 className="text-[22px] font-bold leading-snug text-white">
@@ -272,9 +350,10 @@ function DiscoverCard({
 
       <button
         type="button"
-        onClick={onNext}
-        className="absolute right-[-18px] top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white shadow-lg transition-all hover:shadow-xl"
-        aria-label="Next profile"
+        onClick={onPass}
+        disabled={disabled}
+        className="absolute right-[-18px] top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white shadow-lg transition-all hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
+        aria-label="Pass profile"
       >
         <ChevronRight className="h-4 w-4 text-gray-600" />
       </button>
