@@ -336,7 +336,7 @@ class TestBuildProfileRpcPayload:
                 "interests": ["Music", "Programming"],
                 "weight": 150.0,
                 "mbti": "INFP",
-                "languages": ["English", "Spanish"],
+                "languages": ["English", "Spanish", "Korean"],
                 "availability": ["Monday", "Friday"],
                 "time_availability": ["7-9 PM"],
                 "profile_image_url": "data:image/jpeg;base64,abc",
@@ -350,7 +350,7 @@ class TestBuildProfileRpcPayload:
         assert result["interests"] == ["music", "programming"]
         assert result["weight"] == 150
         assert result["mbti"] == "infp"
-        assert result["languages"] == ["English", "Spanish"]
+        assert result["languages"] == ["english", "spanish", "korean"]
         assert result["availability"] == ["mon", "fri"]
         assert result["time_availability"] == ["7-9pm"]
         assert result["profile_image_url"] == "data:image/jpeg;base64,abc"
