@@ -306,6 +306,26 @@ def _location_longitude_value(profile_data: dict):
     return _coerce_float(_first_profile_value(profile_data, "longitude", "lng", "lon"))
 
 
+def _preference_text_value(value) -> str | None:
+    normalized = _text_value(value)
+    if not normalized:
+        return None
+    normalized = normalized.lower().replace("_", " ").replace("-", " ").strip()
+    aliases = {
+        "no preference": "any",
+        "either": "any",
+        "anyone": "any",
+        "doesnt matter": "any",
+        "doesn't matter": "any",
+        "has kids": "yes",
+        "with kids": "yes",
+        "no kids": "no",
+        "without kids": "no",
+    }
+    normalized = aliases.get(normalized, normalized)
+    return normalized if normalized in {"any", "yes", "no"} else None
+
+
 def _looks_numeric(value) -> bool:
     return _coerce_float(value) is not None
 
@@ -469,6 +489,15 @@ def build_profile_extra_patch_payload(profile_data: dict) -> dict:
         "profile_image_url": _text_value(profile_data.get("profile_image_url")),
         "availability": _availability_array(profile_data),
         "time_availability": _time_availability_array(profile_data),
+        "preferred_min_height": _coerce_float(
+            profile_data.get("preferred_min_height")
+        ),
+        "preferred_max_height": _coerce_float(
+            profile_data.get("preferred_max_height")
+        ),
+        "preferred_kids": _preference_text_value(
+            profile_data.get("preferred_kids")
+        ),
     }
     return {k: v for k, v in payload.items() if v is not None}
 
@@ -516,6 +545,16 @@ def build_profile_rest_payload(profile_data: dict, user_id: str) -> dict:
         "profile_image_url": _text_value(profile_data.get("profile_image_url")),
         "seeking_gender": profile_data.get("seeking_gender", "everyone"),
         "max_distance_km": _coerce_int(profile_data.get("max_distance_km")) or 50,
+        "preferred_min_height": _coerce_float(
+            profile_data.get("preferred_min_height")
+        ),
+        "preferred_max_height": _coerce_float(
+            profile_data.get("preferred_max_height")
+        ),
+        "preferred_kids": _preference_text_value(
+            profile_data.get("preferred_kids")
+        )
+        or "any",
         "is_complete": True,
     }
     return _compact_dict(payload)
@@ -903,6 +942,57 @@ def filter_by_gender(profiles, seeking):
     ]
 
 
+def _gender_allows(preference, actual_gender) -> bool:
+    normalized_preference = str(preference or "everyone").strip().lower()
+    if normalized_preference in {"", "everyone", "any"}:
+        return True
+    if normalized_preference == "both":
+        return str(actual_gender or "").strip().lower() in {"male", "female"}
+    if not actual_gender:
+        return True
+    return str(actual_gender).strip().lower() == normalized_preference
+
+
+def _height_allows(profile_with_preference: dict, candidate: dict) -> bool:
+    candidate_height = _coerce_float(candidate.get("height"))
+    if candidate_height is None:
+        return True
+    min_height = _coerce_float(profile_with_preference.get("preferred_min_height"))
+    max_height = _coerce_float(profile_with_preference.get("preferred_max_height"))
+    if min_height is not None and candidate_height < min_height:
+        return False
+    if max_height is not None and candidate_height > max_height:
+        return False
+    return True
+
+
+def _kids_preference_allows(profile_with_preference: dict, candidate: dict) -> bool:
+    preference = _preference_text_value(profile_with_preference.get("preferred_kids"))
+    if preference in {None, "any"}:
+        return True
+    candidate_kids = _coerce_bool(candidate.get("kids"))
+    if candidate_kids is None:
+        return True
+    return candidate_kids is (preference == "yes")
+
+
+def profile_matches_preferences(viewer_profile: dict, candidate: dict) -> bool:
+    return (
+        _gender_allows(viewer_profile.get("seeking_gender"), candidate.get("gender"))
+        and _gender_allows(candidate.get("seeking_gender"), viewer_profile.get("gender"))
+        and _height_allows(viewer_profile, candidate)
+        and _height_allows(candidate, viewer_profile)
+        and _kids_preference_allows(viewer_profile, candidate)
+        and _kids_preference_allows(candidate, viewer_profile)
+    )
+
+
+def filter_by_preferences(profiles: list[dict], my_profile: dict) -> list[dict]:
+    return [
+        profile for profile in profiles if profile_matches_preferences(my_profile, profile)
+    ]
+
+
 @profiles_router.get("/me")
 def get_my_profile(authorization: str = Header(None)):
     if not authorization:
@@ -975,8 +1065,7 @@ def get_candidates(limit: int = 10, authorization: str = Header(None)):
         if not candidates:
             return []
 
-        seeking = my_profile.get("seeking_gender", "everyone")
-        filtered = filter_by_gender(candidates, seeking)
+        filtered = filter_by_preferences(candidates, my_profile)
         filtered = filter_by_distance(filtered, my_profile)
 
         candidate_pool = filtered[: min(len(filtered), max(limit, 1) * 2, 25)]
@@ -1164,6 +1253,13 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
         receiver_profile_for_scoring = _with_distance_context(
             my_profile, receiver_profile
         )
+        if my_profile and not profile_matches_preferences(
+            my_profile, receiver_profile_for_scoring
+        ):
+            raise HTTPException(
+                status_code=400,
+                detail="Candidate does not match profile preferences",
+            )
 
         compatibility_score = get_match_compatibility_score(
             settings,

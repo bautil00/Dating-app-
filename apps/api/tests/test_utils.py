@@ -8,10 +8,12 @@ from src.main import (
     build_profile_rest_payload,
     build_profile_rpc_payload,
     filter_by_distance,
+    filter_by_preferences,
     get_match_compatibility_score,
     haversine_distance,
     filter_by_gender,
     normalize_profile_row,
+    profile_matches_preferences,
     profile_distance_km,
 )
 
@@ -163,6 +165,69 @@ class TestFilterByGender:
         assert result == [{"gender": "Male"}]
 
 
+class TestPreferenceFiltering:
+    def test_height_and_kids_preferences_filter_candidates(self):
+        my_profile = {
+            "gender": "female",
+            "seeking_gender": "male",
+            "height": 66,
+            "kids": False,
+            "preferred_min_height": 68,
+            "preferred_max_height": 74,
+            "preferred_kids": "no",
+        }
+        profiles = [
+            {
+                "user_id": "good",
+                "gender": "male",
+                "seeking_gender": "female",
+                "height": 70,
+                "kids": False,
+            },
+            {
+                "user_id": "too-short",
+                "gender": "male",
+                "seeking_gender": "female",
+                "height": 65,
+                "kids": False,
+            },
+            {
+                "user_id": "kids-mismatch",
+                "gender": "male",
+                "seeking_gender": "female",
+                "height": 70,
+                "kids": True,
+            },
+        ]
+
+        result = filter_by_preferences(profiles, my_profile)
+
+        assert [profile["user_id"] for profile in result] == ["good"]
+
+    def test_preferences_are_mutual_when_candidate_has_preferences(self):
+        my_profile = {
+            "gender": "female",
+            "seeking_gender": "male",
+            "height": 66,
+            "kids": True,
+        }
+        candidate = {
+            "gender": "male",
+            "seeking_gender": "female",
+            "height": 70,
+            "kids": False,
+            "preferred_kids": "no",
+        }
+
+        assert profile_matches_preferences(my_profile, candidate) is False
+
+    def test_missing_candidate_height_does_not_block_legacy_profiles(self):
+        my_profile = {"preferred_min_height": 68, "preferred_max_height": 74}
+        candidate = {"user_id": "legacy"}
+
+        assert profile_matches_preferences(my_profile, candidate) is True
+
+
 class TestMatchCompatibility:
     def test_database_score_defaults_to_zero_without_rpc_score(self):
         class Settings:
@@ -244,6 +309,25 @@ class TestLLMCompatibility:
         assert "music, art" in prompt
         assert "fri, sat" in prompt
         assert "7-9pm" in prompt
+
+    def test_prompt_includes_preference_fields(self):
+        from src.compatibility import build_compatibility_prompt
+
+        prompt = build_compatibility_prompt(
+            {
+                "height": 66,
+                "kids": False,
+                "preferred_min_height": 68,
+                "preferred_max_height": 74,
+                "preferred_kids": "no",
+            },
+            {"height": 70, "kids": True, "preferred_kids": "any"},
+        )
+
+        assert "Height: 66" in prompt
+        assert "Has kids: False" in prompt
+        assert "Preferred partner height: 68 to 74" in prompt
+        assert "Preferred partner kids status: no" in prompt
 
     def test_prompt_includes_location_and_distance(self):
         from src.compatibility import build_compatibility_prompt
@@ -335,6 +419,9 @@ class TestBuildProfileRpcPayload:
                 "bio": "hello",
                 "interests": ["Music", "Programming"],
                 "weight": 150.0,
+                "preferred_min_height": "68",
+                "preferred_max_height": "74",
+                "preferred_kids": "No kids",
                 "mbti": "INFP",
                 "languages": ["English", "Spanish"],
                 "availability": ["Monday", "Friday"],
@@ -349,6 +436,9 @@ class TestBuildProfileRpcPayload:
         assert result["bio"] == "hello"
         assert result["interests"] == ["music", "programming"]
         assert result["weight"] == 150
+        assert result["preferred_min_height"] == 68
+        assert result["preferred_max_height"] == 74
+        assert result["preferred_kids"] == "no"
         assert result["mbti"] == "infp"
         assert result["languages"] == ["English", "Spanish"]
         assert result["availability"] == ["mon", "fri"]
@@ -372,6 +462,20 @@ class TestBuildProfileRpcPayload:
         assert result["latitude"] == 47.6062
         assert result["longitude"] == -122.3321
         assert result["location"] == 47.6062
+
+    def test_rest_payload_includes_partner_preferences(self):
+        result = build_profile_rest_payload(
+            {
+                "preferred_min_height": "68",
+                "preferred_max_height": "74",
+                "preferred_kids": "Has kids",
+            },
+            "u1",
+        )
+
+        assert result["preferred_min_height"] == 68
+        assert result["preferred_max_height"] == 74
+        assert result["preferred_kids"] == "yes"
 
     def test_extra_patch_payload_includes_location_fields(self):
         result = build_profile_extra_patch_payload(

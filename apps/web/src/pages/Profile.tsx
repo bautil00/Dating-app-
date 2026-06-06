@@ -99,6 +99,7 @@ const ENUMS = {
 };
 
 const LABELS: Record<string, string> = {
+  any: 'Any',
   'non binary': 'Non-Binary',
   mtf: 'Mtf',
   ftm: 'Ftm',
@@ -143,6 +144,9 @@ type FormData = {
   drives: string;
   seeking_gender: string;
   max_distance_km: string;
+  preferred_min_height: string;
+  preferred_max_height: string;
+  preferred_kids: string;
   profile_image_url: string;
 };
 
@@ -173,6 +177,9 @@ const initialForm: FormData = {
   drives: '',
   seeking_gender: 'everyone',
   max_distance_km: '50',
+  preferred_min_height: '',
+  preferred_max_height: '',
+  preferred_kids: 'any',
   profile_image_url: '',
 };
 
@@ -264,6 +271,9 @@ export default function Profile() {
           drives: boolField(res.data.drives),
           seeking_gender: normalizeOption(res.data.seeking_gender || 'everyone'),
           max_distance_km: String(res.data.max_distance_km || '50'),
+          preferred_min_height: String(res.data.preferred_min_height || ''),
+          preferred_max_height: String(res.data.preferred_max_height || ''),
+          preferred_kids: normalizeOption(res.data.preferred_kids || 'any'),
           profile_image_url: String(
             res.data.profile_image_url ||
               res.data.avatar_url ||
@@ -330,6 +340,13 @@ export default function Profile() {
         pets: boolPayload(formData.pets),
         drives: boolPayload(formData.drives),
         max_distance_km: formData.max_distance_km ? parseInt(formData.max_distance_km, 10) : 50,
+        preferred_min_height: formData.preferred_min_height
+          ? parseFloat(formData.preferred_min_height)
+          : null,
+        preferred_max_height: formData.preferred_max_height
+          ? parseFloat(formData.preferred_max_height)
+          : null,
+        preferred_kids: formData.preferred_kids || 'any',
       });
       setMessage('Profile saved.');
       window.setTimeout(() => navigate('/discover'), 1000);
@@ -546,6 +563,9 @@ export default function Profile() {
                 {renderSelect('education', 'Education', ENUMS.education)}
                 {renderSelect('relationship_status', 'Relationship', ENUMS.relationship_status)}
                 {renderSelect('living_status', 'Living Status', ENUMS.living_status)}
+                {renderSelect('kids', 'Has Kids', ['yes', 'no'])}
+                {renderSelect('pets', 'Has Pets', ['yes', 'no'])}
+                {renderSelect('drives', 'Drives', ['yes', 'no'])}
                 {renderMultiSelect('languages', 'Languages', ENUMS.languages)}
                 <div className="space-y-1.5 md:col-span-2">
                   <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -568,9 +588,7 @@ export default function Profile() {
               <div className="grid gap-4 md:grid-cols-2">
                 {renderSelect('sexual_pref', 'Orientation', ENUMS.sexual_pref)}
                 {renderSelect('seeking_gender', 'Interested in', ENUMS.seeking_gender)}
-                {renderSelect('kids', 'Has Kids', ['yes', 'no'])}
-                {renderSelect('pets', 'Has Pets', ['yes', 'no'])}
-                {renderSelect('drives', 'Drives', ['yes', 'no'])}
+                {renderSelect('preferred_kids', 'Partner Kids', ['any', 'yes', 'no'])}
                 <FieldText
                   label="Max Distance (km)"
                   name="max_distance_km"
@@ -579,6 +597,22 @@ export default function Profile() {
                   onChange={handleChange}
                   min="1"
                   max="500"
+                />
+                <FieldText
+                  label="Preferred Min Height"
+                  name="preferred_min_height"
+                  type="number"
+                  value={formData.preferred_min_height}
+                  onChange={handleChange}
+                  placeholder="No minimum"
+                />
+                <FieldText
+                  label="Preferred Max Height"
+                  name="preferred_max_height"
+                  type="number"
+                  value={formData.preferred_max_height}
+                  onChange={handleChange}
+                  placeholder="No maximum"
                 />
               </div>
             </section>
