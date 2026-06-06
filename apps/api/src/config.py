@@ -8,11 +8,14 @@ class Settings(BaseSettings):
 
     supabase_url: str = "https://example.supabase.co"
     supabase_key: str = "replace-with-supabase-anon-key"
+    supabase_service_key: str = ""
 
     openrouter_api_key: str = ""
     model_config = SettingsConfigDict(extra="ignore")
 
-    @field_validator("supabase_url", "supabase_key", "openrouter_api_key")
+    @field_validator(
+        "supabase_url", "supabase_key", "supabase_service_key", "openrouter_api_key"
+    )
     @classmethod
     def strip_secret_whitespace(cls, value: str) -> str:
         return value.strip() if isinstance(value, str) else value

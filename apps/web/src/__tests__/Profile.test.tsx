@@ -7,6 +7,7 @@ const mockApi = vi.hoisted(() => ({
   get: vi.fn().mockResolvedValue({ data: { is_complete: false } }),
   post: vi.fn().mockResolvedValue({ data: {} }),
   patch: vi.fn(),
+  delete: vi.fn().mockResolvedValue({ data: { status: 'deleted' } }),
   dataUrlForFile: vi.fn().mockResolvedValue('data:image/jpeg;base64,profile-photo'),
   interceptors: { request: { use: vi.fn() } },
 }));
@@ -16,6 +17,9 @@ vi.mock('../services/api', () => ({
   profileService: {
     getMe: () => mockApi.get('/profiles/me'),
     create: (data: Record<string, unknown>) => mockApi.post('/profiles/', data),
+  },
+  authService: {
+    deleteAccount: () => mockApi.delete('/auth/me'),
   },
   locationService: {
     search: vi.fn(),
@@ -163,5 +167,21 @@ describe('Profile Page', () => {
       </MemoryRouter>,
     );
     expect(mockNavigate).toHaveBeenCalledWith('/login');
+  });
+
+  it('deletes account after confirmation and clears the session', async () => {
+    const confirmSpy = vi.spyOn(window, 'confirm').mockReturnValue(true);
+    render(
+      <MemoryRouter>
+        <Profile />
+      </MemoryRouter>,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /delete account/i }));
+
+    await waitFor(() => expect(mockApi.delete).toHaveBeenCalledWith('/auth/me'));
+    expect(localStorage.getItem('token')).toBeNull();
+    expect(mockNavigate).toHaveBeenCalledWith('/register');
+    confirmSpy.mockRestore();
   });
 });

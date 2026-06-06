@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Camera, Check, Flame, Pencil, X } from 'lucide-react';
-import { profileService, userFacingError } from '../services/api';
+import { Camera, Check, Flame, Pencil, Trash2, X } from 'lucide-react';
+import { authService, clearApiCache, profileService, userFacingError } from '../services/api';
 import Navbar from '../components/Navbar';
 import LocationSearch from '../components/LocationSearch';
 import { dataUrlForFile } from '../lib/images';
@@ -216,6 +216,7 @@ function boolPayload(value: string) {
 export default function Profile() {
   const [formData, setFormData] = useState<FormData>(initialForm);
   const [saving, setSaving] = useState(false);
+  const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState('');
   const photoInputRef = useRef<HTMLInputElement>(null);
   const navigate = useNavigate();
@@ -337,6 +338,27 @@ export default function Profile() {
       setMessage(userFacingError(error, 'Failed to save profile'));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    const confirmed = window.confirm(
+      'This permanently deletes your account, profile, matches, and messages. Continue?',
+    );
+    if (!confirmed) return;
+
+    setDeleting(true);
+    setMessage('');
+    try {
+      await authService.deleteAccount();
+      localStorage.removeItem('token');
+      localStorage.removeItem('user');
+      clearApiCache();
+      navigate('/register');
+    } catch (error: unknown) {
+      setMessage(userFacingError(error, 'Failed to delete account'));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -609,12 +631,24 @@ export default function Profile() {
 
             <button
               type="submit"
-              disabled={saving}
+              disabled={saving || deleting}
               className="flex w-full items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold text-white disabled:opacity-60 btn-ignite"
             >
               <Check className="h-4 w-4" />
               {saving ? 'Saving...' : 'Save Profile'}
             </button>
+
+            <div className="border-t border-gray-100 pt-5">
+              <button
+                type="button"
+                disabled={saving || deleting}
+                onClick={handleDeleteAccount}
+                className="flex w-full items-center justify-center gap-2 rounded-2xl border border-red-200 bg-red-50 py-3 text-sm font-semibold text-red-600 transition-all hover:border-red-300 hover:bg-red-100 disabled:opacity-60"
+              >
+                <Trash2 className="h-4 w-4" />
+                {deleting ? 'Deleting...' : 'Delete Account'}
+              </button>
+            </div>
           </form>
         </section>
 
