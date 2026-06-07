@@ -43,6 +43,7 @@ describe('API Service', () => {
     expect(authService).toHaveProperty('register');
     expect(authService).toHaveProperty('login');
     expect(authService).toHaveProperty('getMe');
+    expect(authService).toHaveProperty('deleteAccount');
   });
 
   it('profileService exports expected methods', async () => {

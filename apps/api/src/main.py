@@ -647,6 +647,66 @@ def me(authorization: str = Header(None)):
         return response.json()
 
 
+@auth_router.delete("/me")
+def delete_me(authorization: str = Header(None)):
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing authorization header")
+
+    settings = get_settings()
+    if not settings.supabase_service_key:
+        raise HTTPException(
+            status_code=500,
+            detail="Account deletion is not configured. Missing Supabase service key.",
+        )
+
+    token = authorization.replace("Bearer ", "").strip()
+    anon_headers = {"apikey": settings.supabase_key, "Authorization": f"Bearer {token}"}
+    service_headers = {
+        "apikey": settings.supabase_service_key,
+        "Authorization": f"Bearer {settings.supabase_service_key}",
+        "Content-Type": "application/json",
+        "Prefer": "return=minimal",
+    }
+
+    with httpx.Client(timeout=10.0) as client:
+        user_response = client.get(
+            f"{settings.supabase_url}/auth/v1/user", headers=anon_headers
+        )
+        if user_response.status_code >= 400:
+            raise HTTPException(status_code=401, detail="Invalid token")
+
+        user_id = user_response.json().get("id")
+        if not user_id:
+            raise HTTPException(status_code=401, detail="Invalid token")
+
+        cleanup_targets = (
+            ("messages", "sender_id"),
+            ("messages", "receiver_id"),
+            ("matches", "sender_id"),
+            ("matches", "receiver_id"),
+            (PROFILE_TABLE, "user_id"),
+        )
+        for table, column in cleanup_targets:
+            cleanup_response = client.delete(
+                f"{settings.supabase_url}/rest/v1/{table}?{column}=eq.{user_id}",
+                headers=service_headers,
+            )
+            if response_failed(cleanup_response):
+                raise HTTPException(
+                    status_code=502,
+                    detail=f"Failed to remove account data from {table}",
+                )
+
+        delete_response = client.delete(
+            f"{settings.supabase_url}/auth/v1/admin/users/{user_id}",
+            headers=service_headers,
+        )
+        if response_failed(delete_response):
+            raise HTTPException(status_code=502, detail="Failed to delete account")
+
+    return {"status": "deleted"}
+
+
 @auth_router.get("/google/url", response_model=GoogleUrlResponse)
 def get_google_oauth_url(request: Request):
     settings = get_settings()

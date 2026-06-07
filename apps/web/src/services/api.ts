@@ -203,6 +203,12 @@ export const authService = {
   getGoogleUrl: () => api.get('/auth/google/url'),
 
   getMe: () => cachedGet('/auth/me', { ttlMs: 30_000, persist: false }),
+
+  deleteAccount: async () => {
+    const response = await api.delete('/auth/me');
+    clearApiCache();
+    return response;
+  },
 };
 
 export const profileService = {
