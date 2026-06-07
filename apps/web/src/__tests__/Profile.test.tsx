@@ -90,6 +90,8 @@ describe('Profile Page', () => {
     expect(screen.getByText('Available Days')).toBeInTheDocument();
     expect(screen.getByText('Available Time Windows')).toBeInTheDocument();
     expect(screen.getByText('Has Pets')).toBeInTheDocument();
+    expect(screen.getByText('Partner Kids')).toBeInTheDocument();
+    expect(screen.getByText('Preferred Min Height')).toBeInTheDocument();
   });
 
   it('renders job dropdown', () => {
@@ -152,6 +154,46 @@ describe('Profile Page', () => {
       display_name: 'Alice',
       age: 25,
       profile_image_url: 'data:image/jpeg;base64,profile-photo',
+    });
+  });
+
+  it('saves partner preference fields separately from actual kids status', async () => {
+    const { container } = render(
+      <MemoryRouter>
+        <Profile />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(container.querySelector('input[name="display_name"]')!, {
+      target: { value: 'Alice' },
+    });
+    fireEvent.change(container.querySelector('input[name="age"]')!, {
+      target: { value: '25' },
+    });
+    fireEvent.change(container.querySelector('select[name="gender"]')!, {
+      target: { value: 'female' },
+    });
+    fireEvent.change(container.querySelector('select[name="kids"]')!, {
+      target: { value: 'yes' },
+    });
+    fireEvent.change(container.querySelector('select[name="preferred_kids"]')!, {
+      target: { value: 'no' },
+    });
+    fireEvent.change(container.querySelector('input[name="preferred_min_height"]')!, {
+      target: { value: '68' },
+    });
+    fireEvent.change(container.querySelector('input[name="preferred_max_height"]')!, {
+      target: { value: '74' },
+    });
+    fireEvent.click(screen.getByText('Save Profile'));
+
+    await waitFor(() => expect(mockApi.post).toHaveBeenCalled());
+    const lastCall = mockApi.post.mock.calls[mockApi.post.mock.calls.length - 1];
+    expect(lastCall[1]).toMatchObject({
+      kids: true,
+      preferred_kids: 'no',
+      preferred_min_height: 68,
+      preferred_max_height: 74,
     });
   });
 

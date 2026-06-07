@@ -41,6 +41,17 @@ const SEEKING_OPTIONS = [
   { label: 'Everyone', value: 'everyone' },
 ];
 
+const KIDS_OPTIONS = [
+  { label: 'Yes', value: 'yes' },
+  { label: 'No', value: 'no' },
+];
+
+const PARTNER_KIDS_OPTIONS = [
+  { label: 'Any', value: 'any' },
+  { label: 'Has kids', value: 'yes' },
+  { label: 'No kids', value: 'no' },
+];
+
 function Logo() {
   return (
     <div className="mb-6 flex items-center justify-center gap-2">
@@ -141,6 +152,10 @@ export default function Onboarding() {
   const [interests, setInterests] = useState<string[]>([]);
   const [gender, setGender] = useState('');
   const [seekingGender, setSeekingGender] = useState('');
+  const [kids, setKids] = useState('');
+  const [preferredKids, setPreferredKids] = useState('any');
+  const [preferredMinHeight, setPreferredMinHeight] = useState('');
+  const [preferredMaxHeight, setPreferredMaxHeight] = useState('');
   const [age, setAge] = useState(25);
   const [locationName, setLocationName] = useState('');
   const [latitude, setLatitude] = useState<number | null>(null);
@@ -204,6 +219,10 @@ export default function Onboarding() {
         interests,
         seeking_gender: seekingGender,
         bio,
+        kids: kids === 'yes' ? true : kids === 'no' ? false : null,
+        preferred_kids: preferredKids,
+        preferred_min_height: preferredMinHeight ? Number(preferredMinHeight) : null,
+        preferred_max_height: preferredMaxHeight ? Number(preferredMaxHeight) : null,
         location: latitude,
         location_name: locationName,
         latitude,
@@ -294,6 +313,54 @@ export default function Onboarding() {
           onChange={(event) => setAge(Number(event.target.value))}
           className="mb-5 w-full accent-orange-500"
         />
+
+        <p className="mb-2 text-sm font-semibold text-gray-700">I have kids</p>
+        <div className="mb-5 flex flex-wrap gap-2">
+          {KIDS_OPTIONS.map((option) => (
+            <Pill
+              key={option.value}
+              label={option.label}
+              selected={kids === option.value}
+              onClick={() => setKids(option.value)}
+            />
+          ))}
+        </div>
+
+        <p className="mb-2 text-sm font-semibold text-gray-700">Partner kids</p>
+        <div className="mb-5 flex flex-wrap gap-2">
+          {PARTNER_KIDS_OPTIONS.map((option) => (
+            <Pill
+              key={option.value}
+              label={option.label}
+              selected={preferredKids === option.value}
+              onClick={() => setPreferredKids(option.value)}
+            />
+          ))}
+        </div>
+
+        <p className="mb-2 text-sm font-semibold text-gray-700">Preferred height range</p>
+        <div className="mb-5 grid grid-cols-2 gap-3">
+          <input
+            type="number"
+            inputMode="decimal"
+            min={0}
+            value={preferredMinHeight}
+            onChange={(event) => setPreferredMinHeight(event.target.value)}
+            placeholder="Min"
+            aria-label="Preferred minimum height"
+            className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm transition-all placeholder:text-gray-400 focus:border-orange-400 focus:outline-none"
+          />
+          <input
+            type="number"
+            inputMode="decimal"
+            min={0}
+            value={preferredMaxHeight}
+            onChange={(event) => setPreferredMaxHeight(event.target.value)}
+            placeholder="Max"
+            aria-label="Preferred maximum height"
+            className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm transition-all placeholder:text-gray-400 focus:border-orange-400 focus:outline-none"
+          />
+        </div>
 
         <LocationSearch
           value={locationName}

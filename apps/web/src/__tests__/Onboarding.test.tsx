@@ -64,6 +64,9 @@ describe('Onboarding Page', () => {
     expect(screen.getByText('I am')).toBeInTheDocument();
     await user.click(screen.getAllByRole('button', { name: 'Female' })[0]);
     await user.click(screen.getByRole('button', { name: 'Everyone' }));
+    expect(screen.getByText('I have kids')).toBeInTheDocument();
+    expect(screen.getByText('Partner kids')).toBeInTheDocument();
+    expect(screen.getByText('Preferred height range')).toBeInTheDocument();
     await user.type(screen.getByLabelText('Location'), 'Seattle');
     await user.click(screen.getByRole('button', { name: 'Search' }));
     await user.click(
