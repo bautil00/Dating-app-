@@ -423,7 +423,7 @@ class TestBuildProfileRpcPayload:
                 "preferred_max_height": "74",
                 "preferred_kids": "No kids",
                 "mbti": "INFP",
-                "languages": ["English", "Spanish"],
+                "languages": ["English", "Spanish", "Korean"],
                 "availability": ["Monday", "Friday"],
                 "time_availability": ["7-9 PM"],
                 "profile_image_url": "data:image/jpeg;base64,abc",
@@ -440,7 +440,7 @@ class TestBuildProfileRpcPayload:
         assert result["preferred_max_height"] == 74
         assert result["preferred_kids"] == "no"
         assert result["mbti"] == "infp"
-        assert result["languages"] == ["English", "Spanish"]
+        assert result["languages"] == ["english", "spanish", "korean"]
         assert result["availability"] == ["mon", "fri"]
         assert result["time_availability"] == ["7-9pm"]
         assert result["profile_image_url"] == "data:image/jpeg;base64,abc"

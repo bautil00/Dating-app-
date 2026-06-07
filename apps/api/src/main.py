@@ -225,6 +225,11 @@ def _text_array(value):
     return [v for v in values if v]
 
 
+def _language_array(value):
+    values = [str(v).strip().lower().replace("_", " ") for v in _array_values(value)]
+    return [v for v in values if v]
+
+
 def _nonempty_list(values):
     return values if values else None
 
@@ -481,7 +486,7 @@ def build_profile_extra_patch_payload(profile_data: dict) -> dict:
         "mbti": _enum_value(
             profile_data.get("mbti") or profile_data.get("personality_type")
         ),
-        "languages": _nonempty_list(_text_array(profile_data.get("languages"))),
+        "languages": _nonempty_list(_language_array(profile_data.get("languages"))),
         "socials": _nonempty_list(_text_array(profile_data.get("socials"))),
         "body_modification": _nonempty_list(
             _text_array(profile_data.get("body_modification"))
@@ -537,7 +542,7 @@ def build_profile_rest_payload(profile_data: dict, user_id: str) -> dict:
         "mbti": _enum_value(
             profile_data.get("mbti") or profile_data.get("personality_type")
         ),
-        "languages": _nonempty_list(_text_array(profile_data.get("languages"))),
+        "languages": _nonempty_list(_language_array(profile_data.get("languages"))),
         "socials": _nonempty_list(_text_array(profile_data.get("socials"))),
         "body_modification": _nonempty_list(
             _text_array(profile_data.get("body_modification"))
