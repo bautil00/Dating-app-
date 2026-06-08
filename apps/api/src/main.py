@@ -494,15 +494,9 @@ def build_profile_extra_patch_payload(profile_data: dict) -> dict:
         "profile_image_url": _text_value(profile_data.get("profile_image_url")),
         "availability": _availability_array(profile_data),
         "time_availability": _time_availability_array(profile_data),
-        "preferred_min_height": _coerce_float(
-            profile_data.get("preferred_min_height")
-        ),
-        "preferred_max_height": _coerce_float(
-            profile_data.get("preferred_max_height")
-        ),
-        "preferred_kids": _preference_text_value(
-            profile_data.get("preferred_kids")
-        ),
+        "preferred_min_height": _coerce_float(profile_data.get("preferred_min_height")),
+        "preferred_max_height": _coerce_float(profile_data.get("preferred_max_height")),
+        "preferred_kids": _preference_text_value(profile_data.get("preferred_kids")),
     }
     return {k: v for k, v in payload.items() if v is not None}
 
@@ -550,15 +544,9 @@ def build_profile_rest_payload(profile_data: dict, user_id: str) -> dict:
         "profile_image_url": _text_value(profile_data.get("profile_image_url")),
         "seeking_gender": profile_data.get("seeking_gender", "everyone"),
         "max_distance_km": _coerce_int(profile_data.get("max_distance_km")) or 50,
-        "preferred_min_height": _coerce_float(
-            profile_data.get("preferred_min_height")
-        ),
-        "preferred_max_height": _coerce_float(
-            profile_data.get("preferred_max_height")
-        ),
-        "preferred_kids": _preference_text_value(
-            profile_data.get("preferred_kids")
-        )
+        "preferred_min_height": _coerce_float(profile_data.get("preferred_min_height")),
+        "preferred_max_height": _coerce_float(profile_data.get("preferred_max_height")),
+        "preferred_kids": _preference_text_value(profile_data.get("preferred_kids"))
         or "any",
         "is_complete": True,
     }
@@ -1044,7 +1032,9 @@ def _kids_preference_allows(profile_with_preference: dict, candidate: dict) -> b
 def profile_matches_preferences(viewer_profile: dict, candidate: dict) -> bool:
     return (
         _gender_allows(viewer_profile.get("seeking_gender"), candidate.get("gender"))
-        and _gender_allows(candidate.get("seeking_gender"), viewer_profile.get("gender"))
+        and _gender_allows(
+            candidate.get("seeking_gender"), viewer_profile.get("gender")
+        )
         and _height_allows(viewer_profile, candidate)
         and _height_allows(candidate, viewer_profile)
         and _kids_preference_allows(viewer_profile, candidate)
@@ -1054,7 +1044,9 @@ def profile_matches_preferences(viewer_profile: dict, candidate: dict) -> bool:
 
 def filter_by_preferences(profiles: list[dict], my_profile: dict) -> list[dict]:
     return [
-        profile for profile in profiles if profile_matches_preferences(my_profile, profile)
+        profile
+        for profile in profiles
+        if profile_matches_preferences(my_profile, profile)
     ]
 
 
