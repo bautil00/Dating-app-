@@ -1640,7 +1640,7 @@ def get_my_matches(authorization: str = Header(None)):
 
 
 def _ensure_icebreakers_for_existing_matches(
-    client, settings, token: str, matches: list[dict], profiles: dict[str, dict]
+    client, settings, token: str, matches: list[dict], profiles: dict[str, Any]
 ):
     seen_pairs: set[tuple[str, str]] = set()
     for match in matches:
@@ -1665,9 +1665,9 @@ def _ensure_icebreakers_for_existing_matches(
                 profiles.get(receiver_id),
                 match.get("compatibility_score"),
             )
-        except Exception:
+        except (httpx.HTTPError, TypeError, ValueError, KeyError):
             # Matches should still load if AI/persistence is unavailable.
-            continue
+            pass
 
 
 @matches_router.patch("/{match_id}/accept")
