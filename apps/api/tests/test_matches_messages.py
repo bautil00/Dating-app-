@@ -59,7 +59,10 @@ class TestGetMatches:
         )
 
         mock = _mock_httpx(get_returns=[user_resp, sent, received, profiles])
-        with patch("httpx.Client", return_value=mock):
+        with (
+            patch("httpx.Client", return_value=mock),
+            patch("src.main.ensure_match_icebreakers") as ensure,
+        ):
             res = client.get(
                 "/api/v1/matches/", headers={"Authorization": "Bearer tok"}
             )
@@ -67,6 +70,7 @@ class TestGetMatches:
         assert len(res.json()) == 2
         assert res.json()[0]["other_profile"]["name"] == "Bob"
         assert res.json()[1]["other_profile"]["name"] == "Carol"
+        ensure.assert_called_once()
 
     def test_empty_matches(self, client):
         user_resp = _make_resp(200, {"id": "new-user"})
@@ -79,6 +83,40 @@ class TestGetMatches:
             )
         assert res.status_code == 200
         assert res.json() == []
+
+    def test_existing_pending_matches_do_not_backfill_icebreakers(self, client):
+        user_resp = _make_resp(200, {"id": "alice"})
+        sent = _make_resp(
+            200,
+            [
+                {
+                    "id": 1,
+                    "sender_id": "alice",
+                    "receiver_id": "bob",
+                    "status": "pending",
+                }
+            ],
+        )
+        empty = _make_resp(200, [])
+        profiles = _make_resp(
+            200,
+            [
+                {"user_id": "alice", "name": "Alice"},
+                {"user_id": "bob", "name": "Bob"},
+            ],
+        )
+
+        mock = _mock_httpx(get_returns=[user_resp, sent, empty, profiles])
+        with (
+            patch("httpx.Client", return_value=mock),
+            patch("src.main.ensure_match_icebreakers") as ensure,
+        ):
+            res = client.get(
+                "/api/v1/matches/", headers={"Authorization": "Bearer tok"}
+            )
+
+        assert res.status_code == 200
+        assert not ensure.called
 
     def test_requires_auth(self, client):
         res = client.get("/api/v1/matches/")

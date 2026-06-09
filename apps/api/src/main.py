@@ -1633,7 +1633,41 @@ def get_my_matches(authorization: str = Header(None)):
             if value
         }
         profiles = _profile_lookup_for_user_ids(client, settings, token, profile_ids)
+        _ensure_icebreakers_for_existing_matches(
+            client, settings, token, matches, profiles
+        )
         return _enrich_matches_with_profiles(matches, profiles, user_id)
+
+
+def _ensure_icebreakers_for_existing_matches(
+    client, settings, token: str, matches: list[dict], profiles: dict[str, dict]
+):
+    seen_pairs: set[tuple[str, str]] = set()
+    for match in matches:
+        if match.get("status") not in {"accepted", "matched"}:
+            continue
+        sender_id = str(match.get("sender_id") or "")
+        receiver_id = str(match.get("receiver_id") or "")
+        if not sender_id or not receiver_id:
+            continue
+        pair = _icebreaker_pair(sender_id, receiver_id)
+        if pair in seen_pairs:
+            continue
+        seen_pairs.add(pair)
+        try:
+            ensure_match_icebreakers(
+                client,
+                settings,
+                token,
+                sender_id,
+                receiver_id,
+                profiles.get(sender_id),
+                profiles.get(receiver_id),
+                match.get("compatibility_score"),
+            )
+        except Exception:
+            # Matches should still load if AI/persistence is unavailable.
+            continue
 
 
 @matches_router.patch("/{match_id}/accept")
