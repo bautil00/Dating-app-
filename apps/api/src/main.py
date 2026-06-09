@@ -2374,6 +2374,15 @@ def _fallback_icebreakers(profile_a: dict, profile_b: dict) -> list[str]:
     return suggestions[:ICEBREAKER_COUNT]
 
 
+def _side_specific_icebreaker_sets(
+    user_a_id: str, user_b_id: str, profile_a: dict, profile_b: dict
+) -> dict[str, list[str]]:
+    return {
+        user_a_id: _fallback_icebreakers(profile_a, profile_b),
+        user_b_id: _fallback_icebreakers(profile_b, profile_a),
+    }
+
+
 def _coerce_icebreaker_suggestions(value: Any) -> list[str]:
     if isinstance(value, dict):
         value = (
@@ -2387,6 +2396,35 @@ def _coerce_icebreaker_suggestions(value: Any) -> list[str]:
         if text and len(text) <= 180:
             suggestions.append(text)
     return suggestions[:ICEBREAKER_COUNT]
+
+
+def _stored_side_specific_suggestions(
+    row: dict | None, user_id: str, target_user_id: str
+) -> list[str]:
+    if not row:
+        return []
+    suggestions = row.get("suggestions")
+    if isinstance(suggestions, dict):
+        by_user = suggestions.get("by_user") or suggestions.get("suggestions_by_user")
+        if isinstance(by_user, dict):
+            return _coerce_icebreaker_suggestions(by_user.get(str(user_id)))
+        return _coerce_icebreaker_suggestions(suggestions.get(str(user_id)))
+    if isinstance(suggestions, list):
+        return _coerce_icebreaker_suggestions(suggestions)
+    return []
+
+
+def _is_side_specific_icebreaker_row(
+    row: dict | None, user_id: str, target_user_id: str
+) -> bool:
+    if not row or not isinstance(row.get("suggestions"), dict):
+        return False
+    return (
+        len(_stored_side_specific_suggestions(row, user_id, target_user_id))
+        == ICEBREAKER_COUNT
+        and len(_stored_side_specific_suggestions(row, target_user_id, user_id))
+        == ICEBREAKER_COUNT
+    )
 
 
 def _parse_icebreaker_response(resp) -> list[str]:
@@ -2415,6 +2453,43 @@ def _parse_icebreaker_response(resp) -> list[str]:
         return []
 
 
+def _parse_side_specific_icebreaker_response(
+    resp, user_a_id: str, user_b_id: str
+) -> dict[str, list[str]]:
+    if resp is None or resp.status_code >= 400:
+        return {}
+    try:
+        content = (
+            resp.json()
+            .get("choices", [{}])[0]
+            .get("message", {})
+            .get("content", "")
+            .strip()
+        )
+        try:
+            parsed = json.loads(content)
+        except json.JSONDecodeError:
+            start = content.find("{")
+            end = content.rfind("}")
+            parsed = (
+                json.loads(content[start : end + 1])
+                if start >= 0 and end > start
+                else {}
+            )
+        if not isinstance(parsed, dict):
+            return {}
+        return {
+            user_a_id: _coerce_icebreaker_suggestions(
+                parsed.get("person_a_to_b") or parsed.get(user_a_id)
+            ),
+            user_b_id: _coerce_icebreaker_suggestions(
+                parsed.get("person_b_to_a") or parsed.get(user_b_id)
+            ),
+        }
+    except Exception:
+        return {}
+
+
 def _build_icebreaker_prompt(
     profile_a: dict, profile_b: dict, compatibility_score: Any = None
 ) -> str:
@@ -2430,6 +2505,56 @@ def _build_icebreaker_prompt(
         "sexual content, or make up facts. Return JSON only.\n"
         f"{json.dumps(payload, ensure_ascii=True)}"
     )
+
+
+def _build_side_specific_icebreaker_prompt(
+    profile_a: dict, profile_b: dict, compatibility_score: Any = None
+) -> str:
+    payload = {
+        "person_a": _profile_summary_for_icebreakers(profile_a),
+        "person_b": _profile_summary_for_icebreakers(profile_b),
+        "compatibility_score": compatibility_score,
+    }
+    return (
+        "Generate dating-app conversation starters for both people as JSON only. "
+        "Return exactly this shape: "
+        '{"person_a_to_b":["...","...","..."],"person_b_to_a":["...","...","..."]}. '
+        "person_a_to_b must be phrases Person A can send to Person B. "
+        "person_b_to_a must be phrases Person B can send to Person A. "
+        "Each phrase must be under 25 words, friendly, specific, and natural. "
+        "Address the recipient by name only when using a name; never address the sender by name. "
+        "Use only facts from these profiles. Do not mention coordinates, private data, "
+        "sexual content, or make up facts.\n"
+        f"{json.dumps(payload, ensure_ascii=True)}"
+    )
+
+
+def _generate_ai_icebreaker_sets(
+    settings,
+    user_a_id: str,
+    user_b_id: str,
+    profile_a: dict,
+    profile_b: dict,
+    compatibility_score: Any = None,
+) -> tuple[dict[str, list[str]], str | None]:
+    if not settings.openrouter_api_key:
+        return {}, None
+
+    prompt = _build_side_specific_icebreaker_prompt(
+        profile_a, profile_b, compatibility_score
+    )
+    with httpx.Client() as client:
+        for model_id in DEFAULT_ICEBREAKER_MODELS:
+            resp = _post_icebreaker_request(settings, client, model_id, prompt)
+            suggestions = _parse_side_specific_icebreaker_response(
+                resp, user_a_id, user_b_id
+            )
+            if (
+                len(suggestions.get(user_a_id, [])) == ICEBREAKER_COUNT
+                and len(suggestions.get(user_b_id, [])) == ICEBREAKER_COUNT
+            ):
+                return suggestions, model_id
+    return {}, None
 
 
 def _generate_ai_icebreakers(
@@ -2574,27 +2699,48 @@ def ensure_match_icebreakers(
     compatibility_score: Any = None,
 ) -> dict:
     existing = _get_stored_icebreakers(client, settings, token, user_id, target_user_id)
-    if existing:
+    if _is_side_specific_icebreaker_row(existing, user_id, target_user_id):
         return existing
 
-    profile_a = profile_a or _fetch_profile_for_icebreakers(
-        client, settings, token, user_id
-    )
-    profile_b = profile_b or _fetch_profile_for_icebreakers(
-        client, settings, token, target_user_id
-    )
-    suggestions, model_id = _generate_ai_icebreakers(
-        settings, profile_a, profile_b, compatibility_score
-    )
-    source = "openrouter" if suggestions else "fallback"
-    if not suggestions:
-        suggestions = _fallback_icebreakers(profile_a, profile_b)
-
     user_a_id, user_b_id = _icebreaker_pair(user_id, target_user_id)
+    profile_a_by_pair = (
+        profile_a
+        if str(user_id) == user_a_id
+        else profile_b
+        if str(target_user_id) == user_a_id
+        else None
+    )
+    profile_b_by_pair = (
+        profile_b
+        if str(target_user_id) == user_b_id
+        else profile_a
+        if str(user_id) == user_b_id
+        else None
+    )
+    profile_a_by_pair = profile_a_by_pair or _fetch_profile_for_icebreakers(
+        client, settings, token, user_a_id
+    )
+    profile_b_by_pair = profile_b_by_pair or _fetch_profile_for_icebreakers(
+        client, settings, token, user_b_id
+    )
+    suggestions_by_user, model_id = _generate_ai_icebreaker_sets(
+        settings,
+        user_a_id,
+        user_b_id,
+        profile_a_by_pair,
+        profile_b_by_pair,
+        compatibility_score,
+    )
+    source = "openrouter" if suggestions_by_user else "fallback"
+    if not suggestions_by_user:
+        suggestions_by_user = _side_specific_icebreaker_sets(
+            user_a_id, user_b_id, profile_a_by_pair, profile_b_by_pair
+        )
+
     payload = {
         "user_a_id": user_a_id,
         "user_b_id": user_b_id,
-        "suggestions": suggestions,
+        "suggestions": {"version": 2, "by_user": suggestions_by_user},
         "source": source,
         "model_id": model_id,
     }
@@ -2605,7 +2751,7 @@ def ensure_match_icebreakers(
         headers={
             **supabase_headers(settings, token),
             "Content-Type": "application/json",
-            "Prefer": "return=representation,resolution=ignore-duplicates",
+            "Prefer": "return=representation,resolution=merge-duplicates",
         },
     )
     if response.status_code < 400:
@@ -2641,8 +2787,9 @@ def get_icebreakers(target_user_id: str, authorization: str = Header(None)):
             target_user_id,
             compatibility_score=match.get("compatibility_score"),
         )
+        suggestions = _stored_side_specific_suggestions(row, user_id, target_user_id)
         return {
-            "suggestions": row.get("suggestions") or [],
+            "suggestions": suggestions,
             "source": row.get("source", "fallback"),
             "generated_at": row.get("created_at") or row.get("updated_at"),
         }
@@ -2670,7 +2817,7 @@ def get_icebreaker(target_user_id: str, authorization: str = Header(None)):
             target_user_id,
             compatibility_score=match.get("compatibility_score"),
         )
-        suggestions = row.get("suggestions") or []
+        suggestions = _stored_side_specific_suggestions(row, user_id, target_user_id)
         return {"icebreaker": suggestions[0] if suggestions else ""}
 
 

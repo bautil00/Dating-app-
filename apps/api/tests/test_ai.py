@@ -57,6 +57,44 @@ class TestIcebreaker:
         assert res.json()["source"] == "openrouter"
         ensure.assert_called_once()
 
+    def test_icebreakers_return_current_users_side_only(self, client):
+        user_resp = _make_resp(200, {"id": "alice"})
+        accepted_match = _make_resp(
+            200,
+            [{"sender_id": "alice", "receiver_id": "bob", "status": "accepted"}],
+        )
+        stored = {
+            "suggestions": {
+                "version": 2,
+                "by_user": {
+                    "alice": [
+                        "Ask Bob about music.",
+                        "Bob, what got you into art?",
+                        "What should I know about your weekend plans?",
+                    ],
+                    "bob": [
+                        "Ask Alice about hiking.",
+                        "Alice, what got you into gaming?",
+                        "What should I know about your favorite cafe?",
+                    ],
+                },
+            },
+            "source": "fallback",
+        }
+
+        mock = _mock_httpx(get_returns=[user_resp, accepted_match])
+        with patch("httpx.Client", return_value=mock):
+            with patch("src.main.ensure_match_icebreakers", return_value=stored):
+                res = client.get(
+                    "/api/v1/ai/icebreakers/bob",
+                    headers={"Authorization": "Bearer tok"},
+                )
+
+        assert res.status_code == 200
+        suggestions = res.json()["suggestions"]
+        assert suggestions[0] == "Ask Bob about music."
+        assert all("Alice" not in suggestion for suggestion in suggestions)
+
     def test_single_icebreaker_returns_first_persisted_suggestion(self, client):
         user_resp = _make_resp(200, {"id": "alice"})
         accepted_match = _make_resp(
@@ -185,7 +223,13 @@ class TestPersistedIcebreakers:
         existing = {
             "user_a_id": "alice",
             "user_b_id": "bob",
-            "suggestions": ["One", "Two", "Three"],
+            "suggestions": {
+                "version": 2,
+                "by_user": {
+                    "alice": ["One", "Two", "Three"],
+                    "bob": ["Four", "Five", "Six"],
+                },
+            },
             "source": "openrouter",
         }
         mock = _mock_httpx(get_returns=[_make_resp(200, [existing])])
@@ -200,6 +244,46 @@ class TestPersistedIcebreakers:
 
         assert result == existing
         assert not mock.post.called
+
+    def test_legacy_shared_icebreakers_are_replaced_with_side_specific(self):
+        from src.config import Settings
+        from src.main import ensure_match_icebreakers
+
+        legacy = {
+            "user_a_id": "alice",
+            "user_b_id": "bob",
+            "suggestions": ["Hey Alice, old shared prompt.", "Two", "Three"],
+            "source": "fallback",
+        }
+        mock = _mock_httpx(
+            get_returns=[
+                _make_resp(200, [legacy]),
+                _make_resp(
+                    200,
+                    [{"user_id": "alice", "name": "Alice", "interests": ["Music"]}],
+                ),
+                _make_resp(
+                    200,
+                    [{"user_id": "bob", "name": "Bob", "interests": ["Music"]}],
+                ),
+                _make_resp(200, []),
+            ],
+            post_returns=[_make_resp(201, [])],
+        )
+
+        result = ensure_match_icebreakers(
+            mock,
+            Settings(supabase_url="https://fake.supabase.co", supabase_key="key"),
+            "tok",
+            "alice",
+            "bob",
+        )
+
+        payload = mock.post.call_args.kwargs["json"]
+        assert isinstance(payload["suggestions"], dict)
+        assert payload["suggestions"]["by_user"]["alice"][1].startswith("Hey Bob")
+        assert payload["suggestions"]["by_user"]["bob"][1].startswith("Hey Alice")
+        assert result["suggestions"]["by_user"]["alice"][1].startswith("Hey Bob")
 
     def test_invalid_ai_response_persists_fallback_suggestions(self):
         from src.config import Settings
@@ -233,7 +317,8 @@ class TestPersistedIcebreakers:
             )
 
         assert result["source"] == "fallback"
-        assert len(result["suggestions"]) == 3
+        assert len(result["suggestions"]["by_user"]["alice"]) == 3
+        assert len(result["suggestions"]["by_user"]["bob"]) == 3
         assert mock.post.call_args.kwargs["json"]["user_a_id"] == "alice"
         assert mock.post.call_args.kwargs["json"]["user_b_id"] == "bob"
 
