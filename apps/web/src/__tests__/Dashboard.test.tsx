@@ -41,6 +41,14 @@ const candidate = {
   bio: 'Likes music and coffee.',
   interests: ['music', 'gaming'],
   compatibility_score: 86,
+  compatibility_reason: 'You both enjoy music and low-key coffee plans.',
+  compatibility_factors: [
+    {
+      label: 'Shared interests',
+      points: 86,
+      detail: 'Music appears in both profiles.',
+    },
+  ],
 };
 
 function renderDashboard() {
@@ -100,5 +108,17 @@ describe('Dashboard swipe actions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Pass profile' }));
 
     await waitFor(() => expect(mocks.dismissMatch).toHaveBeenCalledWith('bob'));
+  });
+
+  it('shows expandable compatibility reasons', async () => {
+    renderDashboard();
+
+    expect(await screen.findByText('You both enjoy music and low-key coffee plans.')).toBeVisible();
+
+    fireEvent.click(screen.getByRole('button', { name: /why this score/i }));
+
+    expect(screen.getByText('Shared interests')).toBeVisible();
+    expect(screen.getByText('86 pts')).toBeVisible();
+    expect(screen.getByText('Music appears in both profiles.')).toBeVisible();
   });
 });

@@ -1,3 +1,4 @@
+import json
 import re
 from typing import Any
 
@@ -9,6 +10,8 @@ DEFAULT_COMPATIBILITY_MODELS = [
     "liquid/lfm-2.5-1.2b-instruct:free",
 ]
 OPENROUTER_SCORING_TIMEOUT_SECONDS = 4.0
+MAX_REASON_LENGTH = 180
+MAX_FACTOR_DETAIL_LENGTH = 160
 
 
 def _profile_value(profile: dict, *keys: str) -> Any:
@@ -97,6 +100,19 @@ def build_compatibility_prompt(profile_a: dict, profile_b: dict) -> str:
     )
 
 
+def build_compatibility_result_prompt(profile_a: dict, profile_b: dict) -> str:
+    return (
+        build_compatibility_prompt(profile_a, profile_b).removesuffix(
+            "Compatibility score (0-100):"
+        )
+        + "Return exactly one JSON object with this shape: "
+        '{"score": 0-100, "reason": "one short user-facing sentence", '
+        '"factors": [{"label": "short label", "points": 0-100, "detail": "short detail"}]}. '
+        "Include 2 to 4 factors. Do not include coordinates, sexual content, sensitive assumptions, "
+        "or facts not present in the profiles. JSON only."
+    )
+
+
 def _post_openrouter_chat(client, api_key: str, payload: dict):
     try:
         return client.post(
@@ -130,6 +146,134 @@ def _score_from_openrouter_response(resp) -> float | None:
         return max(0.0, min(100.0, score))
     except Exception:
         return None
+
+
+def _clamp_score(value: Any) -> float | None:
+    try:
+        score = float(value)
+    except (TypeError, ValueError):
+        return None
+    return max(0.0, min(100.0, score))
+
+
+def _sanitize_text(value: Any, max_length: int) -> str:
+    text = re.sub(r"\s+", " ", str(value or "")).strip()
+    if len(text) > max_length:
+        text = text[: max_length - 3].rstrip() + "..."
+    return text
+
+
+def _extract_json_object(content: str) -> dict | None:
+    content = content.strip()
+    if content.startswith("```"):
+        content = re.sub(r"^```(?:json)?", "", content, flags=re.IGNORECASE).strip()
+        content = re.sub(r"```$", "", content).strip()
+    try:
+        parsed = json.loads(content)
+        return parsed if isinstance(parsed, dict) else None
+    except json.JSONDecodeError:
+        pass
+
+    start = content.find("{")
+    end = content.rfind("}")
+    if start == -1 or end == -1 or end <= start:
+        return None
+    try:
+        parsed = json.loads(content[start : end + 1])
+        return parsed if isinstance(parsed, dict) else None
+    except json.JSONDecodeError:
+        return None
+
+
+def _normalize_factor(value: Any) -> dict | None:
+    if not isinstance(value, dict):
+        return None
+    label = _sanitize_text(value.get("label"), 60)
+    detail = _sanitize_text(value.get("detail"), MAX_FACTOR_DETAIL_LENGTH)
+    points = _clamp_score(value.get("points"))
+    if not label or not detail:
+        return None
+    result: dict[str, Any] = {"label": label, "detail": detail}
+    if points is not None:
+        result["points"] = round(points)
+    return result
+
+
+def _compatibility_result_from_openrouter_response(
+    resp, model_id: str
+) -> dict[str, Any] | None:
+    if resp is None or resp.status_code >= 400:
+        return None
+    try:
+        content = (
+            resp.json()
+            .get("choices", [{}])[0]
+            .get("message", {})
+            .get("content", "")
+            .strip()
+        )
+        parsed = _extract_json_object(content)
+        if not parsed:
+            return None
+        score = _clamp_score(parsed.get("score"))
+        reason = _sanitize_text(parsed.get("reason"), MAX_REASON_LENGTH)
+        if score is None or not reason:
+            return None
+        factors = [
+            factor
+            for factor in (
+                _normalize_factor(item) for item in parsed.get("factors", [])
+            )
+            if factor
+        ][:4]
+        return {
+            "score": score,
+            "reason": reason,
+            "factors": factors,
+            "source": "openrouter",
+            "model_id": model_id,
+        }
+    except Exception:
+        return None
+
+
+def get_llm_compatibility_result(
+    api_key: str,
+    profile_a: dict,
+    profile_b: dict,
+    models: list[str] | None = None,
+) -> dict[str, Any] | None:
+    if not api_key:
+        return None
+
+    prompt = build_compatibility_result_prompt(profile_a, profile_b)
+    model_ids = models or DEFAULT_COMPATIBILITY_MODELS
+
+    with httpx.Client() as client:
+        for model_id in model_ids:
+            resp = _post_openrouter_chat(
+                client,
+                api_key,
+                {
+                    "model": model_id,
+                    "messages": [
+                        {
+                            "role": "system",
+                            "content": (
+                                "You are a compatibility scoring assistant. "
+                                "Reply with valid JSON only."
+                            ),
+                        },
+                        {"role": "user", "content": prompt},
+                    ],
+                    "max_tokens": 220,
+                    "temperature": 0,
+                },
+            )
+            result = _compatibility_result_from_openrouter_response(resp, model_id)
+            if result is not None:
+                return result
+    return None
 
 
 def get_llm_compatibility_score(

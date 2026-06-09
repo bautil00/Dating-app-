@@ -12,7 +12,7 @@ from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
 from slowapi.middleware import SlowAPIMiddleware
 from .config import get_settings
-from .compatibility import get_llm_compatibility_score
+from .compatibility import get_llm_compatibility_result, get_llm_compatibility_score
 
 PROFILE_TABLE = "user_data"
 NOMINATIM_SEARCH_URL = "https://nominatim.openstreetmap.org/search"
@@ -580,6 +580,54 @@ def get_database_compatibility_score(
         return None
 
 
+COMPATIBILITY_FALLBACK_REASON = "Score based on profile compatibility signals; detailed AI breakdown was unavailable."
+
+
+def _compatibility_payload(
+    score: float | int | None,
+    reason: str | None = None,
+    factors: list[dict] | None = None,
+    source: str = "fallback",
+) -> dict[str, Any]:
+    try:
+        value = float(score) if score is not None else 0.0
+    except (TypeError, ValueError):
+        value = 0.0
+    value = max(0.0, min(100.0, value))
+    return {
+        "compatibility_score": value,
+        "compatibility_reason": reason or COMPATIBILITY_FALLBACK_REASON,
+        "compatibility_factors": factors or [],
+        "compatibility_source": source,
+    }
+
+
+def get_match_compatibility_result(
+    settings,
+    token: str,
+    user1_id: str,
+    user2_id: str,
+    profile_a: dict | None = None,
+    profile_b: dict | None = None,
+) -> dict[str, Any]:
+    if profile_a and profile_b:
+        llm_result = get_llm_compatibility_result(
+            getattr(settings, "openrouter_api_key", ""), profile_a, profile_b
+        )
+        if llm_result is not None:
+            return _compatibility_payload(
+                llm_result.get("score"),
+                str(llm_result.get("reason") or ""),
+                cast(list[dict], llm_result.get("factors") or []),
+                str(llm_result.get("source") or "openrouter"),
+            )
+
+    score = get_database_compatibility_score(settings, token, user1_id, user2_id)
+    if score is not None:
+        return _compatibility_payload(score, source="database")
+    return _compatibility_payload(0.0, source="fallback")
+
+
 def get_match_compatibility_score(
     settings,
     token: str,
@@ -924,6 +972,9 @@ def like_candidate(data: dict, authorization: str = Header(None)):
         "status": "liked",
         "match_id": result.get("id"),
         "compatibility_score": result.get("compatibility_score"),
+        "compatibility_reason": result.get("compatibility_reason"),
+        "compatibility_factors": result.get("compatibility_factors"),
+        "compatibility_source": result.get("compatibility_source"),
     }
 
 
@@ -1132,7 +1183,7 @@ def get_candidates(limit: int = 10, authorization: str = Header(None)):
         candidate_pool = filtered[: min(len(filtered), max(limit, 1) * 2, 25)]
 
         def score_candidate(candidate):
-            candidate["compatibility_score"] = get_match_compatibility_score(
+            compatibility = get_match_compatibility_result(
                 settings,
                 token,
                 user_id,
@@ -1140,6 +1191,7 @@ def get_candidates(limit: int = 10, authorization: str = Header(None)):
                 my_profile,
                 candidate,
             )
+            candidate.update(compatibility)
             return candidate
 
         if candidate_pool:
@@ -1326,7 +1378,7 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
                 detail="Candidate does not match profile preferences",
             )
 
-        compatibility_score = get_match_compatibility_score(
+        compatibility = get_match_compatibility_result(
             settings,
             token,
             sender_id,
@@ -1334,6 +1386,7 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
             my_profile,
             receiver_profile_for_scoring,
         )
+        compatibility_score = compatibility["compatibility_score"]
 
         outgoing_resp = client.get(
             f"{settings.supabase_url}/rest/v1/matches",
@@ -1355,6 +1408,12 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
                 "compatibility_score": outgoing.get(
                     "compatibility_score", compatibility_score
                 ),
+                "compatibility_reason": outgoing.get("compatibility_reason")
+                or compatibility.get("compatibility_reason"),
+                "compatibility_factors": outgoing.get("compatibility_factors")
+                or compatibility.get("compatibility_factors"),
+                "compatibility_source": outgoing.get("compatibility_source")
+                or compatibility.get("compatibility_source"),
             }
 
         if not outgoing:
@@ -1367,13 +1426,24 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
                 "sender_id": sender_id,
                 "receiver_id": receiver_id,
                 "status": "pending",
-                "compatibility_score": compatibility_score,
+                **compatibility,
             }
             save_resp = client.post(
                 f"{settings.supabase_url}/rest/v1/matches",
                 json=insert_payload,
                 headers=write_headers,
             )
+
+            # Handle older schemas where reason fields may not exist.
+            if save_resp.status_code >= 400:
+                save_resp = client.post(
+                    f"{settings.supabase_url}/rest/v1/matches",
+                    json={
+                        **fallback_payload,
+                        "compatibility_score": compatibility_score,
+                    },
+                    headers=write_headers,
+                )
 
             # Handle older schemas where compatibility_score may not exist.
             if save_resp.status_code >= 400:
@@ -1399,11 +1469,19 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
             reset_resp = client.patch(
                 f"{settings.supabase_url}/rest/v1/matches",
                 params={"id": f"eq.{outgoing.get('id')}"},
-                json={"status": "pending"},
+                json={"status": "pending", **compatibility},
                 headers={**base_headers, "Content-Type": "application/json"},
             )
+            if reset_resp.status_code >= 400:
+                reset_resp = client.patch(
+                    f"{settings.supabase_url}/rest/v1/matches",
+                    params={"id": f"eq.{outgoing.get('id')}"},
+                    json={"status": "pending"},
+                    headers={**base_headers, "Content-Type": "application/json"},
+                )
             if reset_resp.status_code < 400:
                 outgoing["status"] = "pending"
+                outgoing.update(compatibility)
 
         reciprocal_resp = client.get(
             f"{settings.supabase_url}/rest/v1/matches",
@@ -1429,7 +1507,7 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
                     "sender_id": f"eq.{sender_id}",
                     "receiver_id": f"eq.{receiver_id}",
                 },
-                json={"status": "accepted"},
+                json={"status": "accepted", **compatibility},
                 headers=patch_headers,
             )
             client.patch(
@@ -1438,10 +1516,11 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
                     "sender_id": f"eq.{receiver_id}",
                     "receiver_id": f"eq.{sender_id}",
                 },
-                json={"status": "accepted"},
+                json={"status": "accepted", **compatibility},
                 headers=patch_headers,
             )
             outgoing["status"] = "accepted"
+            outgoing.update(compatibility)
             ensure_match_icebreakers(
                 client,
                 settings,
@@ -1455,6 +1534,15 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
 
         outgoing["compatibility_score"] = outgoing.get(
             "compatibility_score", compatibility_score
+        )
+        outgoing["compatibility_reason"] = outgoing.get(
+            "compatibility_reason", compatibility.get("compatibility_reason")
+        )
+        outgoing["compatibility_factors"] = outgoing.get(
+            "compatibility_factors", compatibility.get("compatibility_factors")
+        )
+        outgoing["compatibility_source"] = outgoing.get(
+            "compatibility_source", compatibility.get("compatibility_source")
         )
         outgoing["matched"] = matched
         return outgoing
@@ -1583,6 +1671,9 @@ def create_match(data: dict, authorization: str = Header(None)):
         "status": result.get("status", "pending"),
         "matched": result.get("matched", False),
         "compatibility_score": result.get("compatibility_score"),
+        "compatibility_reason": result.get("compatibility_reason"),
+        "compatibility_factors": result.get("compatibility_factors"),
+        "compatibility_source": result.get("compatibility_source"),
         "created_at": result.get("created_at"),
     }
 
@@ -1633,10 +1724,46 @@ def get_my_matches(authorization: str = Header(None)):
             if value
         }
         profiles = _profile_lookup_for_user_ids(client, settings, token, profile_ids)
+        _ensure_compatibility_reasons_for_existing_matches(
+            client, settings, token, matches
+        )
         _ensure_icebreakers_for_existing_matches(
             client, settings, token, matches, profiles
         )
         return _enrich_matches_with_profiles(matches, profiles, user_id)
+
+
+def _ensure_compatibility_reasons_for_existing_matches(
+    client, settings, token: str, matches: list[dict]
+):
+    headers = {
+        **supabase_headers(settings, token),
+        "Content-Type": "application/json",
+    }
+    for match in matches:
+        if match.get("compatibility_reason"):
+            continue
+        payload = _compatibility_payload(
+            _coerce_float(match.get("compatibility_score")),
+            source=str(match.get("compatibility_source") or "fallback"),
+        )
+        match.update(payload)
+        match_id = match.get("id")
+        if match_id is None:
+            continue
+        try:
+            client.patch(
+                f"{settings.supabase_url}/rest/v1/matches",
+                params={"id": f"eq.{match_id}"},
+                json={
+                    "compatibility_reason": payload["compatibility_reason"],
+                    "compatibility_factors": payload["compatibility_factors"],
+                    "compatibility_source": payload["compatibility_source"],
+                },
+                headers=headers,
+            )
+        except (httpx.HTTPError, TypeError, ValueError):
+            pass
 
 
 def _ensure_icebreakers_for_existing_matches(
@@ -1691,13 +1818,56 @@ def accept_match(match_id: int, authorization: str = Header(None)):
         match = matches[0]
         if match.get("receiver_id") != user_id:
             raise HTTPException(status_code=403, detail="Not authorized")
-        client.patch(
+        compatibility = None
+        try:
+            sender_profile_resp = client.get(
+                f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
+                params={"user_id": f"eq.{match.get('sender_id')}"},
+                headers=rls_headers,
+            )
+            receiver_profile_resp = client.get(
+                f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
+                params={"user_id": f"eq.{match.get('receiver_id')}"},
+                headers=rls_headers,
+            )
+            sender_profiles = (
+                sender_profile_resp.json()
+                if sender_profile_resp.status_code < 400
+                else []
+            )
+            receiver_profiles = (
+                receiver_profile_resp.json()
+                if receiver_profile_resp.status_code < 400
+                else []
+            )
+            if sender_profiles and receiver_profiles:
+                compatibility = get_match_compatibility_result(
+                    settings,
+                    token,
+                    str(match.get("sender_id")),
+                    str(match.get("receiver_id")),
+                    sender_profiles[0],
+                    receiver_profiles[0],
+                )
+        except Exception:
+            compatibility = None
+        patch_payload = {"status": "accepted", **(compatibility or {})}
+        patch_resp = client.patch(
             f"{settings.supabase_url}/rest/v1/matches",
             params={"id": f"eq.{match_id}"},
-            json={"status": "accepted"},
+            json=patch_payload,
             headers=rls_headers,
         )
+        if patch_resp.status_code >= 400 and compatibility:
+            client.patch(
+                f"{settings.supabase_url}/rest/v1/matches",
+                params={"id": f"eq.{match_id}"},
+                json={"status": "accepted"},
+                headers=rls_headers,
+            )
         match["status"] = "accepted"
+        if compatibility:
+            match.update(compatibility)
         ensure_match_icebreakers(
             client,
             settings,
@@ -2455,7 +2625,7 @@ def get_compatibility(target_user_id: str, authorization: str = Header(None)):
         if not target_profiles:
             raise HTTPException(status_code=404, detail="Target profile not found")
 
-        score = get_match_compatibility_score(
+        compatibility = get_match_compatibility_result(
             settings,
             token,
             user_id,
@@ -2463,7 +2633,7 @@ def get_compatibility(target_user_id: str, authorization: str = Header(None)):
             my_profiles[0],
             target_profiles[0],
         )
-        return {"profile_id": target_user_id, "compatibility_score": score}
+        return {"profile_id": target_user_id, **compatibility}
 
 
 app.include_router(ai_router, prefix="/api/v1")

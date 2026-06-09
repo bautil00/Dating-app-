@@ -1,12 +1,24 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { BadgeCheck, ChevronRight, Flame, Heart, MessageCircle, Users, X } from 'lucide-react';
+import {
+  BadgeCheck,
+  ChevronDown,
+  ChevronRight,
+  ChevronUp,
+  Flame,
+  Heart,
+  MessageCircle,
+  Users,
+  X,
+} from 'lucide-react';
 import { authService, matchService, profileService } from '../services/api';
 import Navbar from '../components/Navbar';
 import {
   profileAge,
   profileBio,
   profileCompatibility,
+  profileCompatibilityFactors,
+  profileCompatibilityReason,
   profileImage,
   profileInterests,
   profileLocation,
@@ -362,9 +374,17 @@ function DiscoverCard({
 }
 
 function AiMatchInsight({ profile }: { profile: Record<string, unknown> }) {
+  const [expanded, setExpanded] = useState(false);
   const name = profileName(profile);
   const interests = profileInterests(profile);
   const score = profileCompatibility(profile);
+  const reason = profileCompatibilityReason(profile);
+  const factors = profileCompatibilityFactors(profile);
+  const summary =
+    reason ||
+    `${name} has a compatibility signal${
+      score == null ? '' : ` near ${score}%`
+    } based on your profile data, preferences, and shared interests.`;
 
   return (
     <div className="hidden w-72 flex-shrink-0 pt-2 lg:block">
@@ -373,23 +393,53 @@ function AiMatchInsight({ profile }: { profile: Record<string, unknown> }) {
           <Flame className="h-4 w-4 text-orange-500" fill="currentColor" />
           <h3 className="text-sm font-bold text-gray-900">AI Match Insight</h3>
         </div>
-        <p className="mb-5 text-sm leading-relaxed text-gray-500">
-          {name} has a compatibility signal
-          {score == null ? '' : ` near ${score}%`} based on your profile data, preferences, and
-          shared interests.
-        </p>
+        <p className="mb-4 text-sm leading-relaxed text-gray-500">{summary}</p>
 
-        <div className="space-y-3.5">
-          <InsightRow icon={<Users className="h-4 w-4 text-orange-500" />}>
-            {interests.length} shared-interest signals
-          </InsightRow>
-          <InsightRow icon={<Heart className="h-4 w-4 text-orange-500" />}>
-            Similar profile values
-          </InsightRow>
-          <InsightRow icon={<MessageCircle className="h-4 w-4 text-orange-500" />}>
-            Strong conversation potential
-          </InsightRow>
-        </div>
+        <button
+          type="button"
+          onClick={() => setExpanded((value) => !value)}
+          className="mb-4 flex w-full items-center justify-between rounded-xl border border-orange-100 bg-orange-50 px-3 py-2 text-left text-sm font-semibold text-orange-700 transition-colors hover:bg-orange-100"
+          aria-expanded={expanded}
+        >
+          <span>Why this score?</span>
+          {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </button>
+
+        {expanded ? (
+          factors.length ? (
+            <div className="space-y-3">
+              {factors.slice(0, 4).map((factor) => (
+                <div key={`${factor.label}-${factor.detail}`} className="rounded-xl bg-gray-50 p-3">
+                  <div className="mb-1 flex items-start justify-between gap-3">
+                    <span className="text-sm font-semibold text-gray-900">{factor.label}</span>
+                    {typeof factor.points === 'number' && (
+                      <span className="flex-shrink-0 rounded-full bg-white px-2 py-0.5 text-xs font-bold text-orange-600">
+                        {factor.points} pts
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs leading-relaxed text-gray-500">{factor.detail}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="rounded-xl bg-gray-50 p-3 text-xs leading-relaxed text-gray-500">
+              {summary}
+            </p>
+          )
+        ) : (
+          <div className="space-y-3.5">
+            <InsightRow icon={<Users className="h-4 w-4 text-orange-500" />}>
+              {interests.length} shared-interest signals
+            </InsightRow>
+            <InsightRow icon={<Heart className="h-4 w-4 text-orange-500" />}>
+              Similar profile values
+            </InsightRow>
+            <InsightRow icon={<MessageCircle className="h-4 w-4 text-orange-500" />}>
+              Strong conversation potential
+            </InsightRow>
+          </div>
+        )}
       </div>
     </div>
   );

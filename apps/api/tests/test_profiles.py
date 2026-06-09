@@ -325,12 +325,18 @@ class TestGetCandidates:
             ]
         )
 
-        def fake_llm_score(_key, _profile_a, profile_b):
-            return 93.0 if profile_b["user_id"] == "higher-score" else 15.0
+        def fake_llm_result(_key, _profile_a, profile_b):
+            score = 93.0 if profile_b["user_id"] == "higher-score" else 15.0
+            return {
+                "score": score,
+                "reason": f"{profile_b['user_id']} reason",
+                "factors": [],
+                "source": "openrouter",
+            }
 
         with patch("httpx.Client", return_value=mock):
             with patch(
-                "src.main.get_llm_compatibility_score", side_effect=fake_llm_score
+                "src.main.get_llm_compatibility_result", side_effect=fake_llm_result
             ):
                 res = client.get(
                     "/api/v1/profiles/candidates?limit=5",
@@ -339,6 +345,7 @@ class TestGetCandidates:
 
         assert res.status_code == 200
         assert [row["user_id"] for row in res.json()] == ["higher-score", "lower-score"]
+        assert res.json()[0]["compatibility_reason"] == "higher-score reason"
 
     def test_candidates_exclude_existing_match_relationships(self, client):
         user_resp = _make_resp(200, {"id": "me-id"})
@@ -462,7 +469,21 @@ class TestGetCandidates:
         )
 
         with patch("httpx.Client", return_value=mock):
-            with patch("src.main.get_match_compatibility_score", return_value=80.0):
+            with patch(
+                "src.main.get_match_compatibility_result",
+                return_value={
+                    "compatibility_score": 80.0,
+                    "compatibility_reason": "Nearby and aligned.",
+                    "compatibility_factors": [
+                        {
+                            "label": "Distance",
+                            "points": 80,
+                            "detail": "Within preferred range.",
+                        }
+                    ],
+                    "compatibility_source": "openrouter",
+                },
+            ):
                 res = client.get(
                     "/api/v1/profiles/candidates?limit=5",
                     headers={"Authorization": "Bearer tok"},
@@ -473,6 +494,8 @@ class TestGetCandidates:
         assert [row["user_id"] for row in data] == ["near"]
         assert data[0]["distance_km"] == 10.4
         assert data[0]["compatibility_score"] == 80.0
+        assert data[0]["compatibility_reason"] == "Nearby and aligned."
+        assert data[0]["compatibility_factors"][0]["label"] == "Distance"
 
     def test_requires_profile(self, client):
         user_resp = _make_resp(200, {"id": "no-profile"})

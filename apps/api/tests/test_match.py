@@ -200,8 +200,20 @@ class TestLikeCandidate:
                 mock_settings.return_value.supabase_key = "fake-key"
                 mock_settings.return_value.openrouter_api_key = "openrouter-key"
                 with patch(
-                    "src.main.get_llm_compatibility_score", return_value=91.0
-                ) as llm_score:
+                    "src.main.get_llm_compatibility_result",
+                    return_value={
+                        "score": 91.0,
+                        "reason": "Strong music overlap.",
+                        "factors": [
+                            {
+                                "label": "Interests",
+                                "points": 91,
+                                "detail": "Both profiles mention music.",
+                            }
+                        ],
+                        "source": "openrouter",
+                    },
+                ) as llm_result:
                     res = client.post(
                         "/api/v1/matches/",
                         json={"receiver_id": "bob"},
@@ -210,8 +222,20 @@ class TestLikeCandidate:
 
         assert res.status_code == 200
         assert res.json()["compatibility_score"] == 91.0
+        assert res.json()["compatibility_reason"] == "Strong music overlap."
         assert mock.post.call_args.kwargs["json"]["compatibility_score"] == 91.0
-        assert llm_score.call_args.args[2]["distance_km"] == 10.4
+        assert (
+            mock.post.call_args.kwargs["json"]["compatibility_reason"]
+            == "Strong music overlap."
+        )
+        assert (
+            mock.post.call_args.kwargs["json"]["compatibility_factors"][0]["label"]
+            == "Interests"
+        )
+        assert (
+            mock.post.call_args.kwargs["json"]["compatibility_source"] == "openrouter"
+        )
+        assert llm_result.call_args.args[2]["distance_km"] == 10.4
 
 
 class TestDismissCandidate:

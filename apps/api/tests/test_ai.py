@@ -109,6 +109,8 @@ class TestCompatibility:
         assert res.status_code == 200
         assert "compatibility_score" in res.json()
         assert res.json()["compatibility_score"] == 0.0
+        assert "compatibility_reason" in res.json()
+        assert res.json()["compatibility_factors"] == []
 
     def test_compatibility_different_interests(self, client):
         user_resp = _make_resp(200, {"id": "alice"})
@@ -122,6 +124,7 @@ class TestCompatibility:
             )
         assert res.status_code == 200
         assert res.json()["compatibility_score"] == 0.0
+        assert res.json()["compatibility_source"] == "fallback"
 
     def test_compatibility_missing_profile(self, client):
         user_resp = _make_resp(200, {"id": "alice"})

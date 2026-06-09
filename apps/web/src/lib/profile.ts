@@ -1,4 +1,9 @@
 export type ProfileLike = Record<string, unknown> | null | undefined;
+export type CompatibilityFactor = {
+  label: string;
+  detail: string;
+  points?: number;
+};
 
 export function profileUserId(profile: ProfileLike) {
   return String(profile?.user_id || profile?.id || '');
@@ -52,6 +57,45 @@ export function profileCompatibility(profile: ProfileLike) {
   const value = typeof score === 'number' ? score : Number(score);
   if (!Number.isFinite(value)) return null;
   return value > 1 ? Math.round(value) : Math.round(value * 100);
+}
+
+export function profileCompatibilityReason(profile: ProfileLike) {
+  const reason = profile?.compatibility_reason || profile?.match_reason || '';
+  return String(reason || '').trim();
+}
+
+function normalizeFactor(value: unknown): CompatibilityFactor | null {
+  if (!value || typeof value !== 'object') return null;
+  const factor = value as Record<string, unknown>;
+  const label = String(factor.label || '').trim();
+  const detail = String(factor.detail || '').trim();
+  const pointsValue = Number(factor.points);
+  if (!label || !detail) return null;
+  return {
+    label,
+    detail,
+    ...(Number.isFinite(pointsValue) ? { points: Math.round(pointsValue) } : {}),
+  };
+}
+
+export function profileCompatibilityFactors(profile: ProfileLike): CompatibilityFactor[] {
+  const raw = profile?.compatibility_factors || profile?.match_factors;
+  if (Array.isArray(raw)) {
+    return raw.map(normalizeFactor).filter((factor): factor is CompatibilityFactor => !!factor);
+  }
+  if (typeof raw === 'string' && raw.trim()) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed
+          .map(normalizeFactor)
+          .filter((factor): factor is CompatibilityFactor => !!factor);
+      }
+    } catch {
+      return [];
+    }
+  }
+  return [];
 }
 
 export function shortUserId(userId: string) {

@@ -9,6 +9,7 @@ from src.main import (
     build_profile_rpc_payload,
     filter_by_distance,
     filter_by_preferences,
+    get_match_compatibility_result,
     get_match_compatibility_score,
     haversine_distance,
     filter_by_gender,
@@ -281,6 +282,72 @@ class TestMatchCompatibility:
 
         assert result == 42.0
 
+    def test_structured_result_uses_llm_reason_when_available(self):
+        class Settings:
+            supabase_url = "https://fake.supabase.co"
+            supabase_key = "fake-key"
+            openrouter_api_key = "openrouter-key"
+
+        with (
+            patch(
+                "src.main.get_llm_compatibility_result",
+                return_value={
+                    "score": 88,
+                    "reason": "You both like live music and weekend plans.",
+                    "factors": [
+                        {
+                            "label": "Interests",
+                            "points": 88,
+                            "detail": "Both profiles mention music.",
+                        }
+                    ],
+                    "source": "openrouter",
+                },
+            ),
+            patch("src.main.get_database_compatibility_score") as db_score,
+        ):
+            result = get_match_compatibility_result(
+                Settings(),
+                "tok",
+                "alice",
+                "bob",
+                {"user_id": "alice", "interests": "Music", "age": 25},
+                {"user_id": "bob", "interests": "Music", "age": 26},
+            )
+
+        assert result["compatibility_score"] == 88.0
+        assert (
+            result["compatibility_reason"]
+            == "You both like live music and weekend plans."
+        )
+        assert result["compatibility_factors"][0]["label"] == "Interests"
+        assert result["compatibility_source"] == "openrouter"
+        db_score.assert_not_called()
+
+    def test_structured_result_falls_back_to_database_reason(self):
+        class Settings:
+            supabase_url = "https://fake.supabase.co"
+            supabase_key = "fake-key"
+            openrouter_api_key = "openrouter-key"
+
+        with (
+            patch("src.main.get_llm_compatibility_result", return_value=None),
+            patch("src.main.get_database_compatibility_score", return_value=42.0),
+        ):
+            result = get_match_compatibility_result(
+                Settings(),
+                "tok",
+                "alice",
+                "bob",
+                {"user_id": "alice", "interests": "Music", "age": 25},
+                {"user_id": "bob", "interests": "Gaming", "age": 30},
+            )
+
+        assert result["compatibility_score"] == 42.0
+        assert "detailed AI breakdown was unavailable" in result["compatibility_reason"]
+        assert result["compatibility_factors"] == []
+        assert result["compatibility_source"] == "database"
+
 
 class TestLLMCompatibility:
     def test_prompt_uses_live_profile_interests_field(self):
@@ -390,6 +457,56 @@ class TestLLMCompatibility:
         assert result == 73.0
         assert mock.post.call_count == 2
         assert mock.post.call_args.kwargs["json"]["model"] == "second-free-model"
+
+    def test_llm_result_parses_json_reason_and_factors(self):
+        from src.compatibility import get_llm_compatibility_result
+
+        response = MagicMock()
+        response.status_code = 200
+        response.json.return_value = {
+            "choices": [
+                {
+                    "message": {
+                        "content": (
+                            '{"score": 91, "reason": "Shared interests and nearby schedules.", '
+                            '"factors": [{"label": "Interests", "points": 92, '
+                            '"detail": "Both profiles mention music."}]}'
+                        )
+                    }
+                }
+            ],
+        }
+        mock = MagicMock()
+        mock.__enter__ = lambda s: s
+        mock.__exit__ = MagicMock(return_value=False)
+        mock.post.return_value = response
+
+        with patch("httpx.Client", return_value=mock):
+            result = get_llm_compatibility_result("key", {}, {})
+
+        assert result is not None
+        assert result["score"] == 91.0
+        assert result["reason"] == "Shared interests and nearby schedules."
+        assert result["factors"][0]["points"] == 92
+        assert mock.post.call_args.kwargs["json"]["max_tokens"] == 220
+
+    def test_llm_result_returns_none_for_invalid_json(self):
+        from src.compatibility import get_llm_compatibility_result
+
+        response = MagicMock()
+        response.status_code = 200
+        response.json.return_value = {
+            "choices": [{"message": {"content": "probably 88 but no json"}}],
+        }
+        mock = MagicMock()
+        mock.__enter__ = lambda s: s
+        mock.__exit__ = MagicMock(return_value=False)
+        mock.post.return_value = response
+
+        with patch("httpx.Client", return_value=mock):
+            result = get_llm_compatibility_result("key", {}, {})
+
+        assert result is None
 
 
 class TestBuildProfileRpcPayload:
