@@ -9,7 +9,7 @@ import {
   type LiveMessageRecord,
   useChatPolling,
 } from '../hooks/useChatPolling';
-import { profileAge, profileInterests, profileName } from '../lib/profile';
+import { profileAge, profileImage, profileInterests, profileName } from '../lib/profile';
 
 export default function Chat() {
   const { userId } = useParams();
@@ -139,6 +139,7 @@ export default function Chat() {
   const name = profileName(profile, 'Chat');
   const age = profileAge(profile);
   const interests = profileInterests(profile).slice(0, 3).join(', ');
+  const imageUrl = profileImage(profile);
 
   return (
     <div className="flex min-h-screen flex-col bg-[#F8F9FA]">
@@ -153,12 +154,15 @@ export default function Chat() {
             >
               Messages
             </Link>
-            <div className="text-center">
-              <h1 className="text-sm font-bold text-gray-900">
-                {name}
-                {age ? `, ${age}` : ''}
-              </h1>
-              <p className="text-xs text-gray-400">{interests || 'Ready to chat'}</p>
+            <div className="flex min-w-0 items-center gap-3 text-center">
+              <Avatar name={name} imageUrl={imageUrl} compact />
+              <div className="min-w-0">
+                <h1 className="text-sm font-bold text-gray-900">
+                  {name}
+                  {age ? `, ${age}` : ''}
+                </h1>
+                <p className="text-xs text-gray-400">{interests || 'Ready to chat'}</p>
+              </div>
             </div>
             <div className="rounded-xl p-2 text-orange-500" aria-hidden="true">
               <Lightbulb className="h-4 w-4" />
@@ -207,7 +211,7 @@ export default function Chat() {
                     key={message.id}
                     className={`flex ${sent ? 'justify-end' : 'justify-start'}`}
                   >
-                    {!sent && <Avatar name={name} />}
+                    {!sent && <Avatar name={name} imageUrl={imageUrl} />}
                     <div className="max-w-xs lg:max-w-sm">
                       <div
                         className={`px-4 py-2.5 text-sm leading-relaxed ${
@@ -258,10 +262,26 @@ export default function Chat() {
   );
 }
 
-function Avatar({ name }: { name: string }) {
+function Avatar({
+  name,
+  imageUrl,
+  compact = false,
+}: {
+  name: string;
+  imageUrl?: string;
+  compact?: boolean;
+}) {
   return (
-    <div className="mr-2 mt-1 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-orange-600 text-xs font-bold text-white">
-      {name.charAt(0).toUpperCase() || 'B'}
+    <div
+      className={`flex flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-orange-400 to-orange-600 text-xs font-bold text-white ${
+        compact ? 'h-9 w-9' : 'mr-2 mt-1 h-7 w-7'
+      }`}
+    >
+      {imageUrl ? (
+        <img src={imageUrl} alt={name} className="h-full w-full object-cover" />
+      ) : (
+        name.charAt(0).toUpperCase() || 'B'
+      )}
     </div>
   );
 }

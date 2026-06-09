@@ -40,6 +40,7 @@ const candidate = {
   age: 27,
   bio: 'Likes music and coffee.',
   interests: ['music', 'gaming'],
+  profile_image_url: 'data:image/jpeg;base64,bob-photo',
   compatibility_score: 86,
   compatibility_reason: 'You both enjoy music and low-key coffee plans.',
   compatibility_factors: [
@@ -120,5 +121,12 @@ describe('Dashboard swipe actions', () => {
     expect(screen.getByText('Shared interests')).toBeVisible();
     expect(screen.getByText('86 pts')).toBeVisible();
     expect(screen.getByText('Music appears in both profiles.')).toBeVisible();
+  });
+
+  it('renders candidate profile images on discover cards', async () => {
+    renderDashboard();
+
+    const image = await screen.findByAltText('Bob');
+    expect(image).toHaveAttribute('src', 'data:image/jpeg;base64,bob-photo');
   });
 });

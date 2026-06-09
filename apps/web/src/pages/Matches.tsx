@@ -6,6 +6,7 @@ import Navbar from '../components/Navbar';
 import {
   profileAge,
   profileCompatibility,
+  profileImage,
   profileInterests,
   profileName,
   shortUserId,
@@ -167,13 +168,22 @@ export default function Matches() {
                   key={match.id}
                   className="flex items-center justify-between rounded-xl bg-orange-50 p-4"
                 >
-                  <div>
-                    <p className="font-bold text-gray-900">
-                      {profileName(match.sender_profile, `User ${shortUserId(match.sender_id)}`)}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      Sent {new Date(match.created_at).toLocaleDateString()}
-                    </p>
+                  <div className="flex min-w-0 items-center gap-3">
+                    <SmallAvatar
+                      name={profileName(
+                        match.sender_profile,
+                        `User ${shortUserId(match.sender_id)}`,
+                      )}
+                      imageUrl={profileImage(match.sender_profile)}
+                    />
+                    <div className="min-w-0">
+                      <p className="font-bold text-gray-900">
+                        {profileName(match.sender_profile, `User ${shortUserId(match.sender_id)}`)}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        Sent {new Date(match.created_at).toLocaleDateString()}
+                      </p>
+                    </div>
                   </div>
                   <div className="flex gap-2">
                     <button
@@ -215,6 +225,7 @@ export default function Matches() {
                   name={name}
                   age={profileAge(profile)}
                   interests={profileInterests(profile)}
+                  imageUrl={profileImage(profile)}
                   score={matchScore(match, profile)}
                   otherUserId={otherId}
                   isNew={newMatches.some((item) => item.id === match.id)}
@@ -235,14 +246,26 @@ export default function Matches() {
               {pendingOutgoing.map((match) => (
                 <div
                   key={match.id}
-                  className="rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
+                  className="flex items-center gap-3 rounded-2xl border border-gray-100 bg-white p-4 shadow-sm"
                 >
-                  <p className="font-semibold text-gray-800">
-                    {profileName(match.receiver_profile, `User ${shortUserId(match.receiver_id)}`)}
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    Sent {new Date(match.created_at).toLocaleDateString()}
-                  </p>
+                  <SmallAvatar
+                    name={profileName(
+                      match.receiver_profile,
+                      `User ${shortUserId(match.receiver_id)}`,
+                    )}
+                    imageUrl={profileImage(match.receiver_profile)}
+                  />
+                  <div className="min-w-0">
+                    <p className="font-semibold text-gray-800">
+                      {profileName(
+                        match.receiver_profile,
+                        `User ${shortUserId(match.receiver_id)}`,
+                      )}
+                    </p>
+                    <p className="text-xs text-gray-400">
+                      Sent {new Date(match.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
                 </div>
               ))}
             </div>
@@ -309,6 +332,7 @@ function MatchCard({
   name,
   age,
   interests,
+  imageUrl,
   score,
   otherUserId,
   isNew,
@@ -319,6 +343,7 @@ function MatchCard({
   name: string;
   age: string;
   interests: string[];
+  imageUrl?: string;
   score: number;
   otherUserId: string;
   isNew: boolean;
@@ -340,9 +365,13 @@ function MatchCard({
   return (
     <div className="group overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm transition-shadow hover:shadow-md">
       <div className="relative aspect-[3/4] bg-gradient-to-br from-orange-400 via-rose-500 to-gray-950">
-        <div className="absolute inset-0 flex items-center justify-center">
-          <span className="text-8xl font-black text-white/20">{initial}</span>
-        </div>
+        {imageUrl ? (
+          <img src={imageUrl} alt={name} className="absolute inset-0 h-full w-full object-cover" />
+        ) : (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-8xl font-black text-white/20">{initial}</span>
+          </div>
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
         {isNew && (
           <div className="absolute left-3 top-3 rounded-full bg-orange-500 px-2.5 py-1 text-xs font-bold text-white">
@@ -443,6 +472,18 @@ function StatusPill({
     <div className={`rounded-2xl border p-4 shadow-sm ${classes[tone]}`}>
       <p className="text-2xl font-black">{value}</p>
       <p className="mt-0.5 text-xs font-bold uppercase tracking-wide">{label}</p>
+    </div>
+  );
+}
+
+function SmallAvatar({ name, imageUrl }: { name: string; imageUrl?: string }) {
+  return (
+    <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-orange-400 to-orange-600 text-sm font-bold text-white">
+      {imageUrl ? (
+        <img src={imageUrl} alt={name} className="h-full w-full object-cover" />
+      ) : (
+        name.charAt(0).toUpperCase() || 'B'
+      )}
     </div>
   );
 }

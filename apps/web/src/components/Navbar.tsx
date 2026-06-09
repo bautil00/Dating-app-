@@ -8,12 +8,14 @@ import {
   messageService,
   profileService,
 } from '../services/api';
+import { profileImage as imageFromProfile, profileName as nameFromProfile } from '../lib/profile';
 
 type NavbarProps = {
   sparkCount?: number;
   unreadCount?: number;
   profileName?: string;
   profileEmail?: string;
+  profileImageUrl?: string;
 };
 
 const navLinks = [
@@ -28,11 +30,13 @@ export default function Navbar({
   unreadCount = 0,
   profileName = 'Your profile',
   profileEmail = '',
+  profileImageUrl = '',
 }: NavbarProps) {
   const location = useLocation();
   const navigate = useNavigate();
   const [avatarOpen, setAvatarOpen] = useState(false);
   const [bellOpen, setBellOpen] = useState(false);
+  const [resolvedProfile, setResolvedProfile] = useState<Record<string, unknown> | null>(null);
   const avatarRef = useRef<HTMLDivElement>(null);
   const bellRef = useRef<HTMLDivElement>(null);
 
@@ -48,6 +52,21 @@ export default function Navbar({
     document.addEventListener('mousedown', closeDropdowns);
     return () => document.removeEventListener('mousedown', closeDropdowns);
   }, []);
+
+  useEffect(() => {
+    if (profileImageUrl || profileName !== 'Your profile' || !localStorage.getItem('token')) return;
+    let cancelled = false;
+    const request = profileService.getMe?.();
+    if (!request) return;
+    request
+      .then((response) => {
+        if (!cancelled) setResolvedProfile(response.data || null);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [profileImageUrl, profileName]);
 
   const signOut = () => {
     localStorage.removeItem('token');
@@ -77,7 +96,10 @@ export default function Navbar({
   };
 
   const totalNotifs = sparkCount + unreadCount;
-  const initial = profileName.trim().charAt(0).toUpperCase() || 'B';
+  const displayName =
+    profileName !== 'Your profile' ? profileName : nameFromProfile(resolvedProfile, profileName);
+  const displayImage = profileImageUrl || imageFromProfile(resolvedProfile);
+  const initial = displayName.trim().charAt(0).toUpperCase() || 'B';
 
   return (
     <nav className="sticky top-0 z-50 border-b border-gray-100 bg-white shadow-sm">
@@ -185,7 +207,15 @@ export default function Navbar({
               aria-label="Profile menu"
             >
               <div className="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-orange-400 to-orange-600 font-bold text-white ring-2 ring-orange-200 transition-all group-hover:ring-orange-400">
-                {initial}
+                {displayImage ? (
+                  <img
+                    src={displayImage}
+                    alt={displayName}
+                    className="h-full w-full object-cover"
+                  />
+                ) : (
+                  initial
+                )}
               </div>
               <ChevronDown
                 className={`h-3.5 w-3.5 text-gray-400 transition-transform duration-200 ${
@@ -197,7 +227,7 @@ export default function Navbar({
             {avatarOpen && (
               <div className="absolute right-0 top-full z-50 mt-2 w-48 rounded-2xl border border-gray-100 bg-white py-1.5 shadow-xl">
                 <div className="mb-1 border-b border-gray-100 px-4 py-2.5">
-                  <p className="text-sm font-bold text-gray-900">{profileName}</p>
+                  <p className="text-sm font-bold text-gray-900">{displayName}</p>
                   {profileEmail && <p className="truncate text-xs text-gray-400">{profileEmail}</p>}
                 </div>
                 <Link

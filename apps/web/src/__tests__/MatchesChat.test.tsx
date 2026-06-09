@@ -59,7 +59,11 @@ describe('Matches and Chat profile names', () => {
               receiver_id: 'maya-user-id',
               status: 'accepted',
               created_at: '2026-05-19T00:00:00Z',
-              other_profile: { user_id: 'maya-user-id', name: 'Maya Brooks' },
+              other_profile: {
+                user_id: 'maya-user-id',
+                name: 'Maya Brooks',
+                profile_image_url: 'data:image/jpeg;base64,maya-photo',
+              },
             },
           ],
         });
@@ -77,6 +81,10 @@ describe('Matches and Chat profile names', () => {
     );
 
     expect((await screen.findAllByText('Maya Brooks')).length).toBeGreaterThan(0);
+    expect(await screen.findByAltText('Maya Brooks')).toHaveAttribute(
+      'src',
+      'data:image/jpeg;base64,maya-photo',
+    );
     expect(screen.queryByText(/maya-user-id/)).not.toBeInTheDocument();
   });
 
@@ -86,7 +94,13 @@ describe('Matches and Chat profile names', () => {
         return Promise.resolve({ data: [] });
       }
       if (path === '/profiles/maya-user-id') {
-        return Promise.resolve({ data: { user_id: 'maya-user-id', name: 'Maya Brooks' } });
+        return Promise.resolve({
+          data: {
+            user_id: 'maya-user-id',
+            name: 'Maya Brooks',
+            profile_image_url: 'data:image/jpeg;base64,maya-photo',
+          },
+        });
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
     });
@@ -100,6 +114,10 @@ describe('Matches and Chat profile names', () => {
     );
 
     expect(await screen.findByRole('heading', { name: 'Maya Brooks' })).toBeInTheDocument();
+    expect(await screen.findByAltText('Maya Brooks')).toHaveAttribute(
+      'src',
+      'data:image/jpeg;base64,maya-photo',
+    );
     expect(screen.queryByText(/User #/)).not.toBeInTheDocument();
   });
 
@@ -186,7 +204,12 @@ describe('Matches and Chat profile names', () => {
       }
       if (path === '/profiles/maya-user-id') {
         return Promise.resolve({
-          data: { user_id: 'maya-user-id', name: 'Maya Brooks', interests: ['music'] },
+          data: {
+            user_id: 'maya-user-id',
+            name: 'Maya Brooks',
+            interests: ['music'],
+            profile_image_url: 'data:image/jpeg;base64,maya-photo',
+          },
         });
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
@@ -200,6 +223,7 @@ describe('Matches and Chat profile names', () => {
 
     expect(await screen.findByRole('link', { name: /messages/i })).toBeInTheDocument();
     expect((await screen.findAllByText('Maya Brooks')).length).toBeGreaterThan(0);
+    expect((await screen.findAllByAltText('Maya Brooks')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('See you Friday').length).toBeGreaterThan(0);
   });
 });

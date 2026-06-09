@@ -9,7 +9,13 @@ import {
   type LiveMessageRecord,
   useChatPolling,
 } from '../hooks/useChatPolling';
-import { profileAge, profileInterests, profileName, shortUserId } from '../lib/profile';
+import {
+  profileAge,
+  profileImage,
+  profileInterests,
+  profileName,
+  shortUserId,
+} from '../lib/profile';
 
 type Conversation = {
   user_id: string;
@@ -253,7 +259,10 @@ export default function Messages() {
                     active?.user_id === conversation.user_id ? 'bg-orange-50' : 'hover:bg-gray-50'
                   }`}
                 >
-                  <Avatar name={profileName(conversation.profile, conversation.user_id)} />
+                  <Avatar
+                    name={profileName(conversation.profile, conversation.user_id)}
+                    imageUrl={profileImage(conversation.profile)}
+                  />
                   <div className="min-w-0 flex-1">
                     <div className="mb-0.5 flex items-center justify-between">
                       <p
@@ -292,7 +301,11 @@ export default function Messages() {
             <div className="flex min-w-0 flex-1 flex-col">
               <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
                 <div className="flex items-center gap-3">
-                  <Avatar name={profileName(active.profile, active.user_id)} size="sm" />
+                  <Avatar
+                    name={profileName(active.profile, active.user_id)}
+                    imageUrl={profileImage(active.profile)}
+                    size="sm"
+                  />
                   <div>
                     <h1 className="text-sm font-bold text-gray-900">
                       {profileName(active.profile, `User ${shortUserId(active.user_id)}`)}
@@ -354,7 +367,11 @@ export default function Messages() {
                         className={`flex ${sent ? 'justify-end' : 'justify-start'}`}
                       >
                         {!sent && (
-                          <Avatar name={profileName(active.profile, active.user_id)} size="xs" />
+                          <Avatar
+                            name={profileName(active.profile, active.user_id)}
+                            imageUrl={profileImage(active.profile)}
+                            size="xs"
+                          />
                         )}
                         <div className="max-w-xs lg:max-w-sm">
                           <div
@@ -510,7 +527,15 @@ export default function Messages() {
   );
 }
 
-function Avatar({ name, size = 'md' }: { name: string; size?: 'xs' | 'sm' | 'md' }) {
+function Avatar({
+  name,
+  imageUrl,
+  size = 'md',
+}: {
+  name: string;
+  imageUrl?: string;
+  size?: 'xs' | 'sm' | 'md';
+}) {
   const className =
     size === 'xs'
       ? 'mr-2 mt-1 h-7 w-7 text-xs'
@@ -519,9 +544,13 @@ function Avatar({ name, size = 'md' }: { name: string; size?: 'xs' | 'sm' | 'md'
         : 'h-12 w-12 text-base';
   return (
     <div
-      className={`${className} flex flex-shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-orange-400 to-orange-600 font-bold text-white`}
+      className={`${className} flex flex-shrink-0 items-center justify-center overflow-hidden rounded-full bg-gradient-to-br from-orange-400 to-orange-600 font-bold text-white`}
     >
-      {name.charAt(0).toUpperCase() || 'B'}
+      {imageUrl ? (
+        <img src={imageUrl} alt={name} className="h-full w-full object-cover" />
+      ) : (
+        name.charAt(0).toUpperCase() || 'B'
+      )}
     </div>
   );
 }

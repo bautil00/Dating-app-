@@ -173,6 +173,7 @@ export default function Dashboard() {
         sparkCount={sparkCount}
         profileName={displayName}
         profileEmail={String(user?.email || '')}
+        profileImageUrl={profileImage(profile)}
       />
 
       <main className="mx-auto flex max-w-5xl items-start justify-center gap-8 px-6 py-8">

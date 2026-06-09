@@ -440,7 +440,10 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
-      <Navbar profileName={formData.display_name || 'Your profile'} />
+      <Navbar
+        profileName={formData.display_name || 'Your profile'}
+        profileImageUrl={profileImageUrl}
+      />
 
       <main className="mx-auto flex max-w-5xl gap-5 px-6 py-8">
         <aside className="hidden w-52 flex-shrink-0 md:block">
