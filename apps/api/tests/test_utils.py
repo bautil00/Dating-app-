@@ -345,7 +345,7 @@ class TestMatchCompatibility:
 
         assert result["compatibility_score"] == 42.0
         assert "detailed AI breakdown was unavailable" in result["compatibility_reason"]
-        assert result["compatibility_factors"] == []
+        assert result["compatibility_factors"][0]["label"] == "Saved profile score"
         assert result["compatibility_source"] == "database"
 
 

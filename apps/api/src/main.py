@@ -602,6 +602,80 @@ def _compatibility_payload(
     }
 
 
+def _compatibility_list(value: Any) -> list[str]:
+    if isinstance(value, list):
+        return [str(item).strip() for item in value if str(item).strip()]
+    if value in (None, ""):
+        return []
+    return [part.strip() for part in str(value).split(",") if part.strip()]
+
+
+def _fallback_compatibility_factors(
+    profile_a: dict | None, profile_b: dict | None, score: float | int | None
+) -> list[dict]:
+    if not profile_a or not profile_b:
+        return []
+    score_value = round(max(0.0, min(100.0, float(score or 0.0))))
+    factors: list[dict[str, Any]] = []
+
+    a_interests = {
+        item.lower() for item in _compatibility_list(profile_a.get("interests"))
+    }
+    b_interests = {
+        item.lower() for item in _compatibility_list(profile_b.get("interests"))
+    }
+    shared = sorted(a_interests & b_interests)
+    if shared:
+        factors.append(
+            {
+                "label": "Shared interests",
+                "points": min(100, 60 + len(shared) * 10),
+                "detail": f"Both profiles mention {', '.join(shared[:3])}.",
+            }
+        )
+
+    distance = _coerce_float(profile_b.get("distance_km"))
+    if distance is not None:
+        if distance <= 10:
+            distance_points = 100
+        elif distance <= 50:
+            distance_points = 80
+        else:
+            distance_points = 45
+        factors.append(
+            {
+                "label": "Location range",
+                "points": distance_points,
+                "detail": f"Profiles are about {distance:.1f} km apart.",
+            }
+        )
+
+    a_availability = set(_compatibility_list(profile_a.get("availability")))
+    b_availability = set(_compatibility_list(profile_b.get("availability")))
+    if a_availability and b_availability:
+        overlap = sorted(a_availability & b_availability)
+        factors.append(
+            {
+                "label": "Availability",
+                "points": 80 if overlap else 45,
+                "detail": (
+                    f"Shared available days include {', '.join(overlap[:3])}."
+                    if overlap
+                    else "Saved availability does not show a direct day overlap."
+                ),
+            }
+        )
+
+    factors.append(
+        {
+            "label": "Saved profile score",
+            "points": score_value,
+            "detail": "This score comes from the database compatibility fallback.",
+        }
+    )
+    return factors[:4]
+
+
 def get_match_compatibility_result(
     settings,
     token: str,
@@ -624,7 +698,11 @@ def get_match_compatibility_result(
 
     score = get_database_compatibility_score(settings, token, user1_id, user2_id)
     if score is not None:
-        return _compatibility_payload(score, source="database")
+        return _compatibility_payload(
+            score,
+            factors=_fallback_compatibility_factors(profile_a, profile_b, score),
+            source="database",
+        )
     return _compatibility_payload(0.0, source="fallback")
 
 
