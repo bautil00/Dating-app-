@@ -339,13 +339,38 @@ class TestMatchCompatibility:
                 "tok",
                 "alice",
                 "bob",
-                {"user_id": "alice", "interests": "Music", "age": 25},
-                {"user_id": "bob", "interests": "Gaming", "age": 30},
+                {
+                    "user_id": "alice",
+                    "interests": "Music, Gym",
+                    "availability": ["Friday", "Saturday"],
+                    "age": 25,
+                    "location_name": "Seattle, WA",
+                },
+                {
+                    "user_id": "bob",
+                    "interests": "Gym, Gaming",
+                    "availability": ["Friday"],
+                    "age": 30,
+                    "location_name": "Bothell, WA",
+                    "distance_km": 19.8,
+                },
             )
 
         assert result["compatibility_score"] == 42.0
-        assert "detailed AI breakdown was unavailable" in result["compatibility_reason"]
-        assert result["compatibility_factors"][0]["label"] == "Saved profile score"
+        assert (
+            "detailed AI breakdown was unavailable"
+            not in result["compatibility_reason"]
+        )
+        assert "database" not in result["compatibility_reason"].lower()
+        assert "gym" in result["compatibility_reason"]
+        labels = [factor["label"] for factor in result["compatibility_factors"]]
+        assert labels == [
+            "Interest overlap",
+            "Meetup practicality",
+            "Schedule fit",
+            "Overall match fit",
+        ]
+        assert "fallback" not in result["compatibility_factors"][-1]["detail"].lower()
         assert result["compatibility_source"] == "database"
 
 

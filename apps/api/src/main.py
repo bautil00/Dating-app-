@@ -580,7 +580,9 @@ def get_database_compatibility_score(
         return None
 
 
-COMPATIBILITY_FALLBACK_REASON = "Score based on profile compatibility signals; detailed AI breakdown was unavailable."
+COMPATIBILITY_FALLBACK_REASON = (
+    "This score is estimated from saved profile signals and visible match preferences."
+)
 
 
 def _compatibility_payload(
@@ -610,6 +612,75 @@ def _compatibility_list(value: Any) -> list[str]:
     return [part.strip() for part in str(value).split(",") if part.strip()]
 
 
+def _compatibility_display_list(values: list[str], limit: int = 3) -> str:
+    selected = [value for value in values if value][:limit]
+    if not selected:
+        return ""
+    if len(selected) == 1:
+        return selected[0]
+    if len(selected) == 2:
+        return f"{selected[0]} and {selected[1]}"
+    return f"{', '.join(selected[:-1])}, and {selected[-1]}"
+
+
+def _compatibility_location_text(profile: dict | None) -> str | None:
+    if not profile:
+        return None
+    for key in ("location_name", "Location", "locationLabel"):
+        value = str(profile.get(key) or "").strip()
+        if value and not _looks_numeric(value):
+            return value
+    return None
+
+
+def _fallback_compatibility_reason(
+    profile_a: dict | None, profile_b: dict | None, score: float | int | None
+) -> str:
+    if not profile_a or not profile_b:
+        return COMPATIBILITY_FALLBACK_REASON
+
+    try:
+        score_value = float(score or 0.0)
+    except (TypeError, ValueError):
+        score_value = 0.0
+
+    a_interests = {
+        item.lower() for item in _compatibility_list(profile_a.get("interests"))
+    }
+    b_interests = {
+        item.lower() for item in _compatibility_list(profile_b.get("interests"))
+    }
+    shared = _compatibility_display_list(sorted(a_interests & b_interests), 2)
+    distance = _coerce_float(profile_b.get("distance_km"))
+    shared_availability = sorted(
+        set(_compatibility_list(profile_a.get("availability")))
+        & set(_compatibility_list(profile_b.get("availability")))
+    )
+
+    positives: list[str] = []
+    if shared:
+        positives.append(f"shared interests in {shared}")
+    if distance is not None and distance <= 50:
+        positives.append(f"a practical meetup distance of about {distance:.1f} km")
+    if shared_availability:
+        positives.append(
+            f"overlap on {_compatibility_display_list(shared_availability, 2)}"
+        )
+
+    if positives:
+        signal_text = _compatibility_display_list(positives, 3)
+    else:
+        signal_text = "the available profile details"
+
+    if score_value >= 75:
+        return f"Strong match signal from {signal_text}, with the saved preferences mostly reinforcing the fit."
+    if score_value >= 50:
+        return f"Promising match signal from {signal_text}, though a few saved preferences keep it from being a top score."
+    if score_value >= 25:
+        return f"Some match signal from {signal_text}, but the overall profile fit is still mixed."
+    return f"Limited match signal from {signal_text}; the profiles need more aligned details for a stronger score."
+
+
 def _fallback_compatibility_factors(
     profile_a: dict | None, profile_b: dict | None, score: float | int | None
 ) -> list[dict]:
@@ -626,11 +697,15 @@ def _fallback_compatibility_factors(
     }
     shared = sorted(a_interests & b_interests)
     if shared:
+        shared_text = _compatibility_display_list(shared, 3)
         factors.append(
             {
-                "label": "Shared interests",
+                "label": "Interest overlap",
                 "points": min(100, 60 + len(shared) * 10),
-                "detail": f"Both profiles mention {', '.join(shared[:3])}.",
+                "detail": (
+                    f"You both list {shared_text}, which gives the match a concrete "
+                    "conversation and activity starting point."
+                ),
             }
         )
 
@@ -642,11 +717,19 @@ def _fallback_compatibility_factors(
             distance_points = 80
         else:
             distance_points = 45
+        location_a = _compatibility_location_text(profile_a)
+        location_b = _compatibility_location_text(profile_b)
+        location_detail = f"The profiles are about {distance:.1f} km apart."
+        if location_a and location_b:
+            location_detail = (
+                f"{location_a} and {location_b} are about {distance:.1f} km apart, "
+                "so the match is scored with real-world meetup practicality in mind."
+            )
         factors.append(
             {
-                "label": "Location range",
+                "label": "Meetup practicality",
                 "points": distance_points,
-                "detail": f"Profiles are about {distance:.1f} km apart.",
+                "detail": location_detail,
             }
         )
 
@@ -656,21 +739,42 @@ def _fallback_compatibility_factors(
         overlap = sorted(a_availability & b_availability)
         factors.append(
             {
-                "label": "Availability",
+                "label": "Schedule fit",
                 "points": 80 if overlap else 45,
                 "detail": (
-                    f"Shared available days include {', '.join(overlap[:3])}."
+                    "Shared available days include "
+                    f"{_compatibility_display_list(overlap, 3)}."
                     if overlap
-                    else "Saved availability does not show a direct day overlap."
+                    else "Saved availability does not show a direct overlap yet."
                 ),
             }
         )
 
+    if score_value >= 75:
+        overall_detail = (
+            "The combined profile signals support a high-confidence recommendation."
+        )
+    elif score_value >= 50:
+        overall_detail = (
+            "The match has useful positives, but some saved preferences are only "
+            "partially aligned."
+        )
+    elif score_value >= 25:
+        overall_detail = (
+            "The score stays modest because the known positives do not fully outweigh "
+            "weaker profile or preference alignment."
+        )
+    else:
+        overall_detail = (
+            "The saved signals are sparse or weakly aligned, so this remains a "
+            "low-confidence recommendation."
+        )
+
     factors.append(
         {
-            "label": "Saved profile score",
+            "label": "Overall match fit",
             "points": score_value,
-            "detail": "This score comes from the database compatibility fallback.",
+            "detail": overall_detail,
         }
     )
     return factors[:4]
@@ -700,6 +804,7 @@ def get_match_compatibility_result(
     if score is not None:
         return _compatibility_payload(
             score,
+            reason=_fallback_compatibility_reason(profile_a, profile_b, score),
             factors=_fallback_compatibility_factors(profile_a, profile_b, score),
             source="database",
         )
