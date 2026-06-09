@@ -23,7 +23,6 @@ jobs:
             -e SUPABASE_URL=${{ secrets.SUPABASE_URL }} \
             -e SUPABASE_KEY=${{ secrets.SUPABASE_KEY }} \
             -e SUPABASE_SERVICE_KEY=${{ secrets.SUPABASE_SERVICE_KEY }} \
-            -e OPENROUTER_API_KEY=${{ secrets.OPENROUTER_API_KEY }} \
             -e OPENAI_API_KEY=${{ secrets.OPENAI_API_KEY }}
         env:
           VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
