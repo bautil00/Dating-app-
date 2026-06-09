@@ -86,15 +86,17 @@ class TestLikeCandidate:
                 mock_settings.return_value.supabase_url = "https://fake.supabase.co"
                 mock_settings.return_value.supabase_key = "fake-key"
                 mock_settings.return_value.openrouter_api_key = None
-                res = client.post(
-                    "/api/v1/match/",
-                    json={"candidate_id": "alice"},
-                    headers={"Authorization": "Bearer tok"},
-                )
+                with patch("src.main.ensure_match_icebreakers") as ensure:
+                    res = client.post(
+                        "/api/v1/match/",
+                        json={"candidate_id": "alice"},
+                        headers={"Authorization": "Bearer tok"},
+                    )
 
         assert res.status_code == 200
         assert res.json()["matched"] is True
         assert mock.patch.call_count >= 1
+        ensure.assert_called_once()
 
     def test_like_requires_auth(self, client):
         res = client.post("/api/v1/match/", json={"candidate_id": "bob"})

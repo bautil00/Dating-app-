@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import api from '../services/api';
 import Matches from '../pages/Matches';
@@ -33,6 +34,7 @@ vi.mock('../services/api', () => ({
     getConversation: (userId: string | number) => mockApi.get(`/messages/conversations/${userId}`),
   },
   aiService: {
+    getIcebreakers: (userId: string | number) => mockApi.get(`/ai/icebreakers/${userId}`),
     getIcebreaker: (userId: string | number) => mockApi.get(`/ai/icebreaker/${userId}`),
   },
   clearApiCache: vi.fn(),
@@ -99,6 +101,58 @@ describe('Matches and Chat profile names', () => {
 
     expect(await screen.findByRole('heading', { name: 'Maya Brooks' })).toBeInTheDocument();
     expect(screen.queryByText(/User #/)).not.toBeInTheDocument();
+  });
+
+  it('renders persisted icebreaker suggestions without sending until selected message is submitted', async () => {
+    const user = userEvent.setup();
+    const suggestion = 'Ask Maya about her favorite concert.';
+
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path === '/messages/conversations/maya-user-id') {
+        return Promise.resolve({ data: [] });
+      }
+      if (path === '/profiles/maya-user-id') {
+        return Promise.resolve({ data: { user_id: 'maya-user-id', name: 'Maya Brooks' } });
+      }
+      if (path === '/auth/me') {
+        return Promise.resolve({ data: { id: 'alice-user-id' } });
+      }
+      if (path === '/ai/icebreakers/maya-user-id') {
+        return Promise.resolve({
+          data: { suggestions: [suggestion, 'Second starter', 'Third starter'] },
+        });
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+    vi.mocked(api.post).mockResolvedValue({
+      data: {
+        id: 1,
+        sender_id: 'alice-user-id',
+        receiver_id: 'maya-user-id',
+        content: suggestion,
+        created_at: '2026-06-01T00:00:00Z',
+      },
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/chat/maya-user-id']}>
+        <Routes>
+          <Route path="/chat/:userId" element={<Chat />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    await user.click(await screen.findByRole('button', { name: suggestion }));
+
+    expect(screen.getByPlaceholderText('Message Maya Brooks...')).toHaveValue(suggestion);
+    expect(api.post).not.toHaveBeenCalled();
+
+    await user.click(screen.getByRole('button', { name: 'Send message' }));
+
+    expect(api.post).toHaveBeenCalledWith('/messages/', {
+      receiver_id: 'maya-user-id',
+      content: suggestion,
+    });
   });
 
   it('renders the message inbox tab with conversation profile names', async () => {
