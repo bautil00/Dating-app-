@@ -2700,7 +2700,7 @@ def ensure_match_icebreakers(
 ) -> dict:
     existing = _get_stored_icebreakers(client, settings, token, user_id, target_user_id)
     if _is_side_specific_icebreaker_row(existing, user_id, target_user_id):
-        return existing
+        return cast(Dict[str, Any], existing)
 
     user_a_id, user_b_id = _icebreaker_pair(user_id, target_user_id)
     profile_a_by_pair = (
