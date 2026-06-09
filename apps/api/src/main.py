@@ -889,7 +889,10 @@ def _related_match_user_ids(client, settings, token: str, user_id: str) -> set[s
             headers=headers,
         )
         if response.status_code >= 400:
-            raise HTTPException(status_code=response.status_code, detail=response.text)
+            raise HTTPException(
+                status_code=response.status_code,
+                detail="Could not load match history. Try again.",
+            )
         for row in response.json():
             sender = str(row.get("sender_id") or "")
             receiver = str(row.get("receiver_id") or "")
@@ -1212,7 +1215,8 @@ def create_profile(profile_data: dict, authorization: str = Header(None)):
                 )
                 if response_failed(patch_result):
                     raise HTTPException(
-                        status_code=patch_result.status_code, detail=patch_result.text
+                        status_code=patch_result.status_code,
+                        detail="Could not save profile. Try again.",
                     )
         elif existed:
             result = client.patch(
@@ -1232,7 +1236,10 @@ def create_profile(profile_data: dict, authorization: str = Header(None)):
             )
 
         if response_failed(result):
-            raise HTTPException(status_code=result.status_code, detail=result.text)
+            raise HTTPException(
+                status_code=result.status_code,
+                detail="Could not save profile. Try again.",
+            )
 
         try:
             refreshed = client.get(
@@ -1377,7 +1384,8 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
 
             if save_resp.status_code >= 400:
                 raise HTTPException(
-                    status_code=save_resp.status_code, detail=save_resp.text
+                    status_code=save_resp.status_code,
+                    detail="Could not save match. Try again.",
                 )
 
             saved_rows = save_resp.json()
@@ -1460,7 +1468,10 @@ def _patch_match_status(
         headers=headers,
     )
     if response.status_code >= 400:
-        raise HTTPException(status_code=response.status_code, detail=response.text)
+        raise HTTPException(
+            status_code=response.status_code,
+            detail="Could not update match. Try again.",
+        )
     rows = response.json()
     updated = rows[0] if isinstance(rows, list) and rows else dict(match)
     updated["status"] = status
@@ -1533,7 +1544,8 @@ def _dismiss_match(settings, token: str, sender_id: str, receiver_id: str) -> di
         )
         if save_resp.status_code >= 400:
             raise HTTPException(
-                status_code=save_resp.status_code, detail=save_resp.text
+                status_code=save_resp.status_code,
+                detail="Could not dismiss profile. Try again.",
             )
         rows = save_resp.json()
         return rows[0] if isinstance(rows, list) and rows else payload
@@ -1703,7 +1715,10 @@ def send_message(data: dict, authorization: str = Header(None)):
             },
         )
         if resp.status_code >= 400:
-            raise HTTPException(status_code=resp.status_code, detail=resp.text)
+            raise HTTPException(
+                status_code=resp.status_code,
+                detail="Could not send message. Try again.",
+            )
         messages = resp.json()
         return (
             messages[0]
@@ -1726,7 +1741,8 @@ def mark_message_read(message_id: int, authorization: str = Header(None)):
         )
         if message_resp.status_code >= 400:
             raise HTTPException(
-                status_code=message_resp.status_code, detail=message_resp.text
+                status_code=message_resp.status_code,
+                detail="Could not load message. Try again.",
             )
         messages = message_resp.json()
         if not messages:
@@ -1748,7 +1764,8 @@ def mark_message_read(message_id: int, authorization: str = Header(None)):
         )
         if patch_resp.status_code >= 400:
             raise HTTPException(
-                status_code=patch_resp.status_code, detail=patch_resp.text
+                status_code=patch_resp.status_code,
+                detail="Could not update message. Try again.",
             )
 
         updated = patch_resp.json()
@@ -1877,7 +1894,8 @@ def get_user_analytics(authorization: str = Header(None)):
         )
         if profile_resp.status_code >= 400:
             raise HTTPException(
-                status_code=profile_resp.status_code, detail=profile_resp.text
+                status_code=profile_resp.status_code,
+                detail="Could not load analytics. Try again.",
             )
         profiles = profile_resp.json()
         profile = profiles[0] if profiles else {}
@@ -1910,7 +1928,10 @@ def get_user_analytics(authorization: str = Header(None)):
             received_messages_resp,
         ):
             if resp.status_code >= 400:
-                raise HTTPException(status_code=resp.status_code, detail=resp.text)
+                raise HTTPException(
+                    status_code=resp.status_code,
+                    detail="Could not load analytics. Try again.",
+                )
 
         sent_matches = sent_matches_resp.json()
         received_matches = received_matches_resp.json()
