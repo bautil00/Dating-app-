@@ -176,7 +176,7 @@ export default function Dashboard() {
         profileImageUrl={profileImage(profile)}
       />
 
-      <main className="mx-auto flex max-w-5xl items-start justify-center gap-8 px-6 py-8">
+      <main className="mx-auto flex max-w-5xl flex-col items-center justify-center gap-8 px-6 py-8 lg:flex-row lg:items-start">
         {!profile || profile.is_complete === false ? (
           <CompleteProfile />
         ) : current ? (
@@ -388,7 +388,7 @@ function AiMatchInsight({ profile }: { profile: Record<string, unknown> }) {
     } based on your profile data, preferences, and shared interests.`;
 
   return (
-    <div className="hidden w-72 flex-shrink-0 pt-2 lg:block">
+    <div className="w-[min(480px,calc(100vw-3rem))] flex-shrink-0 pt-0 lg:w-72 lg:pt-2">
       <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-lg">
         <div className="mb-3 flex items-center gap-2">
           <Flame className="h-4 w-4 text-orange-500" fill="currentColor" />
