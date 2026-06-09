@@ -121,4 +121,49 @@ describe('API Service', () => {
       'Use a stronger password with uppercase and lowercase letters, a number, and a symbol.',
     );
   });
+
+  it('hides raw database JSON errors behind the provided fallback', async () => {
+    const { userFacingError } = await import('../services/api');
+    const error = {
+      response: {
+        data: {
+          detail: '{"code":"42703","message":"column user_data.preferred_kids does not exist"}',
+        },
+      },
+    };
+
+    expect(userFacingError(error, 'Could not save profile. Try again.')).toBe(
+      'Could not save profile. Try again.',
+    );
+  });
+
+  it('hides plain enum and schema errors behind the provided fallback', async () => {
+    const { userFacingError } = await import('../services/api');
+    const error = {
+      response: {
+        data: {
+          detail: 'invalid input value for enum language_type: "korean"',
+        },
+      },
+    };
+
+    expect(userFacingError(error, 'Could not finish onboarding. Try again.')).toBe(
+      'Could not finish onboarding. Try again.',
+    );
+  });
+
+  it('keeps safe provider auth errors readable', async () => {
+    const { userFacingError } = await import('../services/api');
+    const error = {
+      response: {
+        data: {
+          detail: '{"error_code":"email_exists","msg":"User already registered"}',
+        },
+      },
+    };
+
+    expect(userFacingError(error, 'Registration failed')).toBe(
+      'That email already has an account. Try signing in instead.',
+    );
+  });
 });

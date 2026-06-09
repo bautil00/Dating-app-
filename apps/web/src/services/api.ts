@@ -46,6 +46,24 @@ type ApiErrorLike = {
 const CACHE_PREFIX = 'blowtorch-api-cache-v1';
 const DEFAULT_CACHE_TTL_MS = 30_000;
 const memoryCache = new Map<string, CacheEntry>();
+const TECHNICAL_ERROR_PATTERNS = [
+  /\bPGRST\d+\b/i,
+  /\b\d{2}P\d{2}\b/i,
+  /\b42703\b/i,
+  /\b22P02\b/i,
+  /column .* does not exist/i,
+  /relation .* does not exist/i,
+  /invalid input value for enum/i,
+  /violates .* constraint/i,
+  /duplicate key value violates/i,
+  /postgrest/i,
+  /supabase/i,
+  /\bsql\b/i,
+  /schema cache/i,
+  /traceback/i,
+  /stack trace/i,
+  /\bjwt\b/i,
+];
 
 function tokenScope() {
   const token = localStorage.getItem('token') || 'anonymous';
@@ -135,13 +153,26 @@ function parseProviderError(raw: string): string | null {
     if (code === 'email_exists' || code === 'user_already_exists') {
       return 'That email already has an account. Try signing in instead.';
     }
-    if (parsed.error_description) return parsed.error_description;
-    if (parsed.message) return parsed.message;
-    if (parsed.msg) return parsed.msg;
+    const message = parsed.error_description || parsed.message || parsed.msg;
+    if (message && !isTechnicalErrorText(message)) return message;
   } catch {
     return null;
   }
   return null;
+}
+
+function isJsonLike(text: string) {
+  const trimmed = text.trim();
+  return trimmed.startsWith('{') || trimmed.startsWith('[');
+}
+
+function isTechnicalErrorText(text: string) {
+  const trimmed = text.trim();
+  return (
+    isJsonLike(trimmed) ||
+    TECHNICAL_ERROR_PATTERNS.some((pattern) => pattern.test(trimmed)) ||
+    /["{}[\]\\]/.test(trimmed)
+  );
 }
 
 export function userFacingError(error: unknown, fallback: string) {
@@ -151,7 +182,7 @@ export function userFacingError(error: unknown, fallback: string) {
   if (typeof detail === 'string') {
     const parsed = parseProviderError(detail);
     if (parsed) return parsed;
-    if (detail.trim().startsWith('{')) return fallback;
+    if (isTechnicalErrorText(detail)) return fallback;
     return detail;
   }
 
