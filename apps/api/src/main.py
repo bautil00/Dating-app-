@@ -2,6 +2,7 @@ from fastapi import FastAPI, APIRouter, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from concurrent.futures import ThreadPoolExecutor
 import httpx
+import json
 from typing import Optional, Any, cast, Dict
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 import math
@@ -1441,6 +1442,16 @@ def _create_or_update_match(settings, token: str, sender_id: str, receiver_id: s
                 headers=patch_headers,
             )
             outgoing["status"] = "accepted"
+            ensure_match_icebreakers(
+                client,
+                settings,
+                token,
+                sender_id,
+                receiver_id,
+                my_profile,
+                receiver_profile_for_scoring,
+                compatibility_score,
+            )
 
         outgoing["compatibility_score"] = outgoing.get(
             "compatibility_score", compatibility_score
@@ -1653,6 +1664,14 @@ def accept_match(match_id: int, authorization: str = Header(None)):
             headers=rls_headers,
         )
         match["status"] = "accepted"
+        ensure_match_icebreakers(
+            client,
+            settings,
+            token,
+            str(match.get("sender_id")),
+            str(match.get("receiver_id")),
+            compatibility_score=match.get("compatibility_score"),
+        )
         return match
 
 
@@ -1978,6 +1997,11 @@ ai_router = APIRouter(prefix="/ai", tags=["AI"])
 DEFAULT_ICEBREAKER_MODELS = [
     "liquid/lfm-2.5-1.2b-instruct:free",
 ]
+ICEBREAKER_COUNT = 3
+
+
+def _icebreaker_pair(user_id: str, target_user_id: str) -> tuple[str, str]:
+    return tuple(sorted((str(user_id), str(target_user_id))))  # type: ignore[return-value]
 
 
 def _normalize_interests(raw_value):
@@ -1990,6 +2014,51 @@ def _normalize_interests(raw_value):
     return [str(v).strip() for v in values if str(v).strip()]
 
 
+def _profile_display_value(profile: dict, *keys: str) -> str:
+    for key in keys:
+        value = profile.get(key)
+        if value in (None, ""):
+            continue
+        if isinstance(value, list):
+            joined = ", ".join(str(item).strip() for item in value if str(item).strip())
+            if joined:
+                return joined
+        else:
+            return str(value).strip()
+    return "unknown"
+
+
+def _profile_summary_for_icebreakers(profile: dict) -> dict:
+    return {
+        "name": _profile_display_value(profile, "name", "Name"),
+        "age": _profile_display_value(profile, "age", "Age"),
+        "interests": _normalize_interests(
+            profile.get("interests")
+            or ",".join(
+                str(profile.get(key, ""))
+                for key in ("interest_1", "interest_2", "interest_3", "Interest")
+                if profile.get(key)
+            )
+        ),
+        "job": _profile_display_value(profile, "job", "Job"),
+        "education": _profile_display_value(profile, "education", "Education"),
+        "location": _profile_display_value(profile, "location_name", "Location"),
+        "languages": _profile_display_value(profile, "languages", "language"),
+        "availability": _profile_display_value(
+            profile, "availability", "day_availability"
+        ),
+        "time_availability": _profile_display_value(
+            profile, "time_availability", "timeAvailability"
+        ),
+        "relationship": _profile_display_value(
+            profile, "relationship", "relationship_status"
+        ),
+        "lifestyle": _profile_display_value(
+            profile, "lifestyle", "living_situation", "pets", "kids"
+        ),
+    }
+
+
 def _fallback_icebreaker(my_interests, target_interests):
     my_set = {i.lower() for i in _normalize_interests(my_interests)}
     target_set = {i.lower() for i in _normalize_interests(target_interests)}
@@ -1998,6 +2067,103 @@ def _fallback_icebreaker(my_interests, target_interests):
         topic = shared[0].capitalize()
         return f"I noticed we both like {topic}. What got you into it?"
     return "Hey, glad we matched. What does your ideal weekend look like?"
+
+
+def _fallback_icebreakers(profile_a: dict, profile_b: dict) -> list[str]:
+    a_interests = _normalize_interests(profile_a.get("interests"))
+    b_interests = _normalize_interests(profile_b.get("interests"))
+    shared = sorted(
+        {item.lower() for item in a_interests} & {item.lower() for item in b_interests}
+    )
+    b_name = _profile_display_value(profile_b, "name", "Name")
+    first_name = b_name.split()[0] if b_name != "unknown" else "you"
+
+    suggestions: list[str] = []
+    if shared:
+        topic = shared[0].capitalize()
+        suggestions.append(f"I noticed we both like {topic}. What got you into it?")
+    suggestions.extend(
+        [
+            f"Hey {first_name}, what has been the best part of your week so far?",
+            "What is something small that always makes your day better?",
+            "If you had a free afternoon this week, how would you spend it?",
+        ]
+    )
+    return suggestions[:ICEBREAKER_COUNT]
+
+
+def _coerce_icebreaker_suggestions(value: Any) -> list[str]:
+    if isinstance(value, dict):
+        value = (
+            value.get("suggestions") or value.get("icebreakers") or value.get("phrases")
+        )
+    if not isinstance(value, list):
+        return []
+    suggestions: list[str] = []
+    for item in value:
+        text = str(item).strip().strip('"')
+        if text and len(text) <= 180:
+            suggestions.append(text)
+    return suggestions[:ICEBREAKER_COUNT]
+
+
+def _parse_icebreaker_response(resp) -> list[str]:
+    if resp is None or resp.status_code >= 400:
+        return []
+    try:
+        content = (
+            resp.json()
+            .get("choices", [{}])[0]
+            .get("message", {})
+            .get("content", "")
+            .strip()
+        )
+        try:
+            parsed = json.loads(content)
+        except json.JSONDecodeError:
+            start = content.find("[")
+            end = content.rfind("]")
+            parsed = (
+                json.loads(content[start : end + 1])
+                if start >= 0 and end > start
+                else []
+            )
+        return _coerce_icebreaker_suggestions(parsed)
+    except Exception:
+        return []
+
+
+def _build_icebreaker_prompt(
+    profile_a: dict, profile_b: dict, compatibility_score: Any = None
+) -> str:
+    payload = {
+        "person_a": _profile_summary_for_icebreakers(profile_a),
+        "person_b": _profile_summary_for_icebreakers(profile_b),
+        "compatibility_score": compatibility_score,
+    }
+    return (
+        "Generate exactly 3 dating-app icebreaker phrases as a JSON array of strings. "
+        "Each phrase must be under 25 words, friendly, specific, and natural. "
+        "Use only facts from these profiles. Do not mention coordinates, private data, "
+        "sexual content, or make up facts. Return JSON only.\n"
+        f"{json.dumps(payload, ensure_ascii=True)}"
+    )
+
+
+def _generate_ai_icebreakers(
+    settings, profile_a: dict, profile_b: dict, compatibility_score: Any = None
+) -> tuple[list[str], str | None]:
+    if not settings.openrouter_api_key:
+        return [], None
+
+    prompt = _build_icebreaker_prompt(profile_a, profile_b, compatibility_score)
+    with httpx.Client() as client:
+        for model_id in DEFAULT_ICEBREAKER_MODELS:
+            resp = _post_icebreaker_request(settings, client, model_id, prompt)
+            suggestions = _parse_icebreaker_response(resp)
+            if len(suggestions) == ICEBREAKER_COUNT:
+                return suggestions, model_id
+    return [], None
 
 
 def _post_icebreaker_request(settings, client, model_id: str, prompt: str):
@@ -2062,64 +2228,168 @@ def _generate_ai_icebreaker(settings, my_interests, target_interests):
     return None
 
 
+def _fetch_profile_for_icebreakers(client, settings, token: str, user_id: str) -> dict:
+    response = client.get(
+        f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
+        params={"user_id": f"eq.{user_id}", "limit": 1},
+        headers=supabase_headers(settings, token),
+    )
+    if response.status_code >= 400:
+        return {}
+    rows = response.json()
+    return rows[0] if isinstance(rows, list) and rows else {}
+
+
+def _get_accepted_match_between(
+    client, settings, token: str, user_id: str, target_user_id: str
+) -> dict | None:
+    headers = supabase_headers(settings, token)
+    for sender_id, receiver_id in (
+        (user_id, target_user_id),
+        (target_user_id, user_id),
+    ):
+        response = client.get(
+            f"{settings.supabase_url}/rest/v1/matches",
+            params={
+                "sender_id": f"eq.{sender_id}",
+                "receiver_id": f"eq.{receiver_id}",
+                "order": "created_at.desc",
+                "limit": 1,
+            },
+            headers=headers,
+        )
+        rows = response.json() if response.status_code < 400 else []
+        if rows and rows[0].get("status") in {"accepted", "matched"}:
+            return rows[0]
+    return None
+
+
+def _get_stored_icebreakers(
+    client, settings, token: str, user_id: str, target_user_id: str
+):
+    user_a_id, user_b_id = _icebreaker_pair(user_id, target_user_id)
+    response = client.get(
+        f"{settings.supabase_url}/rest/v1/match_icebreakers",
+        params={
+            "user_a_id": f"eq.{user_a_id}",
+            "user_b_id": f"eq.{user_b_id}",
+            "limit": 1,
+        },
+        headers=supabase_headers(settings, token),
+    )
+    rows = response.json() if response.status_code < 400 else []
+    return rows[0] if isinstance(rows, list) and rows else None
+
+
+def ensure_match_icebreakers(
+    client,
+    settings,
+    token: str,
+    user_id: str,
+    target_user_id: str,
+    profile_a: dict | None = None,
+    profile_b: dict | None = None,
+    compatibility_score: Any = None,
+) -> dict:
+    existing = _get_stored_icebreakers(client, settings, token, user_id, target_user_id)
+    if existing:
+        return existing
+
+    profile_a = profile_a or _fetch_profile_for_icebreakers(
+        client, settings, token, user_id
+    )
+    profile_b = profile_b or _fetch_profile_for_icebreakers(
+        client, settings, token, target_user_id
+    )
+    suggestions, model_id = _generate_ai_icebreakers(
+        settings, profile_a, profile_b, compatibility_score
+    )
+    source = "openrouter" if suggestions else "fallback"
+    if not suggestions:
+        suggestions = _fallback_icebreakers(profile_a, profile_b)
+
+    user_a_id, user_b_id = _icebreaker_pair(user_id, target_user_id)
+    payload = {
+        "user_a_id": user_a_id,
+        "user_b_id": user_b_id,
+        "suggestions": suggestions,
+        "source": source,
+        "model_id": model_id,
+    }
+    response = client.post(
+        f"{settings.supabase_url}/rest/v1/match_icebreakers",
+        params={"on_conflict": "user_a_id,user_b_id"},
+        json=payload,
+        headers={
+            **supabase_headers(settings, token),
+            "Content-Type": "application/json",
+            "Prefer": "return=representation,resolution=ignore-duplicates",
+        },
+    )
+    if response.status_code < 400:
+        rows = response.json()
+        if isinstance(rows, list) and rows:
+            return rows[0]
+
+    return (
+        _get_stored_icebreakers(client, settings, token, user_id, target_user_id)
+        or payload
+    )
+
+
+@ai_router.get("/icebreakers/{target_user_id}")
+def get_icebreakers(target_user_id: str, authorization: str = Header(None)):
+    settings = get_settings()
+    user_id, token = _get_user_id_and_token(authorization, settings)
+
+    with httpx.Client() as client:
+        match = _get_accepted_match_between(
+            client, settings, token, user_id, target_user_id
+        )
+        if not match:
+            raise HTTPException(
+                status_code=403,
+                detail="Users must mutually match before requesting icebreakers",
+            )
+        row = ensure_match_icebreakers(
+            client,
+            settings,
+            token,
+            user_id,
+            target_user_id,
+            compatibility_score=match.get("compatibility_score"),
+        )
+        return {
+            "suggestions": row.get("suggestions") or [],
+            "source": row.get("source", "fallback"),
+            "generated_at": row.get("created_at") or row.get("updated_at"),
+        }
+
+
 @ai_router.get("/icebreaker/{target_user_id}")
 def get_icebreaker(target_user_id: str, authorization: str = Header(None)):
     settings = get_settings()
     user_id, token = _get_user_id_and_token(authorization, settings)
-    headers = supabase_headers(settings, token)
 
     with httpx.Client() as client:
-        my_profile_resp = client.get(  # noqa: F841
-            f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
-            params={"user_id": f"eq.{user_id}"},
-            headers=headers,
+        match = _get_accepted_match_between(
+            client, settings, token, user_id, target_user_id
         )
-        my_profiles = (  # noqa: F841
-            my_profile_resp.json() if my_profile_resp.status_code < 400 else []
-        )
-        if not my_profiles:
-            raise HTTPException(status_code=400, detail="Create your profile first")
-
-        target_profile_resp = client.get(
-            f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
-            params={"user_id": f"eq.{target_user_id}"},
-            headers=headers,
-        )
-        target_profiles = (
-            target_profile_resp.json() if target_profile_resp.status_code < 400 else []
-        )
-        if not target_profiles:
-            raise HTTPException(status_code=404, detail="Target profile not found")
-
-        sent_match = client.get(
-            f"{settings.supabase_url}/rest/v1/matches",
-            params={
-                "sender_id": f"eq.{user_id}",
-                "receiver_id": f"eq.{target_user_id}",
-            },
-            headers=headers,
-        ).json()
-        received_match = client.get(
-            f"{settings.supabase_url}/rest/v1/matches",
-            params={
-                "sender_id": f"eq.{target_user_id}",
-                "receiver_id": f"eq.{user_id}",
-            },
-            headers=headers,
-        ).json()
-        if not (sent_match or received_match):
+        if not match:
             raise HTTPException(
                 status_code=403,
-                detail="Users must match before requesting an icebreaker",
+                detail="Users must mutually match before requesting an icebreaker",
             )
-
-        my_interests = my_profiles[0].get("interests", "")
-        target_interests = target_profiles[0].get("interests", "")
-        ai_text = _generate_ai_icebreaker(settings, my_interests, target_interests)
-        return {
-            "icebreaker": ai_text
-            or _fallback_icebreaker(my_interests, target_interests)
-        }
+        row = ensure_match_icebreakers(
+            client,
+            settings,
+            token,
+            user_id,
+            target_user_id,
+            compatibility_score=match.get("compatibility_score"),
+        )
+        suggestions = row.get("suggestions") or []
+        return {"icebreaker": suggestions[0] if suggestions else ""}
 
 
 @ai_router.get("/compatibility/{target_user_id}")

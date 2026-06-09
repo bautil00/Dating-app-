@@ -340,6 +340,8 @@ export const messageService = {
 };
 
 export const aiService = {
+  getIcebreakers: (userId: string | number) => api.get(`/ai/icebreakers/${userId}`),
+
   getIcebreaker: (matchId: string | number) => api.get(`/ai/icebreaker/${matchId}`),
 
   getCompatibility: (profileId: string | number) => api.get(`/ai/compatibility/${profileId}`),

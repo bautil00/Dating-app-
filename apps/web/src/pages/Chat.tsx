@@ -17,7 +17,7 @@ export default function Chat() {
   const [profile, setProfile] = useState<Record<string, unknown> | null>(null);
   const [currentUserId, setCurrentUserId] = useState('');
   const [newMessage, setNewMessage] = useState('');
-  const [icebreaker, setIcebreaker] = useState('');
+  const [icebreakers, setIcebreakers] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const messageListRef = useRef<HTMLDivElement>(null);
@@ -46,13 +46,17 @@ export default function Chat() {
     if (!userId) return;
     setLoading(true);
     try {
-      const [messagesRes, profileRes, userRes] = await Promise.all([
+      const [messagesRes, profileRes, userRes, icebreakerRes] = await Promise.all([
         messageService.getConversation(userId),
         profileService.getById(userId).catch(() => ({ data: null })),
         authService.getMe().catch(() => ({ data: null })),
+        aiService.getIcebreakers(userId).catch(() => ({ data: { suggestions: [] } })),
       ]);
       const userIdentifier = String(userRes.data?.id || '');
       const loadedMessages = messagesRes.data || [];
+      const suggestions = Array.isArray(icebreakerRes.data?.suggestions)
+        ? icebreakerRes.data.suggestions.filter((value: unknown) => typeof value === 'string')
+        : [];
       if (userIdentifier) await markIncomingMessagesRead(loadedMessages, userIdentifier);
       setMessages(
         userIdentifier
@@ -65,6 +69,7 @@ export default function Chat() {
       );
       setProfile(profileRes.data);
       setCurrentUserId(userIdentifier);
+      setIcebreakers(suggestions.slice(0, 3));
       shouldAutoScrollRef.current = true;
     } catch (err) {
       console.error('Failed to load chat:', err);
@@ -123,16 +128,6 @@ export default function Chat() {
     }
   };
 
-  const handleIcebreaker = async () => {
-    if (!userId) return;
-    try {
-      const res = await aiService.getIcebreaker(userId);
-      setIcebreaker(res.data.icebreaker || res.data.message || '');
-    } catch (err) {
-      console.error('Failed to get icebreaker:', err);
-    }
-  };
-
   if (loading) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-[#F8F9FA]">
@@ -165,30 +160,28 @@ export default function Chat() {
               </h1>
               <p className="text-xs text-gray-400">{interests || 'Ready to chat'}</p>
             </div>
-            <button
-              type="button"
-              onClick={handleIcebreaker}
-              className="rounded-xl p-2 text-orange-500 transition-all hover:bg-orange-50"
-              aria-label="Get icebreaker"
-            >
+            <div className="rounded-xl p-2 text-orange-500" aria-hidden="true">
               <Lightbulb className="h-4 w-4" />
-            </button>
+            </div>
           </div>
 
-          {icebreaker && (
+          {icebreakers.length > 0 && (
             <div className="border-b border-orange-100 bg-orange-50 px-5 py-3">
-              <div className="flex items-start justify-between gap-3">
-                <p className="text-sm text-orange-800">{icebreaker}</p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setNewMessage(icebreaker);
-                    setIcebreaker('');
-                  }}
-                  className="rounded-lg bg-white px-3 py-1.5 text-xs font-semibold text-orange-600 shadow-sm"
-                >
-                  Use
-                </button>
+              <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-orange-700">
+                <Lightbulb className="h-3.5 w-3.5" />
+                Conversation starters
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {icebreakers.map((suggestion) => (
+                  <button
+                    key={suggestion}
+                    type="button"
+                    onClick={() => setNewMessage(suggestion)}
+                    className="rounded-xl bg-white px-3 py-2 text-left text-sm text-orange-800 shadow-sm transition hover:bg-orange-100"
+                  >
+                    {suggestion}
+                  </button>
+                ))}
               </div>
             </div>
           )}

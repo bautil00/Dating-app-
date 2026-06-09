@@ -77,6 +77,13 @@ describe('API Service', () => {
     expect(messageService).toHaveProperty('markRead');
   });
 
+  it('aiService exports expected methods', async () => {
+    const { aiService } = await import('../services/api');
+    expect(aiService).toHaveProperty('getIcebreakers');
+    expect(aiService).toHaveProperty('getIcebreaker');
+    expect(aiService).toHaveProperty('getCompatibility');
+  });
+
   it('cachedGet reuses fresh GET responses', async () => {
     const { default: api, cachedGet, clearApiCache } = await import('../services/api');
     clearApiCache();

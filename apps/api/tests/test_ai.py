@@ -23,40 +23,51 @@ def _mock_httpx(get_returns=None, post_returns=None):
 
 
 class TestIcebreaker:
-    def test_icebreaker_with_ai_fallback(self, client):
+    def test_icebreakers_returns_persisted_suggestions(self, client):
         user_resp = _make_resp(200, {"id": "alice"})
-        my_profile = _make_resp(200, [{"user_id": "alice", "interests": "Music"}])
-        target_profile = _make_resp(200, [{"user_id": "bob", "interests": "Music"}])
-        sent_match = _make_resp(
-            200, [{"sender_id": "alice", "receiver_id": "bob", "status": "pending"}]
+        accepted_match = _make_resp(
+            200,
+            [
+                {
+                    "sender_id": "alice",
+                    "receiver_id": "bob",
+                    "status": "accepted",
+                    "compatibility_score": 91,
+                }
+            ],
         )
+        suggestions = ["Ask about music.", "Ask about coffee.", "Ask about weekends."]
 
-        mock = _mock_httpx(
-            get_returns=[user_resp, my_profile, target_profile, sent_match, sent_match]
-        )
-        with patch("httpx.Client", return_value=mock):
-            with patch("src.main._generate_ai_icebreaker", return_value=None):
-                res = client.get(
-                    "/api/v1/ai/icebreaker/bob", headers={"Authorization": "Bearer tok"}
-                )
-        assert res.status_code == 200
-        assert "icebreaker" in res.json()
-        assert len(res.json()["icebreaker"]) > 0
-
-    def test_icebreaker_uses_ai_when_available(self, client):
-        user_resp = _make_resp(200, {"id": "alice"})
-        my_profile = _make_resp(200, [{"user_id": "alice", "interests": "Gaming"}])
-        target_profile = _make_resp(200, [{"user_id": "bob", "interests": "Gaming"}])
-        sent_match = _make_resp(
-            200, [{"sender_id": "alice", "receiver_id": "bob", "status": "pending"}]
-        )
-
-        mock = _mock_httpx(
-            get_returns=[user_resp, my_profile, target_profile, sent_match, sent_match]
-        )
+        mock = _mock_httpx(get_returns=[user_resp, accepted_match])
         with patch("httpx.Client", return_value=mock):
             with patch(
-                "src.main._generate_ai_icebreaker", return_value="Hey, love gaming!"
+                "src.main.ensure_match_icebreakers",
+                return_value={
+                    "suggestions": suggestions,
+                    "source": "openrouter",
+                    "created_at": "2026-06-01T00:00:00Z",
+                },
+            ) as ensure:
+                res = client.get(
+                    "/api/v1/ai/icebreakers/bob",
+                    headers={"Authorization": "Bearer tok"},
+                )
+        assert res.status_code == 200
+        assert res.json()["suggestions"] == suggestions
+        assert res.json()["source"] == "openrouter"
+        ensure.assert_called_once()
+
+    def test_single_icebreaker_returns_first_persisted_suggestion(self, client):
+        user_resp = _make_resp(200, {"id": "alice"})
+        accepted_match = _make_resp(
+            200, [{"sender_id": "alice", "receiver_id": "bob", "status": "accepted"}]
+        )
+
+        mock = _mock_httpx(get_returns=[user_resp, accepted_match])
+        with patch("httpx.Client", return_value=mock):
+            with patch(
+                "src.main.ensure_match_icebreakers",
+                return_value={"suggestions": ["Hey, love gaming!", "Second", "Third"]},
             ):
                 res = client.get(
                     "/api/v1/ai/icebreaker/bob", headers={"Authorization": "Bearer tok"}
@@ -64,47 +75,23 @@ class TestIcebreaker:
         assert res.status_code == 200
         assert res.json()["icebreaker"] == "Hey, love gaming!"
 
-    def test_icebreaker_requires_match(self, client):
+    def test_icebreakers_requires_mutual_match(self, client):
         user_resp = _make_resp(200, {"id": "alice"})
-        my_profile = _make_resp(200, [{"user_id": "alice", "interests": "Music"}])
-        target_profile = _make_resp(200, [{"user_id": "bob", "interests": "Music"}])
         no_match = _make_resp(200, [])
 
-        mock = _mock_httpx(
-            get_returns=[user_resp, my_profile, target_profile, no_match, no_match]
-        )
+        mock = _mock_httpx(get_returns=[user_resp, no_match, no_match])
         with patch("httpx.Client", return_value=mock):
             res = client.get(
-                "/api/v1/ai/icebreaker/bob", headers={"Authorization": "Bearer tok"}
+                "/api/v1/ai/icebreakers/bob", headers={"Authorization": "Bearer tok"}
             )
         assert res.status_code == 403
 
-    def test_icebreaker_requires_profile_first(self, client):
-        user_resp = _make_resp(200, {"id": "alice"})
-        no_profile = _make_resp(200, [])
-
-        mock = _mock_httpx(get_returns=[user_resp, no_profile])
-        with patch("httpx.Client", return_value=mock):
-            res = client.get(
-                "/api/v1/ai/icebreaker/bob", headers={"Authorization": "Bearer tok"}
-            )
-        assert res.status_code == 400
-
-    def test_icebreaker_target_not_found(self, client):
-        user_resp = _make_resp(200, {"id": "alice"})
-        my_profile = _make_resp(200, [{"user_id": "alice", "interests": "Music"}])
-        no_target = _make_resp(200, [])
-
-        mock = _mock_httpx(get_returns=[user_resp, my_profile, no_target])
-        with patch("httpx.Client", return_value=mock):
-            res = client.get(
-                "/api/v1/ai/icebreaker/nonexistent",
-                headers={"Authorization": "Bearer tok"},
-            )
-        assert res.status_code == 404
-
     def test_icebreaker_requires_auth(self, client):
         res = client.get("/api/v1/ai/icebreaker/bob")
+        assert res.status_code == 401
+
+    def test_plural_icebreakers_requires_auth(self, client):
+        res = client.get("/api/v1/ai/icebreakers/bob")
         assert res.status_code == 401
 
 
@@ -185,6 +172,67 @@ class TestFallbackIcebreaker:
 
         result = _fallback_icebreaker("", "")
         assert len(result) > 0
+
+
+class TestPersistedIcebreakers:
+    def test_existing_icebreakers_are_reused(self):
+        from src.config import Settings
+        from src.main import ensure_match_icebreakers
+
+        existing = {
+            "user_a_id": "alice",
+            "user_b_id": "bob",
+            "suggestions": ["One", "Two", "Three"],
+            "source": "openrouter",
+        }
+        mock = _mock_httpx(get_returns=[_make_resp(200, [existing])])
+
+        result = ensure_match_icebreakers(
+            mock,
+            Settings(supabase_url="https://fake.supabase.co", supabase_key="key"),
+            "tok",
+            "alice",
+            "bob",
+        )
+
+        assert result == existing
+        assert not mock.post.called
+
+    def test_invalid_ai_response_persists_fallback_suggestions(self):
+        from src.config import Settings
+        from src.main import ensure_match_icebreakers
+
+        mock = _mock_httpx(
+            get_returns=[
+                _make_resp(200, []),
+                _make_resp(
+                    200, [{"user_id": "alice", "name": "Alice", "interests": "Music"}]
+                ),
+                _make_resp(
+                    200, [{"user_id": "bob", "name": "Bob", "interests": "Music"}]
+                ),
+                _make_resp(200, []),
+            ],
+            post_returns=[_make_resp(201, [])],
+        )
+
+        with patch("src.main._generate_ai_icebreakers", return_value=([], None)):
+            result = ensure_match_icebreakers(
+                mock,
+                Settings(
+                    supabase_url="https://fake.supabase.co",
+                    supabase_key="key",
+                    openrouter_api_key="openrouter-key",
+                ),
+                "tok",
+                "alice",
+                "bob",
+            )
+
+        assert result["source"] == "fallback"
+        assert len(result["suggestions"]) == 3
+        assert mock.post.call_args.kwargs["json"]["user_a_id"] == "alice"
+        assert mock.post.call_args.kwargs["json"]["user_b_id"] == "bob"
 
 
 class TestOpenRouterModels:
