@@ -111,4 +111,45 @@ describe('Register Page', () => {
     );
     expect(screen.getByText('Sign in')).toBeInTheDocument();
   });
+
+  it('keeps create account disabled for malformed email addresses', () => {
+    render(
+      <MemoryRouter>
+        <Register />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText('Email address'), {
+      target: { value: 'a@b' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('Password (min 6 characters)'), {
+      target: { value: 'pass123' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('Confirm password'), {
+      target: { value: 'pass123' },
+    });
+
+    expect(screen.getByRole('button', { name: 'Create Account' })).toBeDisabled();
+    expect(screen.getByText('Enter a valid email address.')).toBeInTheDocument();
+  });
+
+  it('enables create account for valid plus-tag email addresses', () => {
+    render(
+      <MemoryRouter>
+        <Register />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText('Email address'), {
+      target: { value: 'Valid+Tag@Example.co.uk' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('Password (min 6 characters)'), {
+      target: { value: 'pass123' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('Confirm password'), {
+      target: { value: 'pass123' },
+    });
+
+    expect(screen.getByRole('button', { name: 'Create Account' })).not.toBeDisabled();
+  });
 });

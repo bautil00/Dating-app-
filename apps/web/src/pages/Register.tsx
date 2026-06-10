@@ -4,6 +4,37 @@ import { Flame } from 'lucide-react';
 import { authService, clearApiCache, userFacingError } from '../services/api';
 import GoogleIcon from '../components/GoogleIcon';
 
+const EMAIL_LOCAL_PATTERN = /^[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+$/i;
+const EMAIL_DOMAIN_LABEL_PATTERN = /^[A-Z0-9-]+$/i;
+
+function isValidSignupEmail(value: string) {
+  const email = value.trim();
+  if (email.length < 3 || email.length > 254 || /\s/.test(email)) return false;
+  if ((email.match(/@/g) || []).length !== 1) return false;
+
+  const [local, domain] = email.split('@');
+  if (!local || !domain || local.length > 64 || domain.length > 253) return false;
+  if (local.startsWith('.') || local.endsWith('.') || local.includes('..')) return false;
+  if (!EMAIL_LOCAL_PATTERN.test(local)) return false;
+
+  const labels = domain.split('.');
+  if (labels.length < 2) return false;
+  for (const label of labels) {
+    if (
+      !label ||
+      label.length > 63 ||
+      label.startsWith('-') ||
+      label.endsWith('-') ||
+      !EMAIL_DOMAIN_LABEL_PATTERN.test(label)
+    ) {
+      return false;
+    }
+  }
+
+  const topLevelDomain = labels[labels.length - 1];
+  return topLevelDomain.length >= 2 && /[A-Z]/i.test(topLevelDomain);
+}
+
 export default function Register() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -11,11 +42,19 @@ export default function Register() {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
-  const canSubmit = email.includes('@') && password.length >= 6 && confirmPassword.length >= 6;
+  const normalizedEmail = email.trim().toLowerCase();
+  const emailValid = isValidSignupEmail(email);
+  const showEmailError = email.trim().length > 0 && !emailValid;
+  const canSubmit = emailValid && password.length >= 6 && confirmPassword.length >= 6;
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
     setError('');
+
+    if (!emailValid) {
+      setError('Enter a valid email address.');
+      return;
+    }
 
     if (password !== confirmPassword) {
       setError('Passwords do not match');
@@ -29,8 +68,8 @@ export default function Register() {
 
     setLoading(true);
     try {
-      await authService.register(email, password);
-      const loginRes = await authService.login(email, password);
+      await authService.register(normalizedEmail, password);
+      const loginRes = await authService.login(normalizedEmail, password);
       localStorage.setItem('token', loginRes.data.access_token);
       clearApiCache();
       window.location.href = '/onboarding';
@@ -118,10 +157,17 @@ export default function Register() {
                 placeholder="Email address"
                 value={email}
                 onChange={(event) => setEmail(event.target.value)}
+                aria-invalid={showEmailError}
+                aria-describedby={showEmailError ? 'register-email-error' : undefined}
                 className="w-full rounded-xl border-2 border-gray-200 px-4 py-3 text-sm transition-all placeholder:text-gray-400 focus:border-orange-400 focus:outline-none"
                 required
                 autoComplete="email"
               />
+              {showEmailError && (
+                <p id="register-email-error" className="text-xs font-medium text-red-600">
+                  Enter a valid email address.
+                </p>
+              )}
               <input
                 type="password"
                 placeholder="Password (min 6 characters)"

@@ -4,6 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 import base64
 import httpx
 import json
+import re
 from typing import Optional, Any, cast, Dict
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 import math
@@ -20,6 +21,8 @@ NOMINATIM_SEARCH_URL = "https://nominatim.openstreetmap.org/search"
 NOMINATIM_USER_AGENT = "BLOWTORCH-CSS360/1.0 (https://web-two-beta-72.vercel.app)"
 LOCATION_CACHE_TTL_SECONDS = 60 * 60
 LOCATION_SEARCH_CACHE: dict[str, tuple[float, list[dict]]] = {}
+EMAIL_LOCAL_PATTERN = re.compile(r"^[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+$", re.IGNORECASE)
+EMAIL_DOMAIN_LABEL_PATTERN = re.compile(r"^[A-Z0-9-]+$", re.IGNORECASE)
 
 limiter = Limiter(key_func=get_remote_address, default_limits=["100/minute"])
 app = FastAPI(title="BLOWTORCH", version="0.1.0")
@@ -42,6 +45,41 @@ app.add_middleware(
 )
 
 
+def is_valid_email_address(value: str) -> bool:
+    if not 3 <= len(value) <= 254:
+        return False
+    if any(char.isspace() for char in value):
+        return False
+    if value.count("@") != 1:
+        return False
+
+    local, domain = value.rsplit("@", 1)
+    if not local or not domain or len(local) > 64 or len(domain) > 253:
+        return False
+    if local.startswith(".") or local.endswith(".") or ".." in local:
+        return False
+    if not EMAIL_LOCAL_PATTERN.fullmatch(local):
+        return False
+
+    labels = domain.split(".")
+    if len(labels) < 2:
+        return False
+    for label in labels:
+        if (
+            not label
+            or len(label) > 63
+            or label.startswith("-")
+            or label.endswith("-")
+            or not EMAIL_DOMAIN_LABEL_PATTERN.fullmatch(label)
+        ):
+            return False
+
+    top_level_domain = labels[-1]
+    return len(top_level_domain) >= 2 and any(
+        char.isalpha() for char in top_level_domain
+    )
+
+
 class AuthCredentials(BaseModel):
     email: str = Field(..., min_length=3, max_length=254)
     password: str = Field(..., min_length=1, max_length=4096)
@@ -50,7 +88,7 @@ class AuthCredentials(BaseModel):
     @classmethod
     def validate_email(cls, value: str) -> str:
         email = value.strip().lower()
-        if "@" not in email or email.startswith("@") or email.endswith("@"):
+        if not is_valid_email_address(email):
             raise ValueError("Valid email address required")
         return email
 

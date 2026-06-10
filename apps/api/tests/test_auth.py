@@ -38,6 +38,58 @@ class TestRegister:
             )
         assert res.status_code == 400
 
+    def test_register_rejects_malformed_email_addresses(self, client):
+        malformed_emails = [
+            "not-an-email",
+            "a@b",
+            "test@localhost",
+            "test@example",
+            "test@example.c",
+            "test@example..com",
+            "test..user@example.com",
+            ".test@example.com",
+            "test.@example.com",
+            "test@-example.com",
+            "test@example-.com",
+            "test user@example.com",
+            "test@@example.com",
+        ]
+
+        with patch("httpx.Client") as MockClient:
+            for email in malformed_emails:
+                res = client.post(
+                    "/api/v1/auth/register",
+                    json={"email": email, "password": "pass123"},
+                )
+                assert res.status_code == 422, email
+
+        assert MockClient.return_value.post.call_count == 0
+
+    def test_register_normalizes_valid_email_before_provider_call(
+        self, client, mock_supabase_response
+    ):
+        mock_resp = mock_supabase_response(
+            200,
+            {
+                "access_token": "tok123",
+                "user": {"id": "u1", "email": "valid+tag@example.co.uk"},
+            },
+        )
+        with patch("httpx.Client") as MockClient:
+            MockClient.return_value.__enter__ = lambda s: s
+            MockClient.return_value.__exit__ = MagicMock(return_value=False)
+            MockClient.return_value.post.return_value = mock_resp
+
+            res = client.post(
+                "/api/v1/auth/register",
+                json={"email": " Valid+Tag@Example.CO.UK ", "password": "pass123"},
+            )
+
+        assert res.status_code == 200
+        assert MockClient.return_value.post.call_args.kwargs["json"]["email"] == (
+            "valid+tag@example.co.uk"
+        )
+
 
 class TestLogin:
     def test_login_success(self, client, mock_supabase_response):
