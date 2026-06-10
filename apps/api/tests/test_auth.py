@@ -115,6 +115,21 @@ class TestMe:
         assert res.status_code == 401
 
 
+class TestCors:
+    def test_allows_loopback_dev_server_ports(self, client):
+        res = client.options(
+            "/api/v1/auth/register",
+            headers={
+                "Origin": "http://127.0.0.1:3001",
+                "Access-Control-Request-Method": "POST",
+                "Access-Control-Request-Headers": "authorization,content-type",
+            },
+        )
+
+        assert res.status_code == 200
+        assert res.headers["access-control-allow-origin"] == "http://127.0.0.1:3001"
+
+
 class TestDeleteAccount:
     def test_delete_account_cleans_data_and_auth_user(
         self, client, mock_supabase_response
@@ -180,6 +195,20 @@ class TestDeleteAccount:
 
         assert res.status_code == 500
         assert "Missing Supabase service key" in res.json()["detail"]
+
+    def test_delete_account_rejects_anon_key_as_service_key(self, client):
+        settings = MagicMock()
+        settings.supabase_url = "https://fake.supabase.co"
+        settings.supabase_key = "anon-key"
+        settings.supabase_service_key = "anon-key"
+
+        with patch("src.main.get_settings", return_value=settings):
+            res = client.delete(
+                "/api/v1/auth/me", headers={"Authorization": "Bearer valid-token"}
+            )
+
+        assert res.status_code == 500
+        assert "service-role key" in res.json()["detail"]
 
     def test_delete_account_rejects_invalid_token(
         self, client, mock_supabase_response

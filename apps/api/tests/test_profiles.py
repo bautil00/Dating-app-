@@ -242,6 +242,47 @@ class TestCreateProfile:
         assert res.status_code == 200
         assert "location_name" not in mock.patch.call_args.kwargs.get("json", {})
 
+    def test_create_profile_retries_without_missing_optional_column(self, client):
+        user_resp = _make_resp(200, {"id": "u1"})
+        existing_resp = _make_resp(200, [])
+        refreshed_resp = _make_resp(200, [{"id": 1, "Name": "Alice", "user_id": "u1"}])
+        create_resp = _make_resp(201, [{"id": 1}])
+        missing_column_resp = _make_resp(
+            400,
+            {
+                "code": "PGRST204",
+                "message": (
+                    "Could not find the 'preferred_kids' column of 'user_data' "
+                    "in the schema cache"
+                ),
+            },
+        )
+        patch_resp = _make_resp(200, [{"id": 1}])
+
+        mock = _mock_httpx(
+            get_returns=[user_resp, existing_resp, refreshed_resp],
+            post_returns=[create_resp],
+            patch_returns=[missing_column_resp, patch_resp],
+        )
+        with patch("httpx.Client", return_value=mock):
+            res = client.post(
+                "/api/v1/profiles/",
+                json={
+                    "display_name": "Alice",
+                    "age": 24,
+                    "gender": "Female",
+                    "interests": "Music",
+                    "preferred_kids": "any",
+                },
+                headers={"Authorization": "Bearer tok"},
+            )
+
+        assert res.status_code == 200
+        first_patch = mock.patch.call_args_list[0].kwargs["json"]
+        second_patch = mock.patch.call_args_list[1].kwargs["json"]
+        assert first_patch["preferred_kids"] == "any"
+        assert "preferred_kids" not in second_patch
+
 
 class TestGetCandidates:
     def test_returns_candidates(self, client, fake_profile):

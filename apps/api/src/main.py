@@ -1,6 +1,7 @@
 from fastapi import FastAPI, APIRouter, HTTPException, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from concurrent.futures import ThreadPoolExecutor
+import base64
 import httpx
 import json
 from typing import Optional, Any, cast, Dict
@@ -34,6 +35,7 @@ app.add_middleware(
         "http://localhost:5173",
         "http://localhost:4000",
     ],
+    allow_origin_regex=r"^https?://(localhost|127\.0\.0\.1)(:\d+)?$",
     allow_credentials=True,
     allow_methods=["GET", "POST", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=["Authorization", "Content-Type"],
@@ -835,6 +837,58 @@ def response_failed(resp) -> bool:
     return isinstance(status_code, int) and status_code >= 400
 
 
+def _jwt_role(token: str | None) -> str | None:
+    if not token or "." not in token:
+        return None
+    try:
+        payload = token.split(".")[1]
+        payload += "=" * ((4 - len(payload) % 4) % 4)
+        decoded = json.loads(base64.urlsafe_b64decode(payload))
+        role = decoded.get("role")
+        return str(role) if role else None
+    except Exception:
+        return None
+
+
+def _service_key_is_anon(settings) -> bool:
+    service_key = getattr(settings, "supabase_service_key", "")
+    anon_key = getattr(settings, "supabase_key", "")
+    return bool(service_key) and (
+        service_key == anon_key or _jwt_role(service_key) == "anon"
+    )
+
+
+def _response_text(resp) -> str:
+    try:
+        return json.dumps(resp.json())
+    except Exception:
+        return str(getattr(resp, "text", ""))
+
+
+def _missing_payload_column(resp, payload: dict) -> str | None:
+    text = _response_text(resp)
+    for column in payload:
+        if (
+            f"'{column}' column" in text
+            or f"column {PROFILE_TABLE}.{column} does not exist" in text
+            or f"column public.{PROFILE_TABLE}.{column} does not exist" in text
+        ):
+            return column
+    return None
+
+
+def _write_with_schema_fallback(write_func, payload: dict):
+    remaining = dict(payload)
+    while True:
+        response = write_func(dict(remaining))
+        if not response_failed(response):
+            return response
+        missing_column = _missing_payload_column(response, remaining)
+        if not missing_column:
+            return response
+        remaining.pop(missing_column, None)
+
+
 auth_router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 
@@ -882,6 +936,14 @@ def delete_me(authorization: str = Header(None)):
         raise HTTPException(
             status_code=500,
             detail="Account deletion is not configured. Missing Supabase service key.",
+        )
+    if _service_key_is_anon(settings):
+        raise HTTPException(
+            status_code=500,
+            detail=(
+                "Account deletion is not configured. SUPABASE_SERVICE_KEY must be "
+                "a service-role key, not an anon key."
+            ),
         )
 
     token = authorization.replace("Bearer ", "").strip()
@@ -1440,14 +1502,17 @@ def create_profile(profile_data: dict, authorization: str = Header(None)):
                     **build_profile_extra_patch_payload(profile_data),
                     "is_complete": True,
                 }
-                patch_result = client.patch(
-                    f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
-                    params={"user_id": f"eq.{user_id}"},
-                    json=patch_payload,
-                    headers={
-                        **supabase_headers(settings, token, content_type=True),
-                        "Prefer": "return=representation",
-                    },
+                patch_result = _write_with_schema_fallback(
+                    lambda payload: client.patch(
+                        f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
+                        params={"user_id": f"eq.{user_id}"},
+                        json=payload,
+                        headers={
+                            **supabase_headers(settings, token, content_type=True),
+                            "Prefer": "return=representation",
+                        },
+                    ),
+                    patch_payload,
                 )
                 if response_failed(patch_result):
                     raise HTTPException(
@@ -1455,20 +1520,26 @@ def create_profile(profile_data: dict, authorization: str = Header(None)):
                         detail="Could not save profile. Try again.",
                     )
         elif existed:
-            result = client.patch(
-                f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
-                params={"user_id": f"eq.{user_id}"},
-                json=build_profile_rest_payload(profile_data, user_id),
-                headers=supabase_headers(settings, token, content_type=True),
+            result = _write_with_schema_fallback(
+                lambda payload: client.patch(
+                    f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
+                    params={"user_id": f"eq.{user_id}"},
+                    json=payload,
+                    headers=supabase_headers(settings, token, content_type=True),
+                ),
+                build_profile_rest_payload(profile_data, user_id),
             )
         else:
-            result = client.post(
-                f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
-                json=build_profile_rest_payload(profile_data, user_id),
-                headers={
-                    **supabase_headers(settings, token, content_type=True),
-                    "Prefer": "return=representation",
-                },
+            result = _write_with_schema_fallback(
+                lambda payload: client.post(
+                    f"{settings.supabase_url}/rest/v1/{PROFILE_TABLE}",
+                    json=payload,
+                    headers={
+                        **supabase_headers(settings, token, content_type=True),
+                        "Prefer": "return=representation",
+                    },
+                ),
+                build_profile_rest_payload(profile_data, user_id),
             )
 
         if response_failed(result):
