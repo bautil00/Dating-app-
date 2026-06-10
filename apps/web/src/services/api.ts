@@ -1,10 +1,9 @@
 import axios, { type AxiosResponse } from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL
-  ? `${import.meta.env.VITE_API_URL}/api/v1`
-  : import.meta.env.PROD
-    ? 'https://api-lemon-psi-31.vercel.app/api/v1'
-    : '/api/v1';
+const configuredApiUrl = String(import.meta.env.VITE_API_URL || '').replace(/\/+$/, '');
+const API_URL = import.meta.env.PROD
+  ? `${configuredApiUrl || 'https://api-lemon-psi-31.vercel.app'}/api/v1`
+  : '/api/v1';
 
 const api = axios.create({
   baseURL: API_URL,

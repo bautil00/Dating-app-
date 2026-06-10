@@ -5,6 +5,20 @@ import { authService, clearApiCache, profileService, userFacingError } from '../
 import Navbar from '../components/Navbar';
 import LocationSearch from '../components/LocationSearch';
 import { dataUrlForFile } from '../lib/images';
+import {
+  convertDistanceInput,
+  convertHeightInput,
+  convertWeightInput,
+  distanceFromKm,
+  distanceInputToKm,
+  heightFromInches,
+  heightInputToInches,
+  weightFromPounds,
+  weightInputToPounds,
+  type DistanceUnit,
+  type HeightUnit,
+  type WeightUnit,
+} from '../lib/units';
 
 const ENUMS = {
   gender: ['male', 'female', 'non binary', 'mtf', 'ftm'],
@@ -108,6 +122,12 @@ const LABELS: Record<string, string> = {
   'they them': 'They/Them',
   'books reading': 'Books/Reading',
   phd: 'PhD',
+  in: 'in',
+  cm: 'cm',
+  lb: 'lb',
+  kg: 'kg',
+  km: 'km',
+  mi: 'mi',
   mon: 'Mon',
   tue: 'Tue',
   wed: 'Wed',
@@ -116,6 +136,58 @@ const LABELS: Record<string, string> = {
   sat: 'Sat',
   sun: 'Sun',
 };
+
+const HEIGHT_UNIT_OPTIONS = [
+  { value: 'in', label: 'in' },
+  { value: 'cm', label: 'cm' },
+] as const;
+
+const WEIGHT_UNIT_OPTIONS = [
+  { value: 'lb', label: 'lb' },
+  { value: 'kg', label: 'kg' },
+] as const;
+
+const DISTANCE_UNIT_OPTIONS = [
+  { value: 'km', label: 'km' },
+  { value: 'mi', label: 'mi' },
+] as const;
+
+type UnitPreferences = {
+  height: HeightUnit;
+  weight: WeightUnit;
+  distance: DistanceUnit;
+};
+
+const DEFAULT_UNIT_PREFERENCES: UnitPreferences = {
+  height: 'in',
+  weight: 'lb',
+  distance: 'km',
+};
+
+const PROFILE_UNIT_STORAGE_KEY = 'blowtorch.profile.units';
+
+function readStoredUnitPreferences(): UnitPreferences {
+  try {
+    const raw = localStorage.getItem(PROFILE_UNIT_STORAGE_KEY);
+    if (!raw) return DEFAULT_UNIT_PREFERENCES;
+    const parsed = JSON.parse(raw) as Partial<UnitPreferences>;
+    return {
+      height: parsed.height === 'cm' || parsed.height === 'in' ? parsed.height : 'in',
+      weight: parsed.weight === 'kg' || parsed.weight === 'lb' ? parsed.weight : 'lb',
+      distance: parsed.distance === 'mi' || parsed.distance === 'km' ? parsed.distance : 'km',
+    };
+  } catch {
+    return DEFAULT_UNIT_PREFERENCES;
+  }
+}
+
+function storeUnitPreferences(units: UnitPreferences) {
+  try {
+    localStorage.setItem(PROFILE_UNIT_STORAGE_KEY, JSON.stringify(units));
+  } catch {
+    // Unit preferences are a client convenience; saving the profile should not depend on them.
+  }
+}
 
 type FormData = {
   display_name: string;
@@ -222,6 +294,7 @@ function boolPayload(value: string) {
 
 export default function Profile() {
   const [formData, setFormData] = useState<FormData>(initialForm);
+  const [units, setUnits] = useState<UnitPreferences>(readStoredUnitPreferences);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [message, setMessage] = useState('');
@@ -236,6 +309,10 @@ export default function Profile() {
     }
     loadProfile();
   }, [navigate]);
+
+  useEffect(() => {
+    storeUnitPreferences(units);
+  }, [units]);
 
   const loadProfile = async () => {
     try {
@@ -261,8 +338,8 @@ export default function Profile() {
           ),
           latitude: String(res.data.latitude || ''),
           longitude: String(res.data.longitude || ''),
-          height: String(res.data.height || ''),
-          weight: String(res.data.weight || ''),
+          height: heightFromInches(res.data.height, units.height),
+          weight: weightFromPounds(res.data.weight, units.weight),
           mbti: normalizeOption(res.data.mbti || res.data.personality_type),
           languages: normalizeOptionArray(res.data.languages),
           availability: normalizeOptionArray(res.data.availability),
@@ -271,9 +348,9 @@ export default function Profile() {
           pets: boolField(res.data.pets),
           drives: boolField(res.data.drives),
           seeking_gender: normalizeOption(res.data.seeking_gender || 'everyone'),
-          max_distance_km: String(res.data.max_distance_km || '50'),
-          preferred_min_height: String(res.data.preferred_min_height || ''),
-          preferred_max_height: String(res.data.preferred_max_height || ''),
+          max_distance_km: distanceFromKm(res.data.max_distance_km ?? 50, units.distance),
+          preferred_min_height: heightFromInches(res.data.preferred_min_height, units.height),
+          preferred_max_height: heightFromInches(res.data.preferred_max_height, units.height),
           preferred_kids: normalizeOption(res.data.preferred_kids || 'any'),
           profile_image_url: String(
             res.data.profile_image_url ||
@@ -295,6 +372,35 @@ export default function Profile() {
 
   const handleTextAreaChange = (event: React.ChangeEvent<HTMLTextAreaElement>) => {
     setFormData((prev) => ({ ...prev, [event.target.name]: event.target.value }));
+  };
+
+  const handleHeightUnitChange = (nextUnit: HeightUnit) => {
+    if (nextUnit === units.height) return;
+    setFormData((prev) => ({
+      ...prev,
+      height: convertHeightInput(prev.height, units.height, nextUnit),
+      preferred_min_height: convertHeightInput(prev.preferred_min_height, units.height, nextUnit),
+      preferred_max_height: convertHeightInput(prev.preferred_max_height, units.height, nextUnit),
+    }));
+    setUnits((prev) => ({ ...prev, height: nextUnit }));
+  };
+
+  const handleWeightUnitChange = (nextUnit: WeightUnit) => {
+    if (nextUnit === units.weight) return;
+    setFormData((prev) => ({
+      ...prev,
+      weight: convertWeightInput(prev.weight, units.weight, nextUnit),
+    }));
+    setUnits((prev) => ({ ...prev, weight: nextUnit }));
+  };
+
+  const handleDistanceUnitChange = (nextUnit: DistanceUnit) => {
+    if (nextUnit === units.distance) return;
+    setFormData((prev) => ({
+      ...prev,
+      max_distance_km: convertDistanceInput(prev.max_distance_km, units.distance, nextUnit),
+    }));
+    setUnits((prev) => ({ ...prev, distance: nextUnit }));
   };
 
   const toggleArrayValue = (name: keyof FormData, value: string) => {
@@ -335,18 +441,14 @@ export default function Profile() {
         location_name: formData.location_name || null,
         latitude: formData.latitude ? parseFloat(formData.latitude) : null,
         longitude: formData.longitude ? parseFloat(formData.longitude) : null,
-        height: formData.height ? parseFloat(formData.height) : null,
-        weight: formData.weight ? parseInt(formData.weight, 10) : null,
+        height: heightInputToInches(formData.height, units.height),
+        weight: weightInputToPounds(formData.weight, units.weight),
         kids: boolPayload(formData.kids),
         pets: boolPayload(formData.pets),
         drives: boolPayload(formData.drives),
-        max_distance_km: formData.max_distance_km ? parseInt(formData.max_distance_km, 10) : 50,
-        preferred_min_height: formData.preferred_min_height
-          ? parseFloat(formData.preferred_min_height)
-          : null,
-        preferred_max_height: formData.preferred_max_height
-          ? parseFloat(formData.preferred_max_height)
-          : null,
+        max_distance_km: distanceInputToKm(formData.max_distance_km, units.distance) ?? 50,
+        preferred_min_height: heightInputToInches(formData.preferred_min_height, units.height),
+        preferred_max_height: heightInputToInches(formData.preferred_max_height, units.height),
         preferred_kids: formData.preferred_kids || 'any',
       });
       setMessage('Profile saved.');
@@ -437,6 +539,7 @@ export default function Profile() {
 
   const initial = formData.display_name.charAt(0).toUpperCase() || 'B';
   const profileImageUrl = formData.profile_image_url;
+  const errorMessage = /failed|could not|try again/i.test(message);
 
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
@@ -568,6 +671,10 @@ export default function Profile() {
                   value={formData.height}
                   onChange={handleChange}
                   placeholder="Height"
+                  step="any"
+                  unitOptions={HEIGHT_UNIT_OPTIONS}
+                  unitValue={units.height}
+                  onUnitChange={(value) => handleHeightUnitChange(value as HeightUnit)}
                 />
                 <FieldText
                   label="Weight"
@@ -576,6 +683,10 @@ export default function Profile() {
                   value={formData.weight}
                   onChange={handleChange}
                   placeholder="Weight"
+                  step="any"
+                  unitOptions={WEIGHT_UNIT_OPTIONS}
+                  unitValue={units.weight}
+                  onUnitChange={(value) => handleWeightUnitChange(value as WeightUnit)}
                 />
               </div>
             </section>
@@ -615,13 +726,17 @@ export default function Profile() {
                 {renderSelect('seeking_gender', 'Interested in', ENUMS.seeking_gender)}
                 {renderSelect('preferred_kids', 'Partner Kids', ['any', 'yes', 'no'])}
                 <FieldText
-                  label="Max Distance (km)"
+                  label="Max Distance"
                   name="max_distance_km"
                   type="number"
                   value={formData.max_distance_km}
                   onChange={handleChange}
                   min="1"
-                  max="500"
+                  max={units.distance === 'mi' ? '311' : '500'}
+                  step="any"
+                  unitOptions={DISTANCE_UNIT_OPTIONS}
+                  unitValue={units.distance}
+                  onUnitChange={(value) => handleDistanceUnitChange(value as DistanceUnit)}
                 />
                 <FieldText
                   label="Preferred Min Height"
@@ -630,6 +745,10 @@ export default function Profile() {
                   value={formData.preferred_min_height}
                   onChange={handleChange}
                   placeholder="No minimum"
+                  step="any"
+                  unitOptions={HEIGHT_UNIT_OPTIONS}
+                  unitValue={units.height}
+                  onUnitChange={(value) => handleHeightUnitChange(value as HeightUnit)}
                 />
                 <FieldText
                   label="Preferred Max Height"
@@ -638,6 +757,10 @@ export default function Profile() {
                   value={formData.preferred_max_height}
                   onChange={handleChange}
                   placeholder="No maximum"
+                  step="any"
+                  unitOptions={HEIGHT_UNIT_OPTIONS}
+                  unitValue={units.height}
+                  onUnitChange={(value) => handleHeightUnitChange(value as HeightUnit)}
                 />
               </div>
             </section>
@@ -657,9 +780,7 @@ export default function Profile() {
             {message && (
               <p
                 className={`break-words rounded-xl px-3 py-2 text-sm font-medium leading-relaxed ${
-                  message.includes('Failed')
-                    ? 'bg-red-50 text-red-600'
-                    : 'bg-orange-50 text-orange-700'
+                  errorMessage ? 'bg-red-50 text-red-600' : 'bg-orange-50 text-orange-700'
                 }`}
               >
                 {message}
@@ -716,6 +837,10 @@ function FieldText({
   required = false,
   min,
   max,
+  step,
+  unitOptions,
+  unitValue,
+  onUnitChange,
 }: {
   label: string;
   name: keyof FormData;
@@ -726,21 +851,42 @@ function FieldText({
   required?: boolean;
   min?: string;
   max?: string;
+  step?: string;
+  unitOptions?: readonly { value: string; label: string }[];
+  unitValue?: string;
+  onUnitChange?: (value: string) => void;
 }) {
   return (
     <div className="space-y-1.5">
       <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">{label}</label>
-      <input
-        type={type}
-        name={name}
-        value={value}
-        onChange={onChange}
-        placeholder={placeholder}
-        required={required}
-        min={min}
-        max={max}
-        className="w-full rounded-xl border border-gray-200 px-3 py-2.5 text-sm text-gray-900 transition-all placeholder:text-gray-400 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-50"
-      />
+      <div className="flex overflow-hidden rounded-xl border border-gray-200 bg-white transition-all focus-within:border-orange-400 focus-within:ring-2 focus-within:ring-orange-50">
+        <input
+          type={type}
+          name={name}
+          value={value}
+          onChange={onChange}
+          placeholder={placeholder}
+          required={required}
+          min={min}
+          max={max}
+          step={step}
+          className="min-w-0 flex-1 border-0 bg-transparent px-3 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none"
+        />
+        {unitOptions && unitValue && onUnitChange && (
+          <select
+            aria-label={`${label} unit`}
+            value={unitValue}
+            onChange={(event) => onUnitChange(event.target.value)}
+            className="border-l border-gray-100 bg-gray-50 px-2 text-xs font-semibold text-gray-600 outline-none transition-colors hover:bg-gray-100 focus:bg-white"
+          >
+            {unitOptions.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        )}
+      </div>
     </div>
   );
 }

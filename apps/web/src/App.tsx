@@ -9,10 +9,21 @@ import Matches from './pages/Matches';
 import Messages from './pages/Messages';
 import Chat from './pages/Chat';
 
+function AppLoading() {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-[#F8F9FA]">
+      <div className="flex flex-col items-center gap-3">
+        <div className="h-12 w-12 animate-spin rounded-full border-4 border-orange-100 border-t-orange-500" />
+        <p className="text-sm font-medium text-gray-500">Warming up your matches...</p>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const { user, loading } = useAuth();
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <AppLoading />;
 
   return (
     <BrowserRouter>

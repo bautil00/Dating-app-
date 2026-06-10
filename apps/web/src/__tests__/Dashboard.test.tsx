@@ -52,6 +52,15 @@ const candidate = {
   ],
 };
 
+const nextCandidate = {
+  ...candidate,
+  user_id: 'cara',
+  name: 'Cara',
+  age: 28,
+  bio: 'Likes hikes and small venues.',
+  compatibility_score: 73,
+};
+
 function renderDashboard() {
   return render(
     <MemoryRouter>
@@ -64,6 +73,7 @@ describe('Dashboard swipe actions', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     localStorage.setItem('token', 'fake-token');
+    localStorage.removeItem('blowtorch.profileEditorNudge');
     mocks.getMe.mockResolvedValue({ data: { id: 'alice', email: 'alice@test.com' } });
     mocks.getProfile.mockResolvedValue({
       data: { user_id: 'alice', display_name: 'Alice', is_complete: true },
@@ -109,6 +119,33 @@ describe('Dashboard swipe actions', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Pass profile' }));
 
     await waitFor(() => expect(mocks.dismissMatch).toHaveBeenCalledWith('bob'));
+  });
+
+  it('removes duplicate copies of the current candidate after pass', async () => {
+    mocks.getCandidates.mockResolvedValue({
+      data: [candidate, { ...candidate, id: 'duplicate-row' }, nextCandidate],
+    });
+
+    renderDashboard();
+
+    await screen.findByText('Bob, 27');
+    fireEvent.click(screen.getByRole('button', { name: 'Pass profile' }));
+
+    await waitFor(() => expect(mocks.dismissMatch).toHaveBeenCalledWith('bob'));
+    await waitFor(() => expect(screen.getByText('Cara, 28')).toBeInTheDocument());
+    expect(screen.queryByText('Bob, 27')).not.toBeInTheDocument();
+  });
+
+  it('shows a one-time prompt to complete detailed profile fields after onboarding', async () => {
+    localStorage.setItem('blowtorch.profileEditorNudge', '1');
+
+    renderDashboard();
+
+    expect(await screen.findByText('Make your profile yours')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Add profile details' }));
+
+    expect(localStorage.getItem('blowtorch.profileEditorNudge')).toBeNull();
+    expect(mocks.navigate).toHaveBeenCalledWith('/profile');
   });
 
   it('shows expandable compatibility reasons', async () => {

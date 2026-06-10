@@ -28,11 +28,16 @@ vi.mock('react-router-dom', async () => {
   return { ...actual, useNavigate: () => mocks.navigate };
 });
 
+vi.mock('../lib/images', () => ({
+  dataUrlForFile: vi.fn().mockResolvedValue('data:image/jpeg;base64,onboarding-photo'),
+}));
+
 import Onboarding from '../pages/Onboarding';
 
 describe('Onboarding Page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     localStorage.setItem('token', 'fake-token');
     mocks.getMe.mockResolvedValue({ data: { email: 'tester@example.com' } });
     mocks.searchLocations.mockResolvedValue({
@@ -67,6 +72,9 @@ describe('Onboarding Page', () => {
     expect(screen.getByText('I have kids')).toBeInTheDocument();
     expect(screen.getByText('Partner kids')).toBeInTheDocument();
     expect(screen.getByText('Preferred height range')).toBeInTheDocument();
+    expect(screen.getByLabelText('Preferred height unit')).toHaveValue('in');
+    await user.selectOptions(screen.getByLabelText('Preferred height unit'), 'cm');
+    expect(screen.getByLabelText('Preferred height unit')).toHaveValue('cm');
     await user.type(screen.getByLabelText('Location'), 'Seattle');
     await user.click(screen.getByRole('button', { name: 'Search' }));
     await user.click(
@@ -83,5 +91,41 @@ describe('Onboarding Page', () => {
 
     expect(screen.getByText('Add up to 3 photos')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: 'Continue' })).toBeDisabled();
+  });
+
+  it('sets a one-time profile editor reminder after onboarding is completed', async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <MemoryRouter>
+        <Onboarding />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('What ignites your passion?')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Tech / AI' }));
+    await user.click(screen.getByRole('button', { name: 'Music' }));
+    await user.click(screen.getByRole('button', { name: 'Gaming' }));
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await user.click(screen.getAllByRole('button', { name: 'Female' })[0]);
+    await user.click(screen.getByRole('button', { name: 'Everyone' }));
+    await user.type(screen.getByLabelText('Location'), 'Seattle');
+    await user.click(screen.getByRole('button', { name: 'Search' }));
+    await user.click(
+      await screen.findByRole('button', { name: 'Seattle, Washington, United States' }),
+    );
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await user.type(screen.getByLabelText('Bio'), 'I like concerts and coffee.');
+    await user.click(screen.getByRole('button', { name: 'Ignite Your Journey' }));
+
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    const file = new File(['photo'], 'profile.jpg', { type: 'image/jpeg' });
+    await user.upload(input, file);
+    await user.click(screen.getByRole('button', { name: 'Continue' }));
+
+    expect(mocks.createProfile).toHaveBeenCalled();
+    expect(localStorage.getItem('blowtorch.profileEditorNudge')).toBe('1');
+    expect(mocks.navigate).toHaveBeenCalledWith('/discover');
   });
 });

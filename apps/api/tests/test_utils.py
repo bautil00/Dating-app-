@@ -558,6 +558,18 @@ class TestBuildProfileRpcPayload:
     def test_extra_patch_payload_preserves_scoring_fields(self):
         result = build_profile_extra_patch_payload(
             {
+                "display_name": "Alex Profile",
+                "age": "26",
+                "gender": "Female",
+                "job": "Programmer",
+                "sexual_pref": "Straight",
+                "pronouns": "She/Her",
+                "zodiac": "Aries",
+                "education": "Bachelors",
+                "relationship_status": "Single",
+                "living_status": "Alone",
+                "seeking_gender": "Everyone",
+                "max_distance_km": "80",
                 "bio": "hello",
                 "interests": ["Music", "Programming"],
                 "weight": 150.0,
@@ -575,6 +587,18 @@ class TestBuildProfileRpcPayload:
             }
         )
 
+        assert result["name"] == "Alex Profile"
+        assert result["age"] == 26
+        assert result["gender"] == "female"
+        assert result["job"] == "programmer"
+        assert result["sexual_pref"] == "straight"
+        assert result["pronouns"] == "she her"
+        assert result["zodiac"] == "aries"
+        assert result["education"] == "bachelors"
+        assert result["relationship"] == "single"
+        assert result["living"] == "alone"
+        assert result["seeking_gender"] == "everyone"
+        assert result["max_distance_km"] == 80
         assert result["bio"] == "hello"
         assert result["interests"] == ["music", "programming"]
         assert result["weight"] == 150

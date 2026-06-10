@@ -35,6 +35,26 @@ type MatchRecord = {
 
 type SwipeAction = 'pass' | 'like';
 
+const PROFILE_EDITOR_NUDGE_KEY = 'blowtorch.profileEditorNudge';
+
+function dedupeProfiles(profiles: Record<string, unknown>[]) {
+  const seen = new Set<string>();
+  return profiles.filter((profile) => {
+    const id = profileUserId(profile);
+    if (!id) return true;
+    if (seen.has(id)) return false;
+    seen.add(id);
+    return true;
+  });
+}
+
+function scoreLabel(score: number) {
+  if (score >= 75) return 'Strong';
+  if (score >= 50) return 'Good';
+  if (score >= 25) return 'Mixed';
+  return 'Low';
+}
+
 export default function Dashboard() {
   const [user, setUser] = useState<Record<string, unknown> | null>(null);
   const [profile, setProfile] = useState<Record<string, unknown> | null>(null);
@@ -44,6 +64,7 @@ export default function Dashboard() {
   const [exiting, setExiting] = useState(false);
   const [exitDirection, setExitDirection] = useState<SwipeAction>('pass');
   const [pendingAction, setPendingAction] = useState<SwipeAction | null>(null);
+  const [showProfileNudge, setShowProfileNudge] = useState(false);
   const [toast, setToast] = useState('');
   const navigate = useNavigate();
 
@@ -71,8 +92,9 @@ export default function Dashboard() {
           profileService.getCandidates(20),
           matchService.getAll().catch(() => ({ data: [] })),
         ]);
-        setCandidates(candidatesRes.data || []);
+        setCandidates(dedupeProfiles(candidatesRes.data || []));
         setMatches(matchesRes.data || []);
+        setShowProfileNudge(localStorage.getItem(PROFILE_EDITOR_NUDGE_KEY) === '1');
       }
     } catch (error: unknown) {
       const err = error as { response?: { status?: number } };
@@ -99,11 +121,25 @@ export default function Dashboard() {
     ).size;
   }, [matches, user]);
 
-  const advance = (direction: SwipeAction) => {
+  const dismissProfileNudge = () => {
+    localStorage.removeItem(PROFILE_EDITOR_NUDGE_KEY);
+    setShowProfileNudge(false);
+  };
+
+  const openProfileEditor = () => {
+    dismissProfileNudge();
+    navigate('/profile');
+  };
+
+  const advance = (direction: SwipeAction, candidateId?: string) => {
     setExitDirection(direction);
     setExiting(true);
     window.setTimeout(() => {
-      setCandidates((prev) => prev.slice(1));
+      setCandidates((prev) => {
+        if (!candidateId) return prev.slice(1);
+        const next = prev.filter((candidate) => profileUserId(candidate) !== candidateId);
+        return next.length === prev.length ? prev.slice(1) : next;
+      });
       setExiting(false);
     }, 180);
   };
@@ -119,7 +155,7 @@ export default function Dashboard() {
       setMatches((prev) => [result.data, ...prev.filter((match) => match.id !== result.data.id)]);
       setToast(result.data?.matched ? "It's a spark. You can message them now." : 'Ignite sent.');
       window.setTimeout(() => setToast(''), 2400);
-      advance('like');
+      advance('like', candidateId);
     } catch (err) {
       console.error('Failed to like profile:', err);
       setToast('Could not send ignite. Try again.');
@@ -137,7 +173,7 @@ export default function Dashboard() {
     setPendingAction('pass');
     try {
       await matchService.dismiss(candidateId);
-      advance('pass');
+      advance('pass', candidateId);
     } catch (err) {
       console.error('Failed to pass profile:', err);
       setToast('Could not save pass. Try again.');
@@ -240,6 +276,51 @@ export default function Dashboard() {
           {toast}
         </div>
       )}
+
+      {showProfileNudge && (
+        <div className="fixed inset-0 z-50 flex items-end justify-center bg-gray-950/40 px-4 pb-4 backdrop-blur-sm sm:items-center sm:pb-0">
+          <div className="w-full max-w-md rounded-3xl bg-white p-5 shadow-2xl">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="flex h-11 w-11 flex-shrink-0 items-center justify-center rounded-2xl bg-orange-50">
+                  <Flame className="h-5 w-5 text-orange-500" fill="currentColor" />
+                </div>
+                <div>
+                  <h2 className="text-base font-bold text-gray-900">Make your profile yours</h2>
+                  <p className="mt-1 text-sm leading-relaxed text-gray-500">
+                    Add a display name, relationship details, lifestyle info, and schedule so your
+                    matches understand more than the basics.
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={dismissProfileNudge}
+                className="rounded-xl p-2 text-gray-400 transition hover:bg-gray-50 hover:text-gray-700"
+                aria-label="Close profile reminder"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={openProfileEditor}
+                className="rounded-2xl px-4 py-3 text-sm font-semibold text-white btn-ignite"
+              >
+                Add profile details
+              </button>
+              <button
+                type="button"
+                onClick={dismissProfileNudge}
+                className="rounded-2xl border border-gray-200 px-4 py-3 text-sm font-semibold text-gray-600 transition hover:bg-gray-50"
+              >
+                Browse first
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -322,7 +403,9 @@ function DiscoverCard({
         )}
         <div className="absolute right-5 top-5 z-10 flex h-[76px] w-[76px] flex-col items-center justify-center rounded-full bg-gradient-to-br from-[#FF7A18] to-[#FF3D2E] shadow-xl">
           <span className="text-[22px] font-black leading-none text-white">{score}%</span>
-          <span className="mt-0.5 text-[11px] font-semibold text-white/90">Spark</span>
+          <span className="mt-0.5 text-[11px] font-semibold text-white/90">
+            {scoreLabel(score)}
+          </span>
         </div>
         <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/30 to-transparent" />
         {dragOffset > 40 && (

@@ -463,6 +463,19 @@ def _profile_lookup_for_user_ids(client, settings, token: str, user_ids: set[str
     }
 
 
+def _unique_profiles_by_user_id(rows: list[dict]) -> list[dict]:
+    unique: list[dict] = []
+    seen: set[str] = set()
+    for row in rows:
+        user_id = str(row.get("user_id") or row.get("id") or "").strip()
+        if user_id:
+            if user_id in seen:
+                continue
+            seen.add(user_id)
+        unique.append(row)
+    return unique
+
+
 def _enrich_matches_with_profiles(
     matches: list[dict], profiles_by_user_id: dict, me_id: str
 ):
@@ -513,6 +526,24 @@ def build_profile_extra_patch_payload(profile_data: dict) -> dict:
     """Fields outside the historical create_user_profile RPC contract."""
     latitude = _location_latitude_value(profile_data)
     payload = {
+        "name": _text_value(
+            profile_data.get("display_name") or profile_data.get("name")
+        ),
+        "age": _coerce_int(profile_data.get("age")),
+        "gender": _enum_value(profile_data.get("gender")),
+        "job": _enum_value(profile_data.get("job")),
+        "sexual_pref": _enum_value(profile_data.get("sexual_pref")),
+        "pronouns": _enum_value(profile_data.get("pronouns")),
+        "zodiac": _enum_value(profile_data.get("zodiac")),
+        "education": _enum_value(profile_data.get("education")),
+        "relationship": _enum_value(
+            profile_data.get("relationship_status") or profile_data.get("relationship")
+        ),
+        "living": _enum_value(
+            profile_data.get("living_status") or profile_data.get("living")
+        ),
+        "seeking_gender": _enum_value(profile_data.get("seeking_gender") or "everyone"),
+        "max_distance_km": _coerce_int(profile_data.get("max_distance_km")) or 50,
         "interests": _nonempty_list(_enum_array(profile_data.get("interests"))),
         "location": latitude,
         "location_name": _location_name_value(profile_data),
@@ -1451,12 +1482,14 @@ def get_candidates(limit: int = 10, authorization: str = Header(None)):
             headers=supabase_headers(settings, token),
         )
 
-        candidates = [
-            c
-            for c in all_resp.json()
-            if c.get("user_id") != user_id
-            and str(c.get("user_id") or "") not in hidden_user_ids
-        ]
+        candidates = _unique_profiles_by_user_id(
+            [
+                c
+                for c in all_resp.json()
+                if c.get("user_id") != user_id
+                and str(c.get("user_id") or "") not in hidden_user_ids
+            ]
+        )
         if not candidates:
             return []
 

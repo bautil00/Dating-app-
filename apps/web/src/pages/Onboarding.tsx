@@ -4,6 +4,7 @@ import { Flame, Plus, X } from 'lucide-react';
 import { authService, profileService, userFacingError } from '../services/api';
 import LocationSearch from '../components/LocationSearch';
 import { dataUrlForFile } from '../lib/images';
+import { convertHeightInput, heightInputToInches, type HeightUnit } from '../lib/units';
 
 type Step = 'interests' | 'about' | 'story' | 'photos';
 
@@ -50,6 +51,13 @@ const PARTNER_KIDS_OPTIONS = [
   { label: 'Any', value: 'any' },
   { label: 'Has kids', value: 'yes' },
   { label: 'No kids', value: 'no' },
+];
+
+const PROFILE_EDITOR_NUDGE_KEY = 'blowtorch.profileEditorNudge';
+
+const HEIGHT_UNIT_OPTIONS: { label: string; value: HeightUnit }[] = [
+  { label: 'in', value: 'in' },
+  { label: 'cm', value: 'cm' },
 ];
 
 function Logo() {
@@ -156,6 +164,7 @@ export default function Onboarding() {
   const [preferredKids, setPreferredKids] = useState('any');
   const [preferredMinHeight, setPreferredMinHeight] = useState('');
   const [preferredMaxHeight, setPreferredMaxHeight] = useState('');
+  const [heightUnit, setHeightUnit] = useState<HeightUnit>('in');
   const [age, setAge] = useState(25);
   const [locationName, setLocationName] = useState('');
   const [latitude, setLatitude] = useState<number | null>(null);
@@ -206,6 +215,13 @@ export default function Onboarding() {
     setPhotos((prev) => prev.filter((_, itemIndex) => itemIndex !== index));
   };
 
+  const changeHeightUnit = (nextUnit: HeightUnit) => {
+    if (nextUnit === heightUnit) return;
+    setPreferredMinHeight((prev) => convertHeightInput(prev, heightUnit, nextUnit));
+    setPreferredMaxHeight((prev) => convertHeightInput(prev, heightUnit, nextUnit));
+    setHeightUnit(nextUnit);
+  };
+
   const saveProfile = async () => {
     if (!photos.length) return;
     setSaving(true);
@@ -221,8 +237,8 @@ export default function Onboarding() {
         bio,
         kids: kids === 'yes' ? true : kids === 'no' ? false : null,
         preferred_kids: preferredKids,
-        preferred_min_height: preferredMinHeight ? Number(preferredMinHeight) : null,
-        preferred_max_height: preferredMaxHeight ? Number(preferredMaxHeight) : null,
+        preferred_min_height: heightInputToInches(preferredMinHeight, heightUnit),
+        preferred_max_height: heightInputToInches(preferredMaxHeight, heightUnit),
         location: latitude,
         location_name: locationName,
         latitude,
@@ -230,6 +246,7 @@ export default function Onboarding() {
         profile_image_url: photos[0],
         max_distance_km: 50,
       });
+      localStorage.setItem(PROFILE_EDITOR_NUDGE_KEY, '1');
       navigate('/discover');
     } catch (err: unknown) {
       setError(userFacingError(err, 'Could not finish onboarding. Try again.'));
@@ -338,12 +355,27 @@ export default function Onboarding() {
           ))}
         </div>
 
-        <p className="mb-2 text-sm font-semibold text-gray-700">Preferred height range</p>
+        <div className="mb-2 flex items-center justify-between gap-3">
+          <p className="text-sm font-semibold text-gray-700">Preferred height range</p>
+          <select
+            aria-label="Preferred height unit"
+            value={heightUnit}
+            onChange={(event) => changeHeightUnit(event.target.value as HeightUnit)}
+            className="rounded-lg border border-gray-200 bg-gray-50 px-2 py-1 text-xs font-semibold text-gray-600 outline-none transition-colors hover:bg-gray-100 focus:border-orange-400 focus:bg-white"
+          >
+            {HEIGHT_UNIT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
         <div className="mb-5 grid grid-cols-2 gap-3">
           <input
             type="number"
             inputMode="decimal"
             min={0}
+            step="any"
             value={preferredMinHeight}
             onChange={(event) => setPreferredMinHeight(event.target.value)}
             placeholder="Min"
@@ -354,6 +386,7 @@ export default function Onboarding() {
             type="number"
             inputMode="decimal"
             min={0}
+            step="any"
             value={preferredMaxHeight}
             onChange={(event) => setPreferredMaxHeight(event.target.value)}
             placeholder="Max"

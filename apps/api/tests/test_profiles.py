@@ -459,6 +459,66 @@ class TestGetCandidates:
         assert res.status_code == 200
         assert [row["user_id"] for row in res.json()] == ["fresh-candidate"]
 
+    def test_candidates_dedupe_duplicate_profile_rows(self, client):
+        user_resp = _make_resp(200, {"id": "me-id"})
+        my_profile_resp = _make_resp(
+            200,
+            [{"user_id": "me-id", "interests": "Music", "seeking_gender": "everyone"}],
+        )
+        all_profiles_resp = _make_resp(
+            200,
+            [
+                {
+                    "id": 10,
+                    "user_id": "duplicate-user",
+                    "name": "Duplicate One",
+                    "interests": "Music",
+                    "gender": "Female",
+                    "is_complete": True,
+                },
+                {
+                    "id": 11,
+                    "user_id": "duplicate-user",
+                    "name": "Duplicate Two",
+                    "interests": "Music",
+                    "gender": "Female",
+                    "is_complete": True,
+                },
+                {
+                    "id": 12,
+                    "user_id": "fresh-user",
+                    "name": "Fresh",
+                    "interests": "Music",
+                    "gender": "Female",
+                    "is_complete": True,
+                },
+            ],
+        )
+        sent_matches_resp = _make_resp(200, [])
+        received_matches_resp = _make_resp(200, [])
+
+        mock = _mock_httpx(
+            get_returns=[
+                user_resp,
+                my_profile_resp,
+                sent_matches_resp,
+                received_matches_resp,
+                all_profiles_resp,
+            ]
+        )
+
+        with patch("httpx.Client", return_value=mock):
+            res = client.get(
+                "/api/v1/profiles/candidates?limit=5",
+                headers={"Authorization": "Bearer tok"},
+            )
+
+        assert res.status_code == 200
+        assert [row["user_id"] for row in res.json()] == [
+            "duplicate-user",
+            "fresh-user",
+        ]
+
     def test_candidates_filter_by_max_distance_and_include_distance(self, client):
         user_resp = _make_resp(200, {"id": "me-id"})
         my_profile_resp = _make_resp(

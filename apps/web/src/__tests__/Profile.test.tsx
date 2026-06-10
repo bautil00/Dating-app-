@@ -44,6 +44,7 @@ import Profile from '../pages/Profile';
 describe('Profile Page', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     localStorage.setItem('token', 'fake-token');
   });
 
@@ -96,6 +97,20 @@ describe('Profile Page', () => {
     expect(screen.getByText('Has Pets')).toBeInTheDocument();
     expect(screen.getByText('Partner Kids')).toBeInTheDocument();
     expect(screen.getByText('Preferred Min Height')).toBeInTheDocument();
+  });
+
+  it('renders unit selectors for profile measurements', () => {
+    render(
+      <MemoryRouter>
+        <Profile />
+      </MemoryRouter>,
+    );
+
+    expect(screen.getByLabelText('Height unit')).toHaveValue('in');
+    expect(screen.getByLabelText('Weight unit')).toHaveValue('lb');
+    expect(screen.getByLabelText('Max Distance unit')).toHaveValue('km');
+    expect(screen.getByLabelText('Preferred Min Height unit')).toHaveValue('in');
+    expect(screen.getByLabelText('Preferred Max Height unit')).toHaveValue('in');
   });
 
   it('renders job dropdown', () => {
@@ -199,6 +214,101 @@ describe('Profile Page', () => {
       preferred_min_height: 68,
       preferred_max_height: 74,
     });
+  });
+
+  it('includes relationship and lifestyle sections in the save payload', async () => {
+    const { container } = render(
+      <MemoryRouter>
+        <Profile />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(container.querySelector('input[name="display_name"]')!, {
+      target: { value: 'Alice' },
+    });
+    fireEvent.change(container.querySelector('input[name="age"]')!, {
+      target: { value: '25' },
+    });
+    fireEvent.change(container.querySelector('select[name="gender"]')!, {
+      target: { value: 'female' },
+    });
+    fireEvent.change(container.querySelector('select[name="job"]')!, {
+      target: { value: 'programmer' },
+    });
+    fireEvent.change(container.querySelector('select[name="education"]')!, {
+      target: { value: 'bachelors' },
+    });
+    fireEvent.change(container.querySelector('select[name="relationship_status"]')!, {
+      target: { value: 'single' },
+    });
+    fireEvent.change(container.querySelector('select[name="living_status"]')!, {
+      target: { value: 'alone' },
+    });
+    fireEvent.change(container.querySelector('select[name="pets"]')!, {
+      target: { value: 'yes' },
+    });
+    fireEvent.change(container.querySelector('select[name="drives"]')!, {
+      target: { value: 'no' },
+    });
+    fireEvent.click(screen.getByText('Save Profile'));
+
+    await waitFor(() => expect(mockApi.post).toHaveBeenCalled());
+    const lastCall = mockApi.post.mock.calls[mockApi.post.mock.calls.length - 1];
+    expect(lastCall[1]).toMatchObject({
+      job: 'programmer',
+      education: 'bachelors',
+      relationship_status: 'single',
+      living_status: 'alone',
+      pets: true,
+      drives: false,
+    });
+  });
+
+  it('converts selected display units to canonical API values when saving', async () => {
+    const user = userEvent.setup();
+    const { container } = render(
+      <MemoryRouter>
+        <Profile />
+      </MemoryRouter>,
+    );
+
+    await user.selectOptions(screen.getByLabelText('Height unit'), 'cm');
+    await user.selectOptions(screen.getByLabelText('Weight unit'), 'kg');
+    await user.selectOptions(screen.getByLabelText('Max Distance unit'), 'mi');
+
+    fireEvent.change(container.querySelector('input[name="display_name"]')!, {
+      target: { value: 'Alice' },
+    });
+    fireEvent.change(container.querySelector('input[name="age"]')!, {
+      target: { value: '25' },
+    });
+    fireEvent.change(container.querySelector('select[name="gender"]')!, {
+      target: { value: 'female' },
+    });
+    fireEvent.change(container.querySelector('input[name="height"]')!, {
+      target: { value: '180' },
+    });
+    fireEvent.change(container.querySelector('input[name="weight"]')!, {
+      target: { value: '70' },
+    });
+    fireEvent.change(container.querySelector('input[name="max_distance_km"]')!, {
+      target: { value: '10' },
+    });
+    fireEvent.change(container.querySelector('input[name="preferred_min_height"]')!, {
+      target: { value: '170' },
+    });
+    fireEvent.change(container.querySelector('input[name="preferred_max_height"]')!, {
+      target: { value: '190' },
+    });
+    fireEvent.click(screen.getByText('Save Profile'));
+
+    await waitFor(() => expect(mockApi.post).toHaveBeenCalled());
+    const lastCall = mockApi.post.mock.calls[mockApi.post.mock.calls.length - 1];
+    expect(lastCall[1].height).toBeCloseTo(70.87, 2);
+    expect(lastCall[1].weight).toBe(154);
+    expect(lastCall[1].max_distance_km).toBe(16);
+    expect(lastCall[1].preferred_min_height).toBeCloseTo(66.93, 2);
+    expect(lastCall[1].preferred_max_height).toBeCloseTo(74.8, 1);
   });
 
   it('redirects to login if no token', () => {

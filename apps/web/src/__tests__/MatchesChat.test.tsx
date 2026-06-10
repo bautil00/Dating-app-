@@ -81,6 +81,10 @@ describe('Matches and Chat profile names', () => {
     );
 
     expect((await screen.findAllByText('Maya Brooks')).length).toBeGreaterThan(0);
+    const messageLinks = await screen.findAllByRole('link', { name: /message/i });
+    expect(messageLinks.some((link) => link.getAttribute('href') === '/chat/maya-user-id')).toBe(
+      true,
+    );
     expect(await screen.findByAltText('Maya Brooks')).toHaveAttribute(
       'src',
       'data:image/jpeg;base64,maya-photo',

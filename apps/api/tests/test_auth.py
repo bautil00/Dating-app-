@@ -197,9 +197,10 @@ class TestDeleteAccount:
         )
         mock_http.delete.return_value = mock_supabase_response(204, {})
 
-        with patch("src.main.get_settings", return_value=settings), patch(
-            "httpx.Client"
-        ) as MockClient:
+        with (
+            patch("src.main.get_settings", return_value=settings),
+            patch("httpx.Client") as MockClient,
+        ):
             MockClient.return_value.__enter__ = lambda s: mock_http
             MockClient.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -230,9 +231,7 @@ class TestDeleteAccount:
             "https://fake.supabase.co/rest/v1/user_data?user_id=eq.user-123"
             in deleted_urls
         )
-        assert (
-            "https://fake.supabase.co/auth/v1/admin/users/user-123" in deleted_urls
-        )
+        assert "https://fake.supabase.co/auth/v1/admin/users/user-123" in deleted_urls
 
     def test_delete_account_requires_service_key(self, client):
         settings = MagicMock()
@@ -262,9 +261,7 @@ class TestDeleteAccount:
         assert res.status_code == 500
         assert "service-role key" in res.json()["detail"]
 
-    def test_delete_account_rejects_invalid_token(
-        self, client, mock_supabase_response
-    ):
+    def test_delete_account_rejects_invalid_token(self, client, mock_supabase_response):
         settings = MagicMock()
         settings.supabase_url = "https://fake.supabase.co"
         settings.supabase_key = "anon-key"
@@ -273,9 +270,10 @@ class TestDeleteAccount:
         mock_http = MagicMock()
         mock_http.get.return_value = mock_supabase_response(401, {"error": "invalid"})
 
-        with patch("src.main.get_settings", return_value=settings), patch(
-            "httpx.Client"
-        ) as MockClient:
+        with (
+            patch("src.main.get_settings", return_value=settings),
+            patch("httpx.Client") as MockClient,
+        ):
             MockClient.return_value.__enter__ = lambda s: mock_http
             MockClient.return_value.__exit__ = MagicMock(return_value=False)
 
