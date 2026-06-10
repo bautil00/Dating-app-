@@ -542,13 +542,13 @@ export default function Profile() {
   const errorMessage = /failed|could not|try again/i.test(message);
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA]">
+    <div className="min-h-screen bg-[#F8F9FA] pb-24 md:pb-0">
       <Navbar
         profileName={formData.display_name || 'Your profile'}
         profileImageUrl={profileImageUrl}
       />
 
-      <main className="mx-auto flex max-w-5xl gap-5 px-6 py-8">
+      <main className="mx-auto flex max-w-5xl gap-5 px-3 py-4 sm:px-6 sm:py-8">
         <aside className="hidden w-52 flex-shrink-0 md:block">
           <div className="overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
             {['Basic Info', 'About You', 'Preferences', 'Schedule'].map((section, index) => (
@@ -568,9 +568,9 @@ export default function Profile() {
           </div>
         </aside>
 
-        <section className="min-w-0 flex-1 rounded-2xl border border-gray-100 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-gray-100 px-6 py-5">
-            <div>
+        <section className="min-w-0 flex-1 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
+          <div className="flex items-start justify-between gap-3 border-b border-gray-100 px-4 py-4 sm:px-6 sm:py-5">
+            <div className="min-w-0">
               <h1 className="text-xl font-bold text-gray-900">Your Profile</h1>
               <p className="text-sm text-gray-400">These fields feed discovery and matching.</p>
             </div>
@@ -585,7 +585,7 @@ export default function Profile() {
             </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-8 p-6">
+          <form onSubmit={handleSubmit} className="space-y-8 p-4 sm:p-6">
             <section className="space-y-5">
               <div className="flex justify-center">
                 <div className="relative">

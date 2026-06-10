@@ -1,6 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { Bell, ChevronDown, Flame, LogOut, MessageCircle, Settings, User } from 'lucide-react';
+import {
+  Bell,
+  ChevronDown,
+  Compass,
+  Flame,
+  LogOut,
+  MessageCircle,
+  Settings,
+  User,
+} from 'lucide-react';
 import {
   authService,
   clearApiCache,
@@ -19,10 +28,10 @@ type NavbarProps = {
 };
 
 const navLinks = [
-  { href: '/discover', label: 'Discover' },
-  { href: '/sparks', label: 'Sparks' },
-  { href: '/messages', label: 'Messages' },
-  { href: '/profile', label: 'Profile' },
+  { href: '/discover', label: 'Discover', icon: Compass },
+  { href: '/sparks', label: 'Sparks', icon: Flame },
+  { href: '/messages', label: 'Messages', icon: MessageCircle },
+  { href: '/profile', label: 'Profile', icon: User },
 ];
 
 export default function Navbar({
@@ -103,7 +112,7 @@ export default function Navbar({
 
   return (
     <nav className="sticky top-0 z-50 border-b border-gray-100 bg-white shadow-sm">
-      <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-6">
+      <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4 sm:px-6">
         <Link to="/discover" className="flex items-center gap-2 no-underline">
           <Flame className="h-6 w-6 text-orange-500" fill="currentColor" />
           <span className="text-lg font-extrabold tracking-tight text-gray-900">Blowtorch</span>
@@ -259,6 +268,39 @@ export default function Navbar({
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      <div className="fixed inset-x-0 bottom-0 z-50 border-t border-gray-100 bg-white/95 px-2 pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2 shadow-[0_-8px_24px_rgba(15,23,42,0.08)] backdrop-blur md:hidden">
+        <div className="mx-auto grid max-w-md grid-cols-4 gap-1">
+          {navLinks.map(({ href, label, icon: Icon }) => {
+            const active =
+              location.pathname === href ||
+              (href === '/sparks' && location.pathname === '/matches') ||
+              (href === '/messages' && location.pathname.startsWith('/chat/'));
+            const badge = label === 'Sparks' ? sparkCount : label === 'Messages' ? unreadCount : 0;
+            return (
+              <Link
+                key={href}
+                to={href}
+                onFocus={() => prefetchRoute(href)}
+                className={`relative flex min-h-14 flex-col items-center justify-center gap-1 rounded-xl px-1 text-[11px] font-semibold transition-colors ${
+                  active ? 'bg-orange-50 text-orange-600' : 'text-gray-500 hover:bg-gray-50'
+                }`}
+                aria-current={active ? 'page' : undefined}
+              >
+                <span className="relative">
+                  <Icon className="h-5 w-5" fill={label === 'Sparks' ? 'currentColor' : 'none'} />
+                  {badge > 0 && (
+                    <span className="absolute -right-2 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full px-0.5 text-[9px] font-bold text-white btn-ignite">
+                      {badge > 9 ? '9+' : badge}
+                    </span>
+                  )}
+                </span>
+                <span className="leading-none">{label}</span>
+              </Link>
+            );
+          })}
         </div>
       </div>
     </nav>

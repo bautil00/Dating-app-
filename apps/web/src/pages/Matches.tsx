@@ -119,11 +119,11 @@ export default function Matches() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA]">
+    <div className="min-h-screen bg-[#F8F9FA] pb-24 md:pb-0">
       <Navbar sparkCount={accepted.length} />
 
-      <div className="mx-auto max-w-5xl px-6 py-8">
-        <div className="mb-6 flex items-center justify-between">
+      <div className="mx-auto max-w-5xl px-3 py-4 sm:px-6 sm:py-8">
+        <div className="mb-6 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="flex items-center gap-2 text-2xl font-bold text-gray-900">
               <Flame className="h-6 w-6 text-orange-500" fill="currentColor" />
@@ -133,13 +133,13 @@ export default function Matches() {
               People who liked you back. Mutual sparks are ready for messages.
             </p>
           </div>
-          <div className="flex items-center gap-2 rounded-2xl border border-gray-100 bg-white p-1 shadow-sm">
+          <div className="grid grid-cols-2 gap-1 rounded-2xl border border-gray-100 bg-white p-1 shadow-sm sm:flex sm:items-center sm:gap-2">
             {(['all', 'new'] as Filter[]).map((item) => (
               <button
                 type="button"
                 key={item}
                 onClick={() => setFilter(item)}
-                className={`rounded-xl px-4 py-2 text-sm font-semibold transition-all ${
+                className={`rounded-xl px-3 py-2 text-sm font-semibold transition-all sm:px-4 ${
                   filter === item
                     ? 'text-white shadow btn-ignite'
                     : 'text-gray-500 hover:text-gray-700'
@@ -166,7 +166,7 @@ export default function Matches() {
               {pendingIncoming.map((match) => (
                 <div
                   key={match.id}
-                  className="flex items-center justify-between rounded-xl bg-orange-50 p-4"
+                  className="flex flex-col gap-3 rounded-xl bg-orange-50 p-4 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="flex min-w-0 items-center gap-3">
                     <SmallAvatar
@@ -185,7 +185,7 @@ export default function Matches() {
                       </p>
                     </div>
                   </div>
-                  <div className="flex gap-2">
+                  <div className="grid grid-cols-2 gap-2 sm:flex">
                     <button
                       type="button"
                       onClick={() => handleAccept(match.id)}

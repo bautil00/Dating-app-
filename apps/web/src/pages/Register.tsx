@@ -94,7 +94,7 @@ export default function Register() {
 
   return (
     <div className="grid min-h-screen grid-cols-1 lg:grid-cols-2">
-      <div className="fire-panel flex flex-col justify-between overflow-hidden px-10 py-10">
+      <div className="fire-panel hidden flex-col justify-between overflow-hidden px-10 py-10 lg:flex">
         <div className="flex items-center gap-2">
           <Flame className="h-7 w-7 text-orange-500" fill="currentColor" />
           <span className="text-xl font-extrabold text-white">Blowtorch</span>
@@ -130,9 +130,14 @@ export default function Register() {
         <div />
       </div>
 
-      <div className="flex items-center justify-center bg-white px-8 py-12">
+      <div className="flex items-center justify-center bg-white px-4 py-8 sm:px-8 sm:py-12">
         <div className="w-full max-w-md">
-          <div className="rounded-2xl border border-gray-100 bg-white p-8 shadow-xl">
+          <div className="mb-8 flex items-center gap-2 lg:hidden">
+            <Flame className="h-7 w-7 text-orange-500" fill="currentColor" />
+            <span className="text-xl font-extrabold text-gray-900">Blowtorch</span>
+          </div>
+
+          <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-xl sm:p-8">
             <h2 className="mb-1 text-2xl font-bold text-gray-900">Create your account</h2>
             <p className="mb-7 text-sm text-gray-400">Get started in seconds</p>
 

@@ -230,12 +230,12 @@ export default function Messages() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#F8F9FA]">
+    <div className="flex min-h-screen flex-col bg-[#F8F9FA] pb-24 md:pb-0">
       <Navbar unreadCount={unreadCount} />
 
-      <div className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">
-        <div className="flex h-[calc(100vh-140px)] overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-          <div className="flex w-72 flex-shrink-0 flex-col border-r border-gray-100">
+      <div className="mx-auto w-full max-w-5xl flex-1 px-3 py-3 sm:px-6 sm:py-8">
+        <div className="flex min-h-[calc(100dvh-9rem)] flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm md:h-[calc(100vh-140px)] md:flex-row">
+          <div className="flex max-h-72 w-full flex-shrink-0 flex-col border-b border-gray-100 md:max-h-none md:w-72 md:border-b-0 md:border-r">
             <div className="px-4 pb-3 pt-5">
               <h2 className="mb-3 text-lg font-bold text-gray-900">Messages</h2>
               <div className="relative">
@@ -249,7 +249,7 @@ export default function Messages() {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto overscroll-contain">
               {filtered.map((conversation) => (
                 <button
                   type="button"
@@ -298,20 +298,20 @@ export default function Messages() {
           </div>
 
           {active ? (
-            <div className="flex min-w-0 flex-1 flex-col">
-              <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-                <div className="flex items-center gap-3">
+            <div className="flex min-h-[28rem] min-w-0 flex-1 flex-col md:min-h-0">
+              <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 sm:px-5 sm:py-4">
+                <div className="flex min-w-0 items-center gap-3">
                   <Avatar
                     name={profileName(active.profile, active.user_id)}
                     imageUrl={profileImage(active.profile)}
                     size="sm"
                   />
-                  <div>
+                  <div className="min-w-0">
                     <h1 className="text-sm font-bold text-gray-900">
                       {profileName(active.profile, `User ${shortUserId(active.user_id)}`)}
                       {profileAge(active.profile) ? `, ${profileAge(active.profile)}` : ''}
                     </h1>
-                    <p className="text-xs text-gray-400">
+                    <p className="truncate text-xs text-gray-400">
                       {profileInterests(active.profile).slice(0, 3).join(', ') || 'Ready to chat'}
                     </p>
                   </div>
@@ -349,7 +349,7 @@ export default function Messages() {
               <div
                 ref={messageListRef}
                 onScroll={updateAutoScroll}
-                className="flex-1 space-y-3 overflow-y-auto px-5 py-4"
+                className="flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5"
               >
                 {(active.messages || []).length === 0 ? (
                   <div className="flex h-full flex-col items-center justify-center text-center">
@@ -373,7 +373,7 @@ export default function Messages() {
                             size="xs"
                           />
                         )}
-                        <div className="max-w-xs lg:max-w-sm">
+                        <div className="max-w-[min(78vw,20rem)] lg:max-w-sm">
                           <div
                             className={`px-4 py-2.5 text-sm leading-relaxed ${
                               sent
@@ -395,8 +395,8 @@ export default function Messages() {
                 )}
               </div>
 
-              <div className="border-t border-gray-100 px-5 py-4">
-                <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-2 transition-all focus-within:border-orange-400 focus-within:bg-white">
+              <div className="border-t border-gray-100 px-3 py-3 sm:px-5 sm:py-4">
+                <div className="flex items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 transition-all focus-within:border-orange-400 focus-within:bg-white sm:gap-3 sm:px-4">
                   <div ref={emojiRef} className="relative flex-shrink-0">
                     <button
                       type="button"
@@ -407,7 +407,7 @@ export default function Messages() {
                       <Smile className="h-5 w-5" />
                     </button>
                     {emojiOpen && (
-                      <div className="absolute bottom-full left-0 z-50 mb-3 w-72 overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl">
+                      <div className="absolute bottom-full left-0 z-50 mb-3 w-[min(18rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-2xl">
                         <div className="flex border-b border-gray-100 bg-gray-50">
                           {EMOJI_CATEGORIES.map((category, index) => (
                             <button

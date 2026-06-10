@@ -225,7 +225,7 @@ describe('Matches and Chat profile names', () => {
       </MemoryRouter>,
     );
 
-    expect(await screen.findByRole('link', { name: /messages/i })).toBeInTheDocument();
+    expect((await screen.findAllByRole('link', { name: /messages/i })).length).toBeGreaterThan(0);
     expect((await screen.findAllByText('Maya Brooks')).length).toBeGreaterThan(0);
     expect((await screen.findAllByAltText('Maya Brooks')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('See you Friday').length).toBeGreaterThan(0);

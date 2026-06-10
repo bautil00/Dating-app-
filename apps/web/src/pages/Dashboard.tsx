@@ -204,7 +204,7 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA]">
+    <div className="min-h-screen bg-[#F8F9FA] pb-24 md:pb-0">
       <Navbar
         sparkCount={sparkCount}
         profileName={displayName}
@@ -212,7 +212,7 @@ export default function Dashboard() {
         profileImageUrl={profileImage(profile)}
       />
 
-      <main className="mx-auto flex max-w-5xl flex-col items-center justify-center gap-8 px-6 py-8 lg:flex-row lg:items-start">
+      <main className="mx-auto flex max-w-5xl flex-col items-center justify-center gap-6 px-3 py-4 sm:px-6 sm:py-8 lg:flex-row lg:items-start">
         {!profile || profile.is_complete === false ? (
           <CompleteProfile />
         ) : current ? (
@@ -393,7 +393,7 @@ function DiscoverCard({
         transition: dragStart === null ? 'transform 160ms ease' : 'none',
       }}
     >
-      <div className="relative h-[560px] w-[min(480px,calc(100vw-3rem))] overflow-hidden rounded-3xl bg-gradient-to-br from-orange-400 via-rose-500 to-gray-950 shadow-2xl">
+      <div className="relative h-[min(560px,calc(100dvh-15rem))] min-h-[420px] w-[min(480px,calc(100vw-1.5rem))] overflow-hidden rounded-3xl bg-gradient-to-br from-orange-400 via-rose-500 to-gray-950 shadow-2xl sm:w-[min(480px,calc(100vw-3rem))]">
         {image ? (
           <img src={image} alt={name} className="absolute inset-0 h-full w-full object-cover" />
         ) : (
@@ -418,7 +418,7 @@ function DiscoverCard({
             Pass
           </div>
         )}
-        <div className="absolute bottom-0 left-0 right-0 p-6">
+        <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-6">
           <div className="mb-2 flex items-center gap-2">
             <h2 className="text-[22px] font-bold leading-snug text-white">
               {name}
@@ -430,7 +430,7 @@ function DiscoverCard({
             />
           </div>
           {location && <p className="mb-2 text-sm font-medium text-white/70">{location}</p>}
-          <p className="mb-4 text-sm leading-relaxed text-white/80">{bio}</p>
+          <p className="mb-4 line-clamp-4 text-sm leading-relaxed text-white/80">{bio}</p>
           <div className="flex flex-wrap gap-2">
             {interests.slice(0, 5).map((tag) => (
               <span
@@ -448,7 +448,7 @@ function DiscoverCard({
         type="button"
         onClick={onPass}
         disabled={disabled}
-        className="absolute right-[-18px] top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white shadow-lg transition-all hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50"
+        className="absolute right-2 top-1/2 z-20 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full bg-white shadow-lg transition-all hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 sm:right-[-18px]"
         aria-label="Pass profile"
       >
         <ChevronRight className="h-4 w-4 text-gray-600" />
@@ -471,7 +471,7 @@ function AiMatchInsight({ profile }: { profile: Record<string, unknown> }) {
     } based on your profile data, preferences, and shared interests.`;
 
   return (
-    <div className="w-[min(480px,calc(100vw-3rem))] flex-shrink-0 pt-0 lg:w-72 lg:pt-2">
+    <div className="w-[min(480px,calc(100vw-1.5rem))] flex-shrink-0 pt-0 sm:w-[min(480px,calc(100vw-3rem))] lg:w-72 lg:pt-2">
       <div className="rounded-2xl border border-gray-100 bg-white p-5 shadow-lg">
         <div className="mb-3 flex items-center gap-2">
           <Flame className="h-4 w-4 text-orange-500" fill="currentColor" />

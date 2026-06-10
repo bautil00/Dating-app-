@@ -142,26 +142,26 @@ export default function Chat() {
   const imageUrl = profileImage(profile);
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#F8F9FA]">
+    <div className="flex min-h-screen flex-col bg-[#F8F9FA] pb-24 md:pb-0">
       <Navbar />
 
-      <main className="mx-auto w-full max-w-5xl flex-1 px-6 py-8">
-        <div className="mx-auto flex h-[calc(100vh-140px)] max-w-3xl flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm">
-          <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+      <main className="mx-auto w-full max-w-5xl flex-1 px-3 py-3 sm:px-6 sm:py-8">
+        <div className="mx-auto flex h-[calc(100dvh-9rem)] max-w-3xl flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm md:h-[calc(100vh-140px)]">
+          <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-gray-100 px-4 py-3 sm:px-5 sm:py-4">
             <Link
               to="/messages"
               className="text-sm font-semibold text-orange-500 hover:text-orange-600"
             >
-              Messages
+              Back
             </Link>
-            <div className="flex min-w-0 items-center gap-3 text-center">
+            <div className="flex min-w-0 items-center justify-center gap-3 text-center">
               <Avatar name={name} imageUrl={imageUrl} compact />
               <div className="min-w-0">
                 <h1 className="text-sm font-bold text-gray-900">
                   {name}
                   {age ? `, ${age}` : ''}
                 </h1>
-                <p className="text-xs text-gray-400">{interests || 'Ready to chat'}</p>
+                <p className="truncate text-xs text-gray-400">{interests || 'Ready to chat'}</p>
               </div>
             </div>
             <div className="rounded-xl p-2 text-orange-500" aria-hidden="true">
@@ -170,18 +170,18 @@ export default function Chat() {
           </div>
 
           {icebreakers.length > 0 && (
-            <div className="border-b border-orange-100 bg-orange-50 px-5 py-3">
+            <div className="border-b border-orange-100 bg-orange-50 px-4 py-3 sm:px-5">
               <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-orange-700">
                 <Lightbulb className="h-3.5 w-3.5" />
                 Conversation starters
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
                 {icebreakers.map((suggestion) => (
                   <button
                     key={suggestion}
                     type="button"
                     onClick={() => setNewMessage(suggestion)}
-                    className="rounded-xl bg-white px-3 py-2 text-left text-sm text-orange-800 shadow-sm transition hover:bg-orange-100"
+                    className="min-w-[12rem] rounded-xl bg-white px-3 py-2 text-left text-sm text-orange-800 shadow-sm transition hover:bg-orange-100 sm:min-w-0"
                   >
                     {suggestion}
                   </button>
@@ -193,7 +193,7 @@ export default function Chat() {
           <div
             ref={messageListRef}
             onScroll={updateAutoScroll}
-            className="flex-1 space-y-3 overflow-y-auto px-5 py-4"
+            className="flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5"
           >
             {messages.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center text-center">
@@ -212,7 +212,7 @@ export default function Chat() {
                     className={`flex ${sent ? 'justify-end' : 'justify-start'}`}
                   >
                     {!sent && <Avatar name={name} imageUrl={imageUrl} />}
-                    <div className="max-w-xs lg:max-w-sm">
+                    <div className="max-w-[min(78vw,20rem)] lg:max-w-sm">
                       <div
                         className={`px-4 py-2.5 text-sm leading-relaxed ${
                           sent
@@ -235,8 +235,11 @@ export default function Chat() {
             <div ref={messagesEndRef} />
           </div>
 
-          <form onSubmit={handleSend} className="border-t border-gray-100 px-5 py-4">
-            <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-2 transition-all focus-within:border-orange-400 focus-within:bg-white">
+          <form
+            onSubmit={handleSend}
+            className="border-t border-gray-100 px-3 py-3 sm:px-5 sm:py-4"
+          >
+            <div className="flex items-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 px-3 py-2 transition-all focus-within:border-orange-400 focus-within:bg-white sm:gap-3 sm:px-4">
               <Smile className="h-5 w-5 flex-shrink-0 text-gray-400" />
               <input
                 type="text"
