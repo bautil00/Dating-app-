@@ -273,4 +273,59 @@ describe('Matches and Chat profile names', () => {
     expect((await screen.findAllByAltText('Maya Brooks')).length).toBeGreaterThan(0);
     expect(screen.getAllByText('See you Friday').length).toBeGreaterThan(0);
   });
+
+  it('lets mobile users return from an active message thread to the conversation list', async () => {
+    const user = userEvent.setup();
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path === '/messages/conversations') {
+        return Promise.resolve({
+          data: [
+            {
+              user_id: 'maya-user-id',
+              last_message: 'Preview only',
+              last_timestamp: '2026-05-19T00:00:00Z',
+              unread_count: 0,
+            },
+          ],
+        });
+      }
+      if (path === '/messages/conversations/maya-user-id') {
+        return Promise.resolve({
+          data: [
+            {
+              id: 10,
+              content: 'Full message body',
+              created_at: '2026-05-19T00:00:00Z',
+              sender_id: 'maya-user-id',
+            },
+          ],
+        });
+      }
+      if (path === '/auth/me') {
+        return Promise.resolve({ data: { id: 'alice-user-id' } });
+      }
+      if (path === '/profiles/maya-user-id') {
+        return Promise.resolve({
+          data: {
+            user_id: 'maya-user-id',
+            name: 'Maya Brooks',
+            interests: ['music'],
+          },
+        });
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/messages']}>
+        <Messages />
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('Full message body')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: 'Back to conversations' }));
+
+    expect(screen.queryByText('Full message body')).not.toBeInTheDocument();
+    expect(screen.getByText('Preview only')).toBeInTheDocument();
+  });
 });

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Flame, Search, Send, ShieldOff, Smile, UserX } from 'lucide-react';
+import { ArrowLeft, Flame, Search, Send, ShieldOff, Smile, UserX } from 'lucide-react';
 import { authService, messageService, profileService } from '../services/api';
 import Navbar from '../components/Navbar';
 import {
@@ -180,8 +180,7 @@ export default function Messages() {
     const name = profileName(conversation.profile, `User ${shortUserId(conversation.user_id)}`);
     return name.toLowerCase().includes(search.toLowerCase());
   });
-  const active =
-    conversations.find((conversation) => conversation.user_id === activeId) || filtered[0];
+  const active = conversations.find((conversation) => conversation.user_id === activeId);
   const unreadCount = conversations.reduce(
     (total, conversation) => total + (conversation.unread_count || 0),
     0,
@@ -230,12 +229,14 @@ export default function Messages() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#F8F9FA] pb-24 md:pb-0">
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-[#F8F9FA] pb-[calc(4.75rem+env(safe-area-inset-bottom))] md:pb-0">
       <Navbar unreadCount={unreadCount} />
 
-      <div className="mx-auto w-full max-w-5xl flex-1 px-3 py-3 sm:px-6 sm:py-8">
-        <div className="flex min-h-[calc(100dvh-9rem)] flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm md:h-[calc(100vh-140px)] md:flex-row">
-          <div className="flex max-h-72 w-full flex-shrink-0 flex-col border-b border-gray-100 md:max-h-none md:w-72 md:border-b-0 md:border-r">
+      <div className="min-h-0 w-full flex-1 px-0 py-0 sm:mx-auto sm:max-w-5xl sm:px-6 sm:py-8">
+        <div className="flex h-full min-h-0 flex-col overflow-hidden border-y border-gray-100 bg-white shadow-sm sm:rounded-2xl sm:border md:flex-row">
+          <div
+            className={`${active ? 'hidden md:flex' : 'flex'} min-h-0 w-full flex-1 flex-col border-b border-gray-100 md:w-72 md:flex-none md:border-b-0 md:border-r`}
+          >
             <div className="px-4 pb-3 pt-5">
               <h2 className="mb-3 text-lg font-bold text-gray-900">Messages</h2>
               <div className="relative">
@@ -249,7 +250,7 @@ export default function Messages() {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto overscroll-contain">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
               {filtered.map((conversation) => (
                 <button
                   type="button"
@@ -298,9 +299,17 @@ export default function Messages() {
           </div>
 
           {active ? (
-            <div className="flex min-h-[28rem] min-w-0 flex-1 flex-col md:min-h-0">
+            <div className="flex min-h-0 min-w-0 flex-1 flex-col">
               <div className="flex items-center justify-between gap-3 border-b border-gray-100 px-4 py-3 sm:px-5 sm:py-4">
                 <div className="flex min-w-0 items-center gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setActiveId('')}
+                    className="mr-1 rounded-xl p-2 text-gray-400 transition-all hover:bg-gray-50 hover:text-orange-500 md:hidden"
+                    aria-label="Back to conversations"
+                  >
+                    <ArrowLeft className="h-4 w-4" />
+                  </button>
                   <Avatar
                     name={profileName(active.profile, active.user_id)}
                     imageUrl={profileImage(active.profile)}
@@ -349,7 +358,7 @@ export default function Messages() {
               <div
                 ref={messageListRef}
                 onScroll={updateAutoScroll}
-                className="flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5"
+                className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5"
               >
                 {(active.messages || []).length === 0 ? (
                   <div className="flex h-full flex-col items-center justify-center text-center">
@@ -465,7 +474,7 @@ export default function Messages() {
               </div>
             </div>
           ) : (
-            <div className="flex flex-1 flex-col items-center justify-center p-8 text-center">
+            <div className="hidden flex-1 flex-col items-center justify-center p-8 text-center md:flex">
               <Flame className="mb-3 h-12 w-12 text-orange-300" fill="currentColor" />
               <p className="text-sm text-gray-400">Select a conversation to start chatting</p>
               <Link

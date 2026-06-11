@@ -163,11 +163,11 @@ export default function Chat() {
   const imageUrl = profileImage(profile);
 
   return (
-    <div className="flex min-h-screen flex-col bg-[#F8F9FA] pb-24 md:pb-0">
+    <div className="flex h-[100dvh] flex-col overflow-hidden bg-[#F8F9FA] pb-[calc(4.75rem+env(safe-area-inset-bottom))] md:pb-0">
       <Navbar />
 
-      <main className="mx-auto w-full max-w-5xl flex-1 px-3 py-3 sm:px-6 sm:py-8">
-        <div className="mx-auto flex h-[calc(100dvh-9rem)] max-w-3xl flex-col overflow-hidden rounded-2xl border border-gray-100 bg-white shadow-sm md:h-[calc(100vh-140px)]">
+      <main className="min-h-0 w-full flex-1 px-0 py-0 sm:mx-auto sm:max-w-5xl sm:px-6 sm:py-8">
+        <div className="mx-auto flex h-full min-h-0 max-w-3xl flex-col overflow-hidden border-y border-gray-100 bg-white shadow-sm sm:rounded-2xl sm:border">
           <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-gray-100 px-4 py-3 sm:px-5 sm:py-4">
             <Link
               to="/messages"
@@ -212,7 +212,7 @@ export default function Chat() {
           <div
             ref={messageListRef}
             onScroll={updateAutoScroll}
-            className="flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5"
+            className="min-h-0 flex-1 space-y-3 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5"
           >
             {messages.length === 0 ? (
               <div className="flex h-full flex-col items-center justify-center text-center">
