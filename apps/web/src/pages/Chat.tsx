@@ -17,13 +17,26 @@ export default function Chat() {
   const [profile, setProfile] = useState<Record<string, unknown> | null>(null);
   const [currentUserId, setCurrentUserId] = useState('');
   const [newMessage, setNewMessage] = useState('');
-  const [icebreakers, setIcebreakers] = useState<string[]>([]);
+  const [icebreakerSuggestion, setIcebreakerSuggestion] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const messageListRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const shouldAutoScrollRef = useRef(true);
   const navigate = useNavigate();
+
+  const icebreakerStorageKey =
+    currentUserId && userId ? `blowtorch.icebreaker.used:${currentUserId}:${userId}` : '';
+
+  const markIcebreakerUsed = useCallback(() => {
+    setIcebreakerSuggestion('');
+    if (!icebreakerStorageKey) return;
+    try {
+      localStorage.setItem(icebreakerStorageKey, '1');
+    } catch {
+      // The suggestion is a convenience only; chat should continue if storage is blocked.
+    }
+  }, [icebreakerStorageKey]);
 
   const updateAutoScroll = () => {
     const element = messageListRef.current;
@@ -50,13 +63,18 @@ export default function Chat() {
         messageService.getConversation(userId),
         profileService.getById(userId).catch(() => ({ data: null })),
         authService.getMe().catch(() => ({ data: null })),
-        aiService.getIcebreakers(userId).catch(() => ({ data: { suggestions: [] } })),
+        aiService.getIcebreaker(userId).catch(() => ({ data: { icebreaker: '' } })),
       ]);
       const userIdentifier = String(userRes.data?.id || '');
       const loadedMessages = messagesRes.data || [];
-      const suggestions = Array.isArray(icebreakerRes.data?.suggestions)
-        ? icebreakerRes.data.suggestions.filter((value: unknown) => typeof value === 'string')
-        : [];
+      const suggestedText =
+        typeof icebreakerRes.data?.icebreaker === 'string'
+          ? icebreakerRes.data.icebreaker.trim()
+          : '';
+      const loadedStorageKey =
+        userIdentifier && userId ? `blowtorch.icebreaker.used:${userIdentifier}:${userId}` : '';
+      const icebreakerAlreadyUsed =
+        loadedStorageKey && localStorage.getItem(loadedStorageKey) === '1';
       if (userIdentifier) await markIncomingMessagesRead(loadedMessages, userIdentifier);
       setMessages(
         userIdentifier
@@ -69,7 +87,9 @@ export default function Chat() {
       );
       setProfile(profileRes.data);
       setCurrentUserId(userIdentifier);
-      setIcebreakers(suggestions.slice(0, 3));
+      setIcebreakerSuggestion(
+        loadedMessages.length === 0 && !icebreakerAlreadyUsed ? suggestedText : '',
+      );
       shouldAutoScrollRef.current = true;
     } catch (err) {
       console.error('Failed to load chat:', err);
@@ -121,6 +141,7 @@ export default function Chat() {
       shouldAutoScrollRef.current = true;
       setMessages((prev) => mergeMessages(prev, [res.data]));
       setNewMessage('');
+      markIcebreakerUsed();
     } catch (err) {
       console.error('Failed to send:', err);
     } finally {
@@ -169,24 +190,22 @@ export default function Chat() {
             </div>
           </div>
 
-          {icebreakers.length > 0 && (
+          {icebreakerSuggestion && (
             <div className="border-b border-orange-100 bg-orange-50 px-4 py-3 sm:px-5">
               <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-orange-700">
                 <Lightbulb className="h-3.5 w-3.5" />
-                Conversation starters
+                AI suggested icebreaker
               </div>
-              <div className="flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
-                {icebreakers.map((suggestion) => (
-                  <button
-                    key={suggestion}
-                    type="button"
-                    onClick={() => setNewMessage(suggestion)}
-                    className="min-w-[12rem] rounded-xl bg-white px-3 py-2 text-left text-sm text-orange-800 shadow-sm transition hover:bg-orange-100 sm:min-w-0"
-                  >
-                    {suggestion}
-                  </button>
-                ))}
-              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setNewMessage(icebreakerSuggestion);
+                  markIcebreakerUsed();
+                }}
+                className="w-full rounded-xl bg-white px-3 py-2 text-left text-sm text-orange-800 shadow-sm transition hover:bg-orange-100"
+              >
+                {icebreakerSuggestion}
+              </button>
             </div>
           )}
 

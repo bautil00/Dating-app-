@@ -45,6 +45,7 @@ vi.mock('../services/api', () => ({
 describe('Matches and Chat profile names', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    localStorage.clear();
     localStorage.setItem('token', 'fake-token');
   });
 
@@ -125,7 +126,7 @@ describe('Matches and Chat profile names', () => {
     expect(screen.queryByText(/User #/)).not.toBeInTheDocument();
   });
 
-  it('renders persisted icebreaker suggestions without sending until selected message is submitted', async () => {
+  it('renders one AI-suggested icebreaker without sending until selected message is submitted', async () => {
     const user = userEvent.setup();
     const suggestion = 'Ask Maya about her favorite concert.';
 
@@ -139,9 +140,9 @@ describe('Matches and Chat profile names', () => {
       if (path === '/auth/me') {
         return Promise.resolve({ data: { id: 'alice-user-id' } });
       }
-      if (path === '/ai/icebreakers/maya-user-id') {
+      if (path === '/ai/icebreaker/maya-user-id') {
         return Promise.resolve({
-          data: { suggestions: [suggestion, 'Second starter', 'Third starter'] },
+          data: { icebreaker: suggestion },
         });
       }
       return Promise.reject(new Error(`Unexpected path ${path}`));
@@ -164,9 +165,11 @@ describe('Matches and Chat profile names', () => {
       </MemoryRouter>,
     );
 
+    expect(await screen.findByText('AI suggested icebreaker')).toBeInTheDocument();
     await user.click(await screen.findByRole('button', { name: suggestion }));
 
     expect(screen.getByPlaceholderText('Message Maya Brooks...')).toHaveValue(suggestion);
+    expect(screen.queryByText('AI suggested icebreaker')).not.toBeInTheDocument();
     expect(api.post).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole('button', { name: 'Send message' }));
@@ -175,6 +178,46 @@ describe('Matches and Chat profile names', () => {
       receiver_id: 'maya-user-id',
       content: suggestion,
     });
+  });
+
+  it('does not show the one-time AI icebreaker after chat already has messages', async () => {
+    vi.mocked(api.get).mockImplementation((path: string) => {
+      if (path === '/messages/conversations/maya-user-id') {
+        return Promise.resolve({
+          data: [
+            {
+              id: 3,
+              sender_id: 'maya-user-id',
+              receiver_id: 'alice-user-id',
+              content: 'See you Friday',
+              created_at: '2026-06-01T00:00:00Z',
+            },
+          ],
+        });
+      }
+      if (path === '/profiles/maya-user-id') {
+        return Promise.resolve({ data: { user_id: 'maya-user-id', name: 'Maya Brooks' } });
+      }
+      if (path === '/auth/me') {
+        return Promise.resolve({ data: { id: 'alice-user-id' } });
+      }
+      if (path === '/ai/icebreaker/maya-user-id') {
+        return Promise.resolve({ data: { icebreaker: 'Ask Maya about music.' } });
+      }
+      return Promise.reject(new Error(`Unexpected path ${path}`));
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/chat/maya-user-id']}>
+        <Routes>
+          <Route path="/chat/:userId" element={<Chat />} />
+        </Routes>
+      </MemoryRouter>,
+    );
+
+    expect(await screen.findByText('See you Friday')).toBeInTheDocument();
+    expect(screen.queryByText('AI suggested icebreaker')).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Ask Maya about music.' })).not.toBeInTheDocument();
   });
 
   it('renders the message inbox tab with conversation profile names', async () => {
