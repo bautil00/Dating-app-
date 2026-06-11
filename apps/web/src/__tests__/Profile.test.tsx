@@ -216,6 +216,40 @@ describe('Profile Page', () => {
     });
   });
 
+  it('sends Korean language and preferred height values when saving', async () => {
+    const { container } = render(
+      <MemoryRouter>
+        <Profile />
+      </MemoryRouter>,
+    );
+
+    fireEvent.change(container.querySelector('input[name="display_name"]')!, {
+      target: { value: 'Alice' },
+    });
+    fireEvent.change(container.querySelector('input[name="age"]')!, {
+      target: { value: '25' },
+    });
+    fireEvent.change(container.querySelector('select[name="gender"]')!, {
+      target: { value: 'female' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Korean' }));
+    fireEvent.change(container.querySelector('input[name="preferred_min_height"]')!, {
+      target: { value: '64.5' },
+    });
+    fireEvent.change(container.querySelector('input[name="preferred_max_height"]')!, {
+      target: { value: '75.25' },
+    });
+    fireEvent.click(screen.getByText('Save Profile'));
+
+    await waitFor(() => expect(mockApi.post).toHaveBeenCalled());
+    const lastCall = mockApi.post.mock.calls[mockApi.post.mock.calls.length - 1];
+    expect(lastCall[1]).toMatchObject({
+      languages: ['korean'],
+      preferred_min_height: 64.5,
+      preferred_max_height: 75.25,
+    });
+  });
+
   it('includes relationship and lifestyle sections in the save payload', async () => {
     const { container } = render(
       <MemoryRouter>
